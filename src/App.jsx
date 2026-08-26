@@ -872,6 +872,23 @@ export default function Offside() {
   };
 
   const openRegion = (key) => { setSelectedRegion(key); setScreen('injuries'); };
+
+  const resumeInjury = (key) => {
+    const sev = injurySeverities[key] || 'moderato';
+    const date = injuryDates[key];
+    let suggested = 0;
+    if (date) {
+      const { dayThresholds } = injuriesData[key].severityData[sev];
+      suggested = suggestPhase(daysSince(date), dayThresholds);
+    }
+    setSelectedInjury(key);
+    setActivePhase(suggested);
+    setSelectedRegion(regionOfInjury(key));
+    setTrackerTab('oggi');
+    setEditingSetup(false);
+    setScreen('tracker');
+    persist({ selectedInjury: key, activePhase: suggested, progress, injuryDates, injurySeverities, dailyLog });
+  };
   const startTriage = () => { setTriageAnswers({ mechanism: null, pop: null, weight: null }); setTriageTag(null); setScreen('triage'); };
 
   const chooseInjury = (key) => {
@@ -998,7 +1015,19 @@ export default function Offside() {
 
   const shareProgress = async () => {
     if (!injury) return;
-    const text = `Sto recuperando da ${injury.label.toLowerCase()} su Offside — ${phase.name} (Fase ${activePhase + 1}), giorno ${dayCount || '?'}.`;
+    const doneDays = Object.values(injuryLog).filter((e) => e.done).length;
+    const lines = [
+      'OFFSIDE — Riepilogo recupero',
+      '',
+      `Infortunio: ${injury.label}`,
+      `Gravità: ${severityLabels[severity]}`,
+      currentDate ? `Giorno di recupero: ${dayCount}` : null,
+      `Fase attuale: ${phase.name} (Fase ${activePhase + 1} di ${injury.phases.length})`,
+      `Esercizi completati in questa fase: ${completedCount}/${phase.exercises.length}`,
+      `Sessioni giornaliere registrate: ${doneDays}`,
+      streak > 0 ? `Serie attuale: ${streak} giorni consecutivi` : null,
+    ].filter(Boolean);
+    const text = lines.join('\n');
     try {
       if (navigator.share) {
         await navigator.share({ text });
@@ -1064,7 +1093,7 @@ export default function Offside() {
             ))}
           </div>
 
-          <button onClick={() => setDisclaimerAccepted(!disclaimerAccepted)} className="os-focus w-full flex items-start gap-2.5 mb-4 text-left">
+          <button onClick={() => setDisclaimerAccepted(!disclaimerAccepted)} role="checkbox" aria-checked={disclaimerAccepted} className="os-focus w-full flex items-start gap-2.5 mb-4 text-left">
             <div style={{ backgroundColor: disclaimerAccepted ? colors.accent : 'transparent', border: `1.5px solid ${disclaimerAccepted ? colors.accent : '#4A5D6E'}` }} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5">
               {disclaimerAccepted && <Check size={13} color="#FFFFFF" strokeWidth={3} />}
             </div>
@@ -1086,7 +1115,7 @@ export default function Offside() {
     );
   }
 
-  const hasResumable = selectedInjury && injuryDates[selectedInjury];
+  const activeInjuryKeys = Object.keys(injuryDates).filter((k) => injuryDates[k]);
 
   return (
     <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full min-h-screen relative">
@@ -1097,7 +1126,7 @@ export default function Offside() {
       </svg>
 
       <div style={{ borderBottom: `1px solid ${colors.hairline}` }} className="relative px-5 sm:px-8 pt-5 pb-4 flex items-center gap-3">
-        <button onClick={goBack} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity">
+        <button onClick={goBack} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity" aria-label="Torna indietro">
           <ArrowLeft size={16} color={colors.accent} />
         </button>
         <div className="flex-1 min-w-0">
@@ -1143,15 +1172,24 @@ export default function Offside() {
       <div key={screen} className="px-5 sm:px-8 py-6 os-fadein">
         {screen === 'regions' && (
           <>
-            {hasResumable && (
-              <button onClick={() => setScreen('tracker')} style={{ backgroundColor: colors.accentDark }} className="os-focus w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left mb-3 hover:opacity-90 transition-opacity">
-                <PlayCircle size={20} color="#FFFFFF" className="flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p style={{ color: '#FFFFFF' }} className="text-sm font-medium truncate">Riprendi: {injuriesData[selectedInjury].label}</p>
-                  <p style={{ color: '#B9CDE0' }} className="text-xs">Giorno {daysSince(injuryDates[selectedInjury])}</p>
+            {activeInjuryKeys.length > 0 && (
+              <div className="mb-4">
+                <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase mb-2">
+                  {activeInjuryKeys.length === 1 ? 'Il tuo percorso' : `I tuoi percorsi (${activeInjuryKeys.length})`}
+                </p>
+                <div className="space-y-2">
+                  {activeInjuryKeys.map((key) => (
+                    <button key={key} onClick={() => resumeInjury(key)} style={{ backgroundColor: colors.accentDark }} className="os-focus w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left hover:opacity-90 transition-opacity">
+                      <PlayCircle size={20} color="#FFFFFF" className="flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p style={{ color: '#FFFFFF' }} className="text-sm font-medium truncate">{injuriesData[key].label}</p>
+                        <p style={{ color: '#B9CDE0' }} className="text-xs">Giorno {daysSince(injuryDates[key])}</p>
+                      </div>
+                      <ChevronRight size={18} color="#B9CDE0" className="flex-shrink-0" />
+                    </button>
+                  ))}
                 </div>
-                <ChevronRight size={18} color="#B9CDE0" className="flex-shrink-0" />
-              </button>
+              </div>
             )}
 
             <button onClick={() => setScreen('firstaid')} style={{ backgroundColor: colors.accent }} className="os-focus w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-3 hover:opacity-90 transition-opacity">
