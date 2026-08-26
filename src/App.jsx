@@ -5,7 +5,8 @@ import {
   Circle, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Info, RotateCcw, X,
   Calendar, Scale, Dumbbell, Move, Wind, Timer, Pause, Pencil, Target,
   HelpCircle, PlayCircle, Flame, Share2, ClipboardCheck, Check, Gauge, Waves,
-  Aperture, PersonStanding,
+  Aperture, PersonStanding, Ruler, Sprout, RotateCw, CircleDashed, ShieldAlert,
+  Snowflake, Bandage, ArrowUp,
 } from 'lucide-react';
 
 const colors = {
@@ -223,6 +224,66 @@ const injuriesData = {
           { text: 'Corsa progressiva', cat: 'run' },
           { text: 'Cambi di direzione graduali', cat: 'run' },
           { text: 'Contrasti e torsioni controllate prima del rientro in gruppo', cat: 'run' },
+        ] },
+    ],
+  },
+  itband: {
+    label: 'Bandelletta ileotibiale', subtitle: 'Dolore laterale al ginocchio, da sovraccarico', icon: Ruler, mechanismTags: ['overuse'],
+    severityData: {
+      lieve: { dayThresholds: [10, 21], totalEstimateDays: 42 },
+      moderato: { dayThresholds: [21, 42], totalEstimateDays: 77 },
+      severo: { dayThresholds: [30, 70], totalEstimateDays: 160 },
+    },
+    phases: [
+      { name: 'Riduzione carico', why: 'La bandelletta ileotibiale scorre lungo il lato esterno della coscia fino al ginocchio: il dolore da sovraccarico peggiora con la corsa ripetuta, specialmente in discesa. Ridurre temporaneamente il volume aiuta a calmare l\'irritazione.',
+        exercises: [
+          { text: 'Riduci temporaneamente la corsa, specialmente in discesa, se scatena dolore persistente', cat: 'rest' },
+          { text: 'Sostituisci con attività a basso impatto se tollerate (bici con sella alta)', cat: 'rest' },
+          { text: 'Massaggio leggero o foam roller sulla coscia laterale, se disponibile', cat: 'stretch' },
+        ] },
+      { name: 'Rinforzo progressivo', why: 'Il rinforzo dell\'anca, in particolare del gluteo medio, è centrale: una debolezza qui è tra le cause più comuni di questo tipo di dolore.',
+        criteriaToAdvance: ['Riesci a camminare senza dolore laterale al ginocchio', 'La corsa leggera in piano non scatena dolore acuto'],
+        exercises: [
+          { text: 'Rinforzo del gluteo medio: clamshell o abduzioni laterali (2-3 serie da 15)', cat: 'strength' },
+          { text: 'Squat monopodalico controllato, range limitato (2-3 serie da 8-10)', cat: 'strength' },
+          { text: 'Stretching dolce della fascia laterale della coscia', cat: 'stretch' },
+        ] },
+      { name: 'Ritorno alla corsa', why: 'Le discese e i cambi di direzione vanno reintrodotti per ultimi: sono i movimenti che sollecitano di più la bandelletta.',
+        criteriaToAdvance: ['Riesci a correre in piano senza dolore durante o dopo', 'Nessun dolore il giorno dopo un allenamento più lungo'],
+        exercises: [
+          { text: 'Corsa progressiva in piano, poi introduci dolcemente le discese', cat: 'run' },
+          { text: 'Cambi di direzione graduali', cat: 'run' },
+          { text: 'Ritorno agli allenamenti completi solo dopo assenza di dolore stabile', cat: 'run' },
+        ] },
+    ],
+  },
+  osgood: {
+    label: 'Osgood-Schlatter', subtitle: 'Dolore sotto il ginocchio, tipico in età di crescita', icon: Sprout, mechanismTags: ['overuse'],
+    severityData: {
+      lieve: { dayThresholds: [14, 28], totalEstimateDays: 56 },
+      moderato: { dayThresholds: [21, 49], totalEstimateDays: 98 },
+      severo: { dayThresholds: [35, 84], totalEstimateDays: 200 },
+    },
+    phases: [
+      { name: 'Riduzione carico', why: 'Osgood-Schlatter è un\'infiammazione del punto in cui il tendine rotuleo si attacca alla tibia, tipica durante la crescita, causata da sovraccarico ripetuto (salti, sprint). Non è una lesione grave, ma richiede gestione del carico più che riposo assoluto.',
+        exercises: [
+          { text: 'Riduci temporaneamente salti e sprint se scatenano dolore persistente', cat: 'rest' },
+          { text: 'Applica ghiaccio dopo l\'attività se il dolore è presente', cat: 'rest' },
+          { text: 'Stretching dolce del quadricipite', cat: 'stretch' },
+        ] },
+      { name: 'Rinforzo progressivo', why: 'Il rinforzo controllato del quadricipite, evitando carichi eccessivi sul tendine rotuleo, aiuta a tollerare meglio l\'attività sportiva nel frattempo.',
+        criteriaToAdvance: ['Il dolore nelle attività quotidiane è lieve o assente', 'Riesci a fare stretching del quadricipite senza dolore acuto'],
+        exercises: [
+          { text: 'Rinforzo isometrico del quadricipite (2-3 serie da 20-30 secondi)', cat: 'hold' },
+          { text: 'Squat controllati in range limitato, senza dolore (2-3 serie da 10)', cat: 'strength' },
+          { text: 'Stretching quotidiano di quadricipite e ischiocrurali', cat: 'stretch' },
+        ] },
+      { name: 'Gestione del rientro', why: 'Osgood-Schlatter tende ad avere alti e bassi durante la crescita: l\'obiettivo realistico è gestire i sintomi durante lo sport, non eliminarli del tutto finché la crescita non è completa.',
+        criteriaToAdvance: ['Riesci ad allenarti senza dolore che peggiora nei giorni successivi', 'Il dolore non compare più a riposo'],
+        exercises: [
+          { text: 'Corsa e salti reintrodotti gradualmente, monitorando la risposta il giorno dopo', cat: 'run' },
+          { text: 'Riduci temporaneamente l\'attività nei periodi di dolore più acuto, anche a percorso avanzato', cat: 'rest' },
+          { text: 'Parlane con un fisioterapista se il dolore limita spesso l\'attività: esistono strategie specifiche per l\'età di crescita', cat: 'rest' },
         ] },
     ],
   },
@@ -466,6 +527,126 @@ const injuriesData = {
         ] },
     ],
   },
+  piriformis: {
+    label: 'Sindrome del piriforme', subtitle: 'Dolore al gluteo che può scendere lungo la gamba', icon: RotateCw, mechanismTags: ['acute', 'overuse'],
+    severityData: {
+      lieve: { dayThresholds: [7, 21], totalEstimateDays: 42 },
+      moderato: { dayThresholds: [14, 35], totalEstimateDays: 70 },
+      severo: { dayThresholds: [28, 63], totalEstimateDays: 150 },
+    },
+    phases: [
+      { name: 'Riduzione carico', why: 'Il piriforme è un muscolo profondo del gluteo che può irritare il nervo sciatico quando è in tensione, causando dolore che a volte scende lungo la gamba — per questo va distinto da un problema lombare, e spesso serve un occhio esperto per la diagnosi differenziale. Nei primi giorni si riduce ciò che scatena il dolore.',
+        exercises: [
+          { text: 'Evita di stare seduto a lungo senza pause, specialmente su superfici dure', cat: 'rest' },
+          { text: 'Riduci temporaneamente scatti e cambi di direzione se scatenano dolore', cat: 'rest' },
+          { text: 'Stretching dolce: da sdraiato, porta il ginocchio verso il petto e verso il lato opposto', cat: 'stretch' },
+        ] },
+      { name: 'Rinforzo progressivo', why: 'Il rinforzo dei glutei nel loro complesso aiuta a ridurre il sovraccarico specifico sul piriforme.',
+        criteriaToAdvance: ['Riesci a stare seduto per periodi normali senza dolore che peggiora', 'Lo stretching dolce non scatena dolore acuto lungo la gamba'],
+        exercises: [
+          { text: 'Rinforzo del gluteo medio: clamshell o ponte monopodalico (2-3 serie da 12-15)', cat: 'strength' },
+          { text: 'Stretching progressivo del piriforme e dei rotatori dell\'anca', cat: 'stretch' },
+          { text: 'Mobilità dell\'anca in tutte le direzioni', cat: 'stretch' },
+        ] },
+      { name: 'Rientro in campo', why: 'Scatti e cambi di direzione bruschi vanno reintrodotti per ultimi: sono i movimenti che sollecitano di più la rotazione dell\'anca.',
+        criteriaToAdvance: ['Riesci a fare scatti e cambi di direzione senza dolore lungo la gamba', 'Nessun dolore residuo dopo attività più intense'],
+        exercises: [
+          { text: 'Corsa progressiva', cat: 'run' },
+          { text: 'Cambi di direzione graduali', cat: 'run' },
+          { text: 'Scatti e accelerazioni prima del rientro in gruppo', cat: 'run' },
+        ] },
+    ],
+  },
+  piriformis: {
+    label: 'Sindrome del piriforme', subtitle: 'Muscolo dei glutei, spesso confuso con la lombalgia', icon: CircleDashed, mechanismTags: ['overuse'],
+    severityData: {
+      lieve: { dayThresholds: [7, 14], totalEstimateDays: 28 },
+      moderato: { dayThresholds: [14, 28], totalEstimateDays: 56 },
+      severo: { dayThresholds: [21, 56], totalEstimateDays: 150 },
+    },
+    phases: [
+      { name: 'Riduzione carico', why: 'Il muscolo piriforme, quando irritato, può comprimere il nervo sciatico e dare dolore che scende lungo la gamba — spesso viene scambiato per un problema lombare. Nei primi giorni si riduce quello che scatena il dolore, senza fermarsi del tutto.',
+        exercises: [
+          { text: 'Riduci temporaneamente stare seduto a lungo o correre se scatenano dolore', cat: 'rest' },
+          { text: 'Stretching dolce: da sdraiato, porta il ginocchio verso il petto e leggermente verso il lato opposto (tenuta 20-30 secondi, 3-4 volte)', cat: 'stretch' },
+          { text: 'Ghiaccio nei momenti più dolorosi', cat: 'rest' },
+        ] },
+      { name: 'Recupero attivo', why: 'Il rinforzo dei glutei e la mobilità dell\'anca aiutano a scaricare il piriforme dal lavoro eccessivo che spesso lo irrita.',
+        criteriaToAdvance: ['Il dolore che scende lungo la gamba è chiaramente diminuito', 'Riesci a stare seduto per periodi normali senza dolore che peggiora'],
+        exercises: [
+          { text: 'Rinforzo del gluteo medio con elastico (2-3 serie da 15 per lato)', cat: 'strength' },
+          { text: 'Stretching della muscolatura glutea e dell\'anca', cat: 'stretch' },
+          { text: 'Auto-massaggio con pallina o rullo sulla zona, se tollerato', cat: 'stretch' },
+        ] },
+      { name: 'Ritorno allo sport', why: 'Corsa e cambi di direzione vanno reintrodotti gradualmente, mantenendo il rinforzo dei glutei per evitare che il piriforme torni a sovraccaricarsi.',
+        criteriaToAdvance: ['Riesci a correre leggero senza dolore che scende lungo la gamba', 'Nessun peggioramento dopo attività quotidiane più intense'],
+        exercises: [
+          { text: 'Corsa progressiva', cat: 'run' },
+          { text: 'Cambi di direzione graduali', cat: 'run' },
+          { text: 'Mantieni il rinforzo dei glutei anche dopo la scomparsa del dolore, per prevenire ricadute', cat: 'strength' },
+        ] },
+    ],
+  },
+  trochanteric: {
+    label: 'Borsite trocanterica', subtitle: 'Fianco esterno, dolore da sdraiato su un lato', icon: Target, mechanismTags: ['overuse'],
+    severityData: {
+      lieve: { dayThresholds: [10, 21], totalEstimateDays: 42 },
+      moderato: { dayThresholds: [21, 42], totalEstimateDays: 84 },
+      severo: { dayThresholds: [35, 84], totalEstimateDays: 200 },
+    },
+    phases: [
+      { name: 'Riduzione carico', why: 'La borsa che protegge l\'anca esterna si infiamma per attrito ripetuto. Ridurre temporaneamente le posizioni che comprimono la zona (stare sdraiati su quel lato, stare a lungo in piedi) aiuta a calmarla.',
+        exercises: [
+          { text: 'Evita di dormire sul lato dolente per qualche notte', cat: 'rest' },
+          { text: 'Riduci temporaneamente corsa e scale se scatenano dolore', cat: 'rest' },
+          { text: 'Ghiaccio sulla zona esterna dell\'anca, a intervalli', cat: 'rest' },
+        ] },
+      { name: 'Rinforzo progressivo', why: 'Il rinforzo del gluteo medio è centrale: un\'anca debole in quella zona fa lavorare di più la borsa a ogni passo.',
+        criteriaToAdvance: ['Riesci a stare sdraiato sul fianco senza dolore acuto', 'Il dolore camminando è chiaramente diminuito'],
+        exercises: [
+          { text: 'Rinforzo del gluteo medio: sollevamento gamba laterale (2-3 serie da 15 per lato)', cat: 'strength' },
+          { text: 'Stretching della banda ileotibiale', cat: 'stretch' },
+          { text: 'Cammino su superficie piana, aumenta gradualmente la distanza', cat: 'rest' },
+        ] },
+      { name: 'Ritorno allo sport', why: 'Corsa e salti vanno reintrodotti con calma, mantenendo il rinforzo dell\'anca per evitare che il sovraccarico si ripresenti.',
+        criteriaToAdvance: ['Riesci a correre leggero senza dolore sul fianco', 'Nessun dolore dopo attività quotidiane più intense'],
+        exercises: [
+          { text: 'Corsa progressiva', cat: 'run' },
+          { text: 'Salti e cambi di direzione introdotti per ultimi', cat: 'run' },
+          { text: 'Mantieni il rinforzo del gluteo medio anche dopo la scomparsa del dolore', cat: 'strength' },
+        ] },
+    ],
+  },
+  lcl: {
+    label: 'Distorsione collaterale laterale', subtitle: 'Legamento esterno del ginocchio', icon: ShieldAlert, mechanismTags: ['acute'],
+    severityData: {
+      lieve: { dayThresholds: [7, 18], totalEstimateDays: 35 },
+      moderato: { dayThresholds: [14, 35], totalEstimateDays: 70 },
+      severo: { dayThresholds: [21, 49], totalEstimateDays: 150 },
+    },
+    phases: [
+      { name: 'Protezione', why: 'Il legamento collaterale laterale stabilizza il ginocchio contro le sollecitazioni verso l\'interno. Rispetto al collaterale mediale è meno comune ma tende a essere seguito più da vicino: se senti instabilità vera, non solo dolore, vale la pena farlo controllare presto.',
+        exercises: [
+          { text: 'Cammino nei limiti del dolore, evita torsioni', cat: 'rest' },
+          { text: 'Elevazione della gamba quando possibile', cat: 'rest' },
+          { text: 'Contrazioni isometriche leggere del quadricipite (tenuta 20-30 secondi, 3-4 volte)', cat: 'hold' },
+        ] },
+      { name: 'Recupero attivo', why: 'Si reintroduce movimento e carico controllato, senza ancora sollecitare il ginocchio con stress verso l\'interno.',
+        criteriaToAdvance: ['Riesci a camminare senza sensazione di cedimento del ginocchio', 'Il gonfiore è chiaramente diminuito'],
+        exercises: [
+          { text: 'Squat controllati in range limitato (2-3 serie da 10)', cat: 'strength' },
+          { text: 'Rinforzo di quadricipite e ischiocrurali (2-3 serie da 12)', cat: 'strength' },
+          { text: 'Equilibrio su una gamba sola, senza torsioni', cat: 'balance' },
+        ] },
+      { name: 'Rientro in campo', why: 'Prima di tornare ai contrasti e ai cambi di direzione, il ginocchio deve tollerare stress laterali senza cedere.',
+        criteriaToAdvance: ['Riesci a fare squat senza dolore sul lato esterno del ginocchio', 'Nessuna instabilità percepita nei movimenti quotidiani'],
+        exercises: [
+          { text: 'Cambi di direzione progressivi, partendo da angoli ampi', cat: 'run' },
+          { text: 'Corsa con curve controllate', cat: 'run' },
+          { text: 'Contatti leggeri e contrasti controllati prima del rientro in gruppo', cat: 'run' },
+        ] },
+    ],
+  },
   lowback: {
     label: 'Lombalgia muscolare', subtitle: 'Dolore lombare meccanico, senza sintomi alla gamba', icon: PersonStanding, mechanismTags: ['acute', 'overuse'],
     severityData: {
@@ -507,10 +688,10 @@ const injuriesData = {
 
 const regions = {
   ankle_foot: { label: 'Caviglia e piede', icon: Footprints, injuries: ['ankle', 'achilles', 'plantarfasciitis'] },
-  knee: { label: 'Ginocchio', icon: CircleDot, injuries: ['knee', 'mcl', 'patellar', 'meniscus'] },
+  knee: { label: 'Ginocchio', icon: CircleDot, injuries: ['knee', 'mcl', 'lcl', 'patellar', 'meniscus', 'itband', 'osgood'] },
   thigh: { label: 'Coscia', icon: Zap, injuries: ['hamstring', 'quad', 'contusion'] },
   calf_region: { label: 'Gamba e polpaccio', icon: Activity, injuries: ['calf', 'shinsplints'] },
-  hip_groin: { label: 'Anca e inguine', icon: ArrowLeftRight, injuries: ['groin', 'hipflexor'] },
+  hip_groin: { label: 'Anca e inguine', icon: ArrowLeftRight, injuries: ['groin', 'hipflexor', 'piriformis', 'trochanteric'] },
   lower_back: { label: 'Zona lombare', icon: PersonStanding, injuries: ['lowback'] },
 };
 
@@ -526,6 +707,19 @@ const redFlags = [
   'Intorpidimento, formicolio o cambio di colore della pelle nella zona',
   'Il dolore peggiora nel tempo invece di migliorare gradualmente',
   'Blocco meccanico: non riesci proprio a muovere l\'articolazione in un punto preciso',
+];
+
+const riceSteps = [
+  { letter: 'R', title: 'Riposo', icon: Pause, text: 'Smetti subito l\'attività. Continuare a giocare sul dolore rischia di peggiorare l\'infortunio.' },
+  { letter: 'I', title: 'Ghiaccio', icon: Snowflake, text: 'Applica ghiaccio avvolto in un panno (mai direttamente sulla pelle) per 15-20 minuti, ogni 2-3 ore nelle prime 24-48 ore.' },
+  { letter: 'C', title: 'Compressione', icon: Bandage, text: 'Una fascia elastica, non troppo stretta, aiuta a limitare il gonfiore.' },
+  { letter: 'E', title: 'Elevazione', icon: ArrowUp, text: 'Tieni la zona sollevata sopra il livello del cuore quando possibile, specialmente nelle prime ore.' },
+];
+
+const riceAvoid = [
+  'Calore nelle prime 48 ore: può aumentare il gonfiore invece di ridurlo',
+  'Massaggi energici o alcol nelle prime ore: favoriscono il gonfiore',
+  'Continuare ad allenarti "per vedere se passa"',
 ];
 
 const dateChips = [
@@ -629,6 +823,8 @@ export default function Offside() {
   const [pendingDate, setPendingDate] = useState('');
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [trackerTab, setTrackerTab] = useState('oggi');
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   useEffect(() => {
     loadFontsOnce();
@@ -671,6 +867,7 @@ export default function Offside() {
     if (screen === 'tracker') setScreen('injuries');
     else if (screen === 'injuries') { setScreen('regions'); setSelectedRegion(null); setTriageTag(null); }
     else if (screen === 'triage') setScreen('regions');
+    else if (screen === 'firstaid') setScreen('regions');
     else if (screen === 'regions') setScreen('cover');
   };
 
@@ -684,6 +881,7 @@ export default function Offside() {
     setActivePhase(0);
     setInjurySeverities(nextSeverities);
     setEditingSetup(!injuryDates[key]);
+    setTrackerTab('oggi');
     setScreen('tracker');
     persist(snapshot({ selectedInjury: key, activePhase: 0, injurySeverities: nextSeverities }));
   };
@@ -828,6 +1026,8 @@ export default function Offside() {
     .os-tabular { font-variant-numeric: tabular-nums; }
     .os-fill { transition: width 0.4s ease; }
     input[type="date"].os-date { font-family: 'Inter', sans-serif; color-scheme: light; }
+    @keyframes os-fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .os-fadein { animation: os-fadein 0.25s ease-out; }
   `;
 
   if (screen === 'cover') {
@@ -889,17 +1089,21 @@ export default function Offside() {
   const hasResumable = selectedInjury && injuryDates[selectedInjury];
 
   return (
-    <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full min-h-screen">
+    <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full min-h-screen relative">
       <style>{sharedStyle}</style>
+      <svg className="fixed inset-0 w-full h-full opacity-[0.035] pointer-events-none" viewBox="0 0 400 800" fill="none" preserveAspectRatio="xMidYMid slice">
+        <circle cx="200" cy="160" r="150" stroke={colors.accent} strokeWidth="1.5" />
+        <line x1="-20" y1="160" x2="420" y2="160" stroke={colors.accent} strokeWidth="1.5" />
+      </svg>
 
-      <div style={{ borderBottom: `1px solid ${colors.hairline}` }} className="px-5 sm:px-8 pt-5 pb-4 flex items-center gap-3">
+      <div style={{ borderBottom: `1px solid ${colors.hairline}` }} className="relative px-5 sm:px-8 pt-5 pb-4 flex items-center gap-3">
         <button onClick={goBack} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity">
           <ArrowLeft size={16} color={colors.accent} />
         </button>
         <div className="flex-1 min-w-0">
           <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">Offside</p>
           <h1 style={{ ...displayFont, color: colors.ink }} className="text-lg sm:text-xl font-semibold truncate">
-            {screen === 'regions' ? 'Dove senti il problema?' : screen === 'triage' ? 'Non sai cosa hai?' : screen === 'injuries' ? regions[selectedRegion].label : 'Il tuo percorso'}
+            {screen === 'regions' ? 'Dove senti il problema?' : screen === 'triage' ? 'Non sai cosa hai?' : screen === 'firstaid' ? 'Primi soccorsi' : screen === 'injuries' ? regions[selectedRegion].label : 'Il tuo percorso'}
           </h1>
         </div>
         {screen === 'tracker' && injury && (
@@ -936,7 +1140,7 @@ export default function Offside() {
         </div>
       </div>
 
-      <div className="px-5 sm:px-8 py-6">
+      <div key={screen} className="px-5 sm:px-8 py-6 os-fadein">
         {screen === 'regions' && (
           <>
             {hasResumable && (
@@ -950,8 +1154,18 @@ export default function Offside() {
               </button>
             )}
 
+            <button onClick={() => setScreen('firstaid')} style={{ backgroundColor: colors.accent }} className="os-focus w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-3 hover:opacity-90 transition-opacity">
+              <div style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"><Snowflake size={20} color="#FFFFFF" /></div>
+              <div className="flex-1">
+                <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-medium">Ti sei appena fatto male?</p>
+                <p style={{ color: '#DCEAF9' }} className="text-xs">Cosa fare nei primi minuti</p>
+              </div>
+              <ChevronRight size={18} color="#DCEAF9" />
+            </button>
+
             <button onClick={startTriage} style={{ backgroundColor: colors.ink }} className="os-focus w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-4 hover:opacity-90 transition-opacity">
               <div style={{ backgroundColor: colors.accent }} className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"><HelpCircle size={20} color="#FFFFFF" /></div>
+
               <div className="flex-1">
                 <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-medium">Non sai cosa hai?</p>
                 <p style={{ color: '#A9B7C4' }} className="text-xs">Rispondi a 3 domande veloci</p>
@@ -974,6 +1188,41 @@ export default function Offside() {
             </div>
             <button onClick={() => setScreen('cover')} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-5 block mx-auto">Torna alla copertina</button>
           </>
+        )}
+
+        {screen === 'firstaid' && (
+          <div>
+            <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">
+              Nei primi minuti dopo un infortunio, queste indicazioni valgono quasi sempre, qualunque sia la zona colpita.
+            </p>
+            <div className="space-y-3 mb-6">
+              {riceSteps.map((step, i) => (
+                <div key={i} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 flex gap-3">
+                  <div style={{ backgroundColor: colors.accentTint }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center relative">
+                    <step.icon size={20} color={colors.accent} strokeWidth={1.75} />
+                    <span style={{ ...displayFont, backgroundColor: colors.accent, color: '#FFFFFF' }} className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center">{step.letter}</span>
+                  </div>
+                  <div className="flex-1">
+                    <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold mb-0.5">{step.title}</p>
+                    <p style={{ color: colors.mutedInk }} className="text-sm leading-snug">{step.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-6">
+              <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2">Da evitare nelle prime ore</p>
+              <ul className="space-y-1">
+                {riceAvoid.map((item, i) => (
+                  <li key={i} style={{ color: colors.mutedInk }} className="text-sm flex gap-2"><span>—</span><span>{item}</span></li>
+                ))}
+              </ul>
+            </div>
+
+            <button onClick={() => setScreen('regions')} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium">
+              <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">Ora scegli dove hai male</span><ArrowRight size={16} />
+            </button>
+          </div>
         )}
 
         {screen === 'triage' && (
@@ -1058,8 +1307,15 @@ export default function Offside() {
                 <span style={{ ...displayFont, color: colors.ink }} className="text-lg font-semibold">{injury.label}</span>
                 <span style={{ color: colors.mutedInk }} className="text-sm ml-2 block sm:inline">{injury.subtitle}</span>
               </div>
-              <button onClick={resetInjury} style={{ color: colors.mutedInk }} className="os-focus flex items-center gap-1.5 text-xs hover:opacity-70 transition-opacity flex-shrink-0">
-                <RotateCcw size={13} />Ricomincia
+              <button
+                onClick={() => {
+                  if (confirmingReset) { resetInjury(); setConfirmingReset(false); }
+                  else { setConfirmingReset(true); setTimeout(() => setConfirmingReset(false), 3000); }
+                }}
+                style={{ color: confirmingReset ? colors.red : colors.mutedInk }}
+                className="os-focus flex items-center gap-1.5 text-xs hover:opacity-70 transition-opacity flex-shrink-0"
+              >
+                <RotateCcw size={13} />{confirmingReset ? 'Tocca per confermare' : 'Ricomincia'}
               </button>
             </div>
 
@@ -1104,159 +1360,163 @@ export default function Offside() {
                   </div>
                 )}
               </div>
-            ) : currentDate ? (
-              <>
-                <button onClick={() => setEditingSetup(true)} className="os-focus w-full text-left mb-3">
-                  <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span style={{ ...displayFont, color: colors.mutedInk }} className="text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1">Corsia di recupero <Pencil size={11} className="ml-1" /></span>
-                      <span style={{ ...displayFont, color: colors.accent }} className="os-tabular text-xl font-bold">Giorno {dayCount}</span>
-                    </div>
-                    <div className="flex gap-1">
-                      {segments.map((seg, i) => (
-                        <div key={i} className="relative h-3 rounded-full overflow-hidden" style={{ backgroundColor: colors.laneBg, flexGrow: seg.span, flexBasis: 0 }}>
-                          <div className="os-fill absolute inset-y-0 left-0 rounded-full" style={{ width: `${seg.fill}%`, backgroundColor: colors.accent }} />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-1 mt-1.5">
-                      {injury.phases.map((p, i) => (
-                        <div key={i} style={{ flexGrow: segments[i]?.span || 1, flexBasis: 0 }} className="text-center">
-                          <span style={{ ...displayFont, color: i === activePhase ? colors.accent : colors.mutedInk }} className="text-[10px] font-semibold uppercase">F{i + 1}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <p style={{ color: colors.mutedInk }} className="text-[11px] mt-2">Gravità {severityLabels[severity].toLowerCase()} · percorso indicativo su ~{totalEstimateDays} giorni</p>
-                  </div>
-                </button>
-
-                <div style={{ backgroundColor: todayEntry.done ? colors.accentDark : colors.card, border: `1px solid ${todayEntry.done ? colors.accentDark : colors.hairline}` }} className="rounded-xl p-4 mb-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span style={{ ...displayFont, color: todayEntry.done ? '#FFFFFF' : colors.ink }} className="text-sm font-semibold capitalize">{formatTodayLabel()}</span>
-                    {streak > 0 && (
-                      <span style={{ ...displayFont, color: todayEntry.done ? '#FFD9A0' : colors.orange }} className="flex items-center gap-1 text-sm font-bold os-tabular">
-                        <Flame size={15} strokeWidth={2.5} />{streak}
-                      </span>
-                    )}
-                  </div>
-
-                  <p style={{ color: todayEntry.done ? '#C9D8E5' : colors.mutedInk }} className="text-xs mb-2">Come ti senti oggi?</p>
-                  <div className="flex gap-1.5 mb-3">
-                    {feelingOptions.map((opt) => (
-                      <button
-                        key={opt.key}
-                        onClick={() => setTodayFeeling(opt.key)}
-                        style={{
-                          backgroundColor: todayEntry.feeling === opt.key ? colors.accent : (todayEntry.done ? 'rgba(255,255,255,0.1)' : colors.paper),
-                          color: todayEntry.feeling === opt.key ? '#FFFFFF' : (todayEntry.done ? '#D7E1EA' : colors.ink),
-                        }}
-                        className="os-focus flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                  {todayEntry.feeling === 'male' && (
-                    <p style={{ color: todayEntry.done ? '#FFD0CC' : colors.red }} className="text-xs mb-3 leading-relaxed">
-                      Magari oggi vacci piano — rivedi i segnali d'allarme in alto, e se il dolore è più forte del solito considera di aspettare prima di caricare.
-                    </p>
-                  )}
-
-                  <button
-                    onClick={toggleToday}
-                    style={{ backgroundColor: todayEntry.done ? 'rgba(255,255,255,0.15)' : colors.accentTint, color: todayEntry.done ? '#FFFFFF' : colors.accentDark, border: todayEntry.done ? '1px solid rgba(255,255,255,0.3)' : 'none' }}
-                    className="os-focus w-full flex items-center justify-center gap-2 rounded-lg py-3 transition-colors"
-                  >
-                    {todayEntry.done ? <CheckCircle2 size={18} strokeWidth={2.25} /> : <Circle size={18} strokeWidth={1.75} />}
-                    <span style={displayFont} className="text-sm font-semibold uppercase tracking-wide">
-                      {todayEntry.done ? 'Sessione di oggi completata' : 'Segna sessione di oggi come fatta'}
-                    </span>
-                  </button>
-                </div>
-              </>
             ) : (
-              <button onClick={() => setEditingSetup(true)} style={{ color: colors.accent }} className="os-focus flex items-center gap-1.5 text-sm mb-5 hover:opacity-70">
-                <Calendar size={14} />Aggiungi data e gravità per tracciare il recupero
-              </button>
-            )}
+              <>
+                <div style={{ backgroundColor: colors.laneBg }} className="flex gap-1 p-1 rounded-full mb-4">
+                  <button onClick={() => setTrackerTab('oggi')} style={{ backgroundColor: trackerTab === 'oggi' ? colors.card : 'transparent', color: trackerTab === 'oggi' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 py-2 rounded-full text-sm font-semibold transition-colors">Oggi</button>
+                  <button onClick={() => setTrackerTab('percorso')} style={{ backgroundColor: trackerTab === 'percorso' ? colors.card : 'transparent', color: trackerTab === 'percorso' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 py-2 rounded-full text-sm font-semibold transition-colors">Percorso</button>
+                </div>
 
-            <div className="flex items-stretch gap-1 mb-4">
-              {injury.phases.map((p, i) => {
-                const isActive = i === activePhase;
-                const pKey = `${selectedInjury}-${i}`;
-                const pProgress = progress[pKey] || {};
-                const pDone = p.exercises.length > 0 && p.exercises.filter((_, ei) => pProgress[ei]).length === p.exercises.length;
-                return (
-                  <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isActive ? colors.accent : colors.card, border: `1px solid ${isActive ? colors.accent : colors.hairline}`, color: isActive ? '#FFFFFF' : colors.ink }} className="os-focus flex-1 rounded-lg px-2 py-2.5 text-center transition-colors">
-                    <div style={displayFont} className="text-[11px] font-semibold uppercase tracking-wide flex items-center justify-center gap-1">Fase {i + 1}{pDone && <CheckCircle2 size={12} strokeWidth={2.5} />}</div>
-                    <div className="text-[13px] mt-0.5" style={bodyFont}>{p.name}</div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="flex gap-2 mb-4">
-              <button onClick={() => scrollToId('why-card')} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium">
-                <ChevronDown size={12} />Perché
-              </button>
-              <button onClick={() => scrollToId('exercises-section')} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium">
-                <ChevronDown size={12} />Esercizi <span style={{ color: colors.accent }} className="os-tabular font-semibold">{completedCount}/{phase.exercises.length}</span>
-              </button>
-            </div>
-
-            <p style={{ color: colors.mutedInk }} className="text-xs mb-4 flex items-center gap-1.5 flex-wrap">
-              <span style={displayFont} className="uppercase tracking-wide font-medium">{phaseRangeLabel(activePhase, dayThresholds)}</span>
-              <span>· tempistica indicativa per gravità {severityLabels[severity].toLowerCase()}</span>
-            </p>
-
-            {phase.criteriaToAdvance && (
-              <div style={{ backgroundColor: colors.accentTint, border: `1px solid ${colors.accent}33` }} className="rounded-xl p-4 mb-4">
-                <p className="flex items-center gap-2 mb-2">
-                  <ClipboardCheck size={15} color={colors.accentDark} />
-                  <span style={{ ...displayFont, color: colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">Prima di considerarti in questa fase, chiediti</span>
-                </p>
-                <ul className="space-y-1 mb-1">
-                  {phase.criteriaToAdvance.map((c, i) => (
-                    <li key={i} style={{ color: colors.ink }} className="text-sm flex gap-2"><span style={{ color: colors.accentDark }}>—</span><span>{c}</span></li>
-                  ))}
-                </ul>
-                <p style={{ color: colors.accentDark }} className="text-[11px] mt-2">Un autocontrollo, non un test clinico — nel dubbio chiedi a un professionista.</p>
-              </div>
-            )}
-
-            <div id="why-card" style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 scroll-mt-4">
-              <p className="flex items-center gap-2 mb-2"><Info size={15} color={colors.accent} /><span style={{ ...displayFont, color: colors.accent }} className="text-xs font-semibold uppercase tracking-wide">Perché questa fase</span></p>
-              <p style={{ color: colors.ink }} className="text-sm leading-relaxed">{phase.why}</p>
-            </div>
-
-            <div id="exercises-section" className="flex items-center justify-between mb-1 scroll-mt-4">
-              <span style={{ ...displayFont, color: colors.ink, letterSpacing: '0.08em' }} className="text-xs font-semibold uppercase">Esercizi</span>
-              <span style={{ ...displayFont, color: colors.accent }} className="os-tabular text-lg font-bold">{completedCount}<span style={{ color: colors.mutedInk }} className="text-sm font-normal"> / {phase.exercises.length}</span></span>
-            </div>
-            <p style={{ color: colors.mutedInk }} className="text-[11px] mb-3">I numeri sono un punto di partenza, non una prescrizione fissa — adattali a come risponde il tuo corpo</p>
-
-            <div>
-              {phase.exercises.map((ex, i) => {
-                const done = !!phaseProgress[i];
-                const isLast = i === phase.exercises.length - 1;
-                return (
-                  <div key={i} className="flex gap-3">
-                    <div className="flex flex-col items-center flex-shrink-0" style={{ width: '32px' }}>
-                      <button onClick={() => toggleExercise(i)} style={{ backgroundColor: done ? colors.accent : colors.card, border: `2px solid ${done ? colors.accent : colors.hairline}` }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
-                        {done ? <Check size={15} color="#FFFFFF" strokeWidth={3} /> : <span style={{ ...displayFont, color: colors.mutedInk }} className="text-xs font-bold">{i + 1}</span>}
+                {trackerTab === 'oggi' ? (
+                  currentDate ? (
+                    <>
+                      <button onClick={() => setEditingSetup(true)} className="os-focus w-full text-left mb-3">
+                        <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <span style={{ ...displayFont, color: colors.mutedInk }} className="text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1">Corsia di recupero <Pencil size={11} className="ml-1" /></span>
+                            <span style={{ ...displayFont, color: colors.accent }} className="os-tabular text-xl font-bold">Giorno {dayCount}</span>
+                          </div>
+                          <div className="flex gap-1">
+                            {segments.map((seg, i) => (
+                              <div key={i} className="relative h-3 rounded-full overflow-hidden" style={{ backgroundColor: colors.laneBg, flexGrow: seg.span, flexBasis: 0 }}>
+                                <div className="os-fill absolute inset-y-0 left-0 rounded-full" style={{ width: `${seg.fill}%`, backgroundColor: colors.accent }} />
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex gap-1 mt-1.5">
+                            {injury.phases.map((p, i) => (
+                              <div key={i} style={{ flexGrow: segments[i]?.span || 1, flexBasis: 0 }} className="text-center">
+                                <span style={{ ...displayFont, color: i === activePhase ? colors.accent : colors.mutedInk }} className="text-[10px] font-semibold uppercase">F{i + 1}</span>
+                              </div>
+                            ))}
+                          </div>
+                          <p style={{ color: colors.mutedInk }} className="text-[11px] mt-2">Gravità {severityLabels[severity].toLowerCase()} · percorso indicativo su ~{totalEstimateDays} giorni</p>
+                        </div>
                       </button>
-                      {!isLast && <div style={{ backgroundColor: done ? colors.accent : colors.hairline }} className="flex-1 my-1 w-0.5" />}
-                    </div>
-                    <button onClick={() => toggleExercise(i)} className="os-focus flex-1 text-left pb-5 pt-1 min-w-0">
-                      <span className="flex items-start justify-between gap-2">
-                        <span style={{ color: done ? colors.accentDark : colors.ink, textDecoration: done ? 'line-through' : 'none', textDecorationColor: colors.accent + '99' }} className="text-sm leading-snug">{ex.text}</span>
-                        <span style={{ backgroundColor: colors.paper, color: colors.mutedInk }} className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap mt-0.5">{catLabels[ex.cat]}</span>
-                      </span>
+
+                      <div style={{ backgroundColor: todayEntry.done ? colors.accentDark : colors.card, border: `1px solid ${todayEntry.done ? colors.accentDark : colors.hairline}` }} className="rounded-xl p-4 mb-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <span style={{ ...displayFont, color: todayEntry.done ? '#FFFFFF' : colors.ink }} className="text-sm font-semibold capitalize">{formatTodayLabel()}</span>
+                          {streak > 0 && (
+                            <span style={{ ...displayFont, color: todayEntry.done ? '#FFD9A0' : colors.orange }} className="flex items-center gap-1 text-sm font-bold os-tabular">
+                              <Flame size={15} strokeWidth={2.5} />{streak}
+                            </span>
+                          )}
+                        </div>
+
+                        <p style={{ color: todayEntry.done ? '#C9D8E5' : colors.mutedInk }} className="text-xs mb-2">Come ti senti oggi?</p>
+                        <div className="flex gap-1.5 mb-3">
+                          {feelingOptions.map((opt) => (
+                            <button
+                              key={opt.key}
+                              onClick={() => setTodayFeeling(opt.key)}
+                              style={{
+                                backgroundColor: todayEntry.feeling === opt.key ? colors.accent : (todayEntry.done ? 'rgba(255,255,255,0.1)' : colors.paper),
+                                color: todayEntry.feeling === opt.key ? '#FFFFFF' : (todayEntry.done ? '#D7E1EA' : colors.ink),
+                              }}
+                              className="os-focus flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                        {todayEntry.feeling === 'male' && (
+                          <p style={{ color: todayEntry.done ? '#FFD0CC' : colors.red }} className="text-xs mb-3 leading-relaxed">
+                            Magari oggi vacci piano — rivedi i segnali d'allarme in alto, e se il dolore è più forte del solito considera di aspettare prima di caricare.
+                          </p>
+                        )}
+
+                        <button
+                          onClick={toggleToday}
+                          style={{ backgroundColor: todayEntry.done ? 'rgba(255,255,255,0.15)' : colors.accentTint, color: todayEntry.done ? '#FFFFFF' : colors.accentDark, border: todayEntry.done ? '1px solid rgba(255,255,255,0.3)' : 'none' }}
+                          className="os-focus w-full flex items-center justify-center gap-2 rounded-lg py-3 transition-colors"
+                        >
+                          {todayEntry.done ? <CheckCircle2 size={18} strokeWidth={2.25} /> : <Circle size={18} strokeWidth={1.75} />}
+                          <span style={displayFont} className="text-sm font-semibold uppercase tracking-wide">
+                            {todayEntry.done ? 'Sessione di oggi completata' : 'Segna sessione di oggi come fatta'}
+                          </span>
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <button onClick={() => setEditingSetup(true)} style={{ color: colors.accent }} className="os-focus flex items-center gap-1.5 text-sm mb-5 hover:opacity-70">
+                      <Calendar size={14} />Aggiungi data e gravità per tracciare il recupero
                     </button>
-                  </div>
-                );
-              })}
-            </div>
+                  )
+                ) : (
+                  <>
+                    <div className="flex items-stretch gap-1 mb-4">
+                      {injury.phases.map((p, i) => {
+                        const isActive = i === activePhase;
+                        const pKey = `${selectedInjury}-${i}`;
+                        const pProgress = progress[pKey] || {};
+                        const pDone = p.exercises.length > 0 && p.exercises.filter((_, ei) => pProgress[ei]).length === p.exercises.length;
+                        return (
+                          <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isActive ? colors.accent : colors.card, border: `1px solid ${isActive ? colors.accent : colors.hairline}`, color: isActive ? '#FFFFFF' : colors.ink }} className="os-focus flex-1 rounded-lg px-2 py-2.5 text-center transition-colors">
+                            <div style={displayFont} className="text-[11px] font-semibold uppercase tracking-wide flex items-center justify-center gap-1">Fase {i + 1}{pDone && <CheckCircle2 size={12} strokeWidth={2.5} />}</div>
+                            <div className="text-[13px] mt-0.5" style={bodyFont}>{p.name}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <p style={{ color: colors.mutedInk }} className="text-xs mb-4 flex items-center gap-1.5 flex-wrap">
+                      <span style={displayFont} className="uppercase tracking-wide font-medium">{phaseRangeLabel(activePhase, dayThresholds)}</span>
+                      <span>· tempistica indicativa per gravità {severityLabels[severity].toLowerCase()}</span>
+                    </p>
+
+                    {phase.criteriaToAdvance && (
+                      <div style={{ backgroundColor: colors.accentTint, border: `1px solid ${colors.accent}33` }} className="rounded-xl p-4 mb-4">
+                        <p className="flex items-center gap-2 mb-2">
+                          <ClipboardCheck size={15} color={colors.accentDark} />
+                          <span style={{ ...displayFont, color: colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">Prima di considerarti in questa fase, chiediti</span>
+                        </p>
+                        <ul className="space-y-1 mb-1">
+                          {phase.criteriaToAdvance.map((c, i) => (
+                            <li key={i} style={{ color: colors.ink }} className="text-sm flex gap-2"><span style={{ color: colors.accentDark }}>—</span><span>{c}</span></li>
+                          ))}
+                        </ul>
+                        <p style={{ color: colors.accentDark }} className="text-[11px] mt-2">Un autocontrollo, non un test clinico — nel dubbio chiedi a un professionista.</p>
+                      </div>
+                    )}
+
+                    <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5">
+                      <p className="flex items-center gap-2 mb-2"><Info size={15} color={colors.accent} /><span style={{ ...displayFont, color: colors.accent }} className="text-xs font-semibold uppercase tracking-wide">Perché questa fase</span></p>
+                      <p style={{ color: colors.ink }} className="text-sm leading-relaxed">{phase.why}</p>
+                    </div>
+
+                    <div className="flex items-center justify-between mb-1">
+                      <span style={{ ...displayFont, color: colors.ink, letterSpacing: '0.08em' }} className="text-xs font-semibold uppercase">Esercizi</span>
+                      <span style={{ ...displayFont, color: colors.accent }} className="os-tabular text-lg font-bold">{completedCount}<span style={{ color: colors.mutedInk }} className="text-sm font-normal"> / {phase.exercises.length}</span></span>
+                    </div>
+                    <p style={{ color: colors.mutedInk }} className="text-[11px] mb-3">I numeri sono un punto di partenza, non una prescrizione fissa — adattali a come risponde il tuo corpo</p>
+
+                    <div>
+                      {phase.exercises.map((ex, i) => {
+                        const done = !!phaseProgress[i];
+                        const isLast = i === phase.exercises.length - 1;
+                        return (
+                          <div key={i} className="flex gap-3">
+                            <div className="flex flex-col items-center flex-shrink-0" style={{ width: '32px' }}>
+                              <button onClick={() => toggleExercise(i)} style={{ backgroundColor: done ? colors.accent : colors.card, border: `2px solid ${done ? colors.accent : colors.hairline}` }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                                {done ? <Check size={15} color="#FFFFFF" strokeWidth={3} /> : <span style={{ ...displayFont, color: colors.mutedInk }} className="text-xs font-bold">{i + 1}</span>}
+                              </button>
+                              {!isLast && <div style={{ backgroundColor: done ? colors.accent : colors.hairline }} className="flex-1 my-1 w-0.5" />}
+                            </div>
+                            <button onClick={() => toggleExercise(i)} className="os-focus flex-1 text-left pb-5 pt-1 min-w-0">
+                              <span className="flex items-start justify-between gap-2">
+                                <span style={{ color: done ? colors.accentDark : colors.ink, textDecoration: done ? 'line-through' : 'none', textDecorationColor: colors.accent + '99' }} className="text-sm leading-snug">{ex.text}</span>
+                                <span style={{ backgroundColor: colors.paper, color: colors.mutedInk }} className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap mt-0.5">{catLabels[ex.cat]}</span>
+                              </span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
           </>
         )}
       </div>
