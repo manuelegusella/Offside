@@ -1,43 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap');
+@import "tailwindcss";
 
-body {
-  background-color: #0F172A;
+html, body, #root {
+  height: 100%;
   margin: 0;
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-family: 'Inter', sans-serif;
-  -webkit-font-smoothing: antialiased;
 }
-
-#root {
-  width: 100%;
-  height: 100vh;
-  background-color: #EEF3F8;
-  position: relative;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-/* Modalità Computer: crea un finto iPhone al centro dello schermo */
-@media (min-width: 600px) {
-  #root {
-    max-width: 414px;
-    height: 90vh;
-    max-height: 850px;
-    border-radius: 2.5rem;
-    border: 8px solid #1e293b;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    outline: 1px solid #334155;
-  }
-}
-
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
-
-button {
-  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.15s ease, opacity 0.15s ease !important;
-}
-button:active { transform: scale(0.95); }

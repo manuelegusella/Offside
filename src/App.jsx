@@ -832,14 +832,14 @@ export default function Offside() {
 
   if (screen === 'cover') {
     return (
-      <div style={{ backgroundColor: colors.ink, ...bodyFont }} className="w-full min-h-[560px] rounded-2xl overflow-hidden relative">
+      <div style={{ backgroundColor: colors.ink, ...bodyFont }} className="w-full min-h-screen relative">
         <style>{sharedStyle}</style>
         <svg className="absolute inset-0 w-full h-full opacity-[0.06]" viewBox="0 0 400 560" fill="none" preserveAspectRatio="xMidYMid slice">
           <circle cx="200" cy="300" r="170" stroke={colors.accent} strokeWidth="1.5" />
           <line x1="-20" y1="300" x2="420" y2="300" stroke={colors.accent} strokeWidth="1.5" />
           <circle cx="200" cy="300" r="3" fill={colors.accent} />
         </svg>
-        <div className="relative px-6 sm:px-10 pt-12 pb-8 flex flex-col min-h-[560px]">
+        <div className="relative px-6 sm:px-10 pt-12 pb-8 flex flex-col min-h-screen">
           <div className="flex items-center justify-between mb-5">
             <div style={{ backgroundColor: '#17293D', border: `2px solid ${colors.accent}44` }} className="w-20 h-20 rounded-full flex items-center justify-center">
               <LogoMark size={38} color={colors.accent} />
@@ -848,16 +848,18 @@ export default function Offside() {
           </div>
           <div className="flex-1">
             <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.2em' }} className="text-xs font-semibold uppercase mb-3">Per chi in campo non ha un fisio a casa</p>
-            <h1 style={{ ...displayFont, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-5xl sm:text-6xl font-bold leading-none mb-4">OFFSIDE</h1>
+            <h1 style={{ ...displayFont, letterSpacing: '0.01em' }} className="text-6xl sm:text-7xl font-bold leading-none mb-4">
+              <span style={{ color: '#FFFFFF' }}>OFF</span><span style={{ color: colors.accent }}>SIDE</span>
+            </h1>
             <p style={{ color: '#A9B7C4' }} className="text-sm sm:text-base leading-relaxed max-w-sm">Il percorso di recupero pensato per il calcio amatoriale. Sai sempre a che punto sei, cosa fare oggi, e quando è il momento di chiamare un professionista.</p>
           </div>
-          <div className="space-y-3 mb-6">
-            {['Sessione giornaliera con serie di giorni consecutivi',
-              'Avanzi di fase in base a come ti senti, non solo al calendario',
-              'Segnali chiari per capire quando serve un professionista'].map((text, i) => (
-              <div key={i} className="flex items-baseline gap-3">
-                <span style={{ ...displayFont, color: colors.accent }} className="os-tabular text-base font-bold flex-shrink-0 w-6">{String(i + 1).padStart(2, '0')}</span>
-                <p style={{ color: '#C4CFD9' }} className="text-sm leading-snug">{text}</p>
+          <div className="mb-6">
+            {['Ogni giorno una sessione. Costruisci la serie.',
+              'Avanzi in base a come stai, non al calendario.',
+              'Sai sempre quando è il momento di fermarti.'].map((text, i, arr) => (
+              <div key={i} className="flex items-baseline gap-3.5" style={{ borderBottom: i < arr.length - 1 ? `1px solid ${colors.accent}1A` : 'none', paddingBottom: '11px', marginBottom: i < arr.length - 1 ? '11px' : 0 }}>
+                <span style={{ ...displayFont, color: colors.accent }} className="os-tabular text-xl font-bold flex-shrink-0 w-7">{String(i + 1).padStart(2, '0')}</span>
+                <p style={{ color: '#D7E1EA' }} className="text-[15px] leading-snug font-medium">{text}</p>
               </div>
             ))}
           </div>
@@ -887,7 +889,7 @@ export default function Offside() {
   const hasResumable = selectedInjury && injuryDates[selectedInjury];
 
   return (
-    <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full min-h-[520px] rounded-2xl overflow-hidden">
+    <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full min-h-screen">
       <style>{sharedStyle}</style>
 
       <div style={{ borderBottom: `1px solid ${colors.hairline}` }} className="px-5 sm:px-8 pt-5 pb-4 flex items-center gap-3">
@@ -1233,17 +1235,25 @@ export default function Offside() {
             </div>
             <p style={{ color: colors.mutedInk }} className="text-[11px] mb-3">I numeri sono un punto di partenza, non una prescrizione fissa — adattali a come risponde il tuo corpo</p>
 
-            <div className="space-y-2">
+            <div>
               {phase.exercises.map((ex, i) => {
                 const done = !!phaseProgress[i];
+                const isLast = i === phase.exercises.length - 1;
                 return (
-                  <button key={i} onClick={() => toggleExercise(i)} style={{ backgroundColor: done ? colors.accentTint : colors.card, border: `1px solid ${done ? colors.accent + '55' : colors.hairline}` }} className="os-focus w-full flex items-start gap-3 px-4 py-3 rounded-lg text-left transition-colors">
-                    {done ? <CheckCircle2 size={19} color={colors.accent} className="flex-shrink-0 mt-0.5" strokeWidth={2.25} /> : <Circle size={19} color={colors.mutedInk} className="flex-shrink-0 mt-0.5" strokeWidth={1.75} />}
-                    <span className="flex-1 flex items-start justify-between gap-2">
-                      <span style={{ color: done ? colors.accentDark : colors.ink, textDecoration: done ? 'line-through' : 'none', textDecorationColor: colors.accent + '99' }} className="text-sm leading-snug">{ex.text}</span>
-                      <span style={{ backgroundColor: colors.paper, color: colors.mutedInk }} className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap mt-0.5">{catLabels[ex.cat]}</span>
-                    </span>
-                  </button>
+                  <div key={i} className="flex gap-3">
+                    <div className="flex flex-col items-center flex-shrink-0" style={{ width: '32px' }}>
+                      <button onClick={() => toggleExercise(i)} style={{ backgroundColor: done ? colors.accent : colors.card, border: `2px solid ${done ? colors.accent : colors.hairline}` }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                        {done ? <Check size={15} color="#FFFFFF" strokeWidth={3} /> : <span style={{ ...displayFont, color: colors.mutedInk }} className="text-xs font-bold">{i + 1}</span>}
+                      </button>
+                      {!isLast && <div style={{ backgroundColor: done ? colors.accent : colors.hairline }} className="flex-1 my-1 w-0.5" />}
+                    </div>
+                    <button onClick={() => toggleExercise(i)} className="os-focus flex-1 text-left pb-5 pt-1 min-w-0">
+                      <span className="flex items-start justify-between gap-2">
+                        <span style={{ color: done ? colors.accentDark : colors.ink, textDecoration: done ? 'line-through' : 'none', textDecorationColor: colors.accent + '99' }} className="text-sm leading-snug">{ex.text}</span>
+                        <span style={{ backgroundColor: colors.paper, color: colors.mutedInk }} className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap mt-0.5">{catLabels[ex.cat]}</span>
+                      </span>
+                    </button>
+                  </div>
                 );
               })}
             </div>
