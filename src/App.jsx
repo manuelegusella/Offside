@@ -11,7 +11,7 @@ import {
 
 const colors = {
   paper: '#EEF3F8', card: '#FFFFFF', hairline: '#D7E1EA', ink: '#101B26',
-  mutedInk: '#57697A', accent: '#1B6FC9', accentTint: '#DCEAF9', accentDark: '#0F4A82',
+  mutedInk: '#57697A', accent: '#22C55E', accentTint: '#DCFCE7', accentDark: '#15803D',
   red: '#AE3830', redTint: '#F6DEDB', laneBg: '#DFE7EF', orange: '#C96A22',
 };
 
@@ -32,6 +32,26 @@ const feelingOptions = [
   { key: 'cosi', label: 'Così così' },
   { key: 'male', label: 'Male' },
 ];
+
+const stiffnessOptions = [
+  { key: 'no', label: 'No' },
+  { key: 'poca', label: 'Un po\'' },
+  { key: 'si', label: 'Sì, tanta' },
+];
+
+function dailyGuidance(feeling, stiffness) {
+  if (!feeling && !stiffness) return null;
+  if (feeling === 'male' || stiffness === 'si') {
+    return { label: 'Oggi vacci piano', detail: 'Punta su mobilità leggera, senza forzare — e ricontrolla i segnali d\'allarme qui sopra.' };
+  }
+  if (feeling === 'cosi' || stiffness === 'poca') {
+    return { label: 'Oggi con attenzione', detail: 'Procedi pure, ma resta sotto la tua soglia abituale se qualcosa tira più del solito.' };
+  }
+  if (feeling === 'bene' && (stiffness === 'no' || !stiffness)) {
+    return { label: 'Oggi puoi lavorare normalmente', detail: 'Nessun segnale di allerta dalle tue risposte — procedi con gli esercizi previsti.' };
+  }
+  return null;
+}
 
 // Tempistiche verificate su fonti ortopediche/fisioterapiche (ago 2026).
 // I criteri di avanzamento sono un autocontrollo orientativo, non un test
@@ -712,6 +732,13 @@ const riceAvoid = [
   'Continuare ad allenarti "per vedere se passa"',
 ];
 
+const injuryScenarios = [
+  { icon: Zap, label: 'Fitta improvvisa durante uno scatto', region: 'thigh', tag: 'acute' },
+  { icon: Shield, label: 'Contrasto o colpo diretto', region: 'thigh', tag: 'contact' },
+  { icon: Footprints, label: 'Atterrato male o storto la caviglia', region: 'ankle_foot', tag: 'acute' },
+  { icon: RotateCw, label: 'Torsione al ginocchio', region: 'knee', tag: 'acute' },
+];
+
 const playerPositions = [
   { key: 'portiere', label: 'Portiere', tip: 'Per un portiere contano più i tuffi e gli atterraggi che la corsa pura: prima di sentirti pronto, assicurati di tollerare bene cadute e atterraggi controllati sul lato infortunato, non solo la corsa in linea.' },
   { key: 'difensore', label: 'Difensore', tip: 'Da difensore affronti molti contrasti e duelli aerei: oltre alla corsa, testa la tenuta durante contatti fisici controllati prima di sentirti davvero pronto.' },
@@ -739,29 +766,41 @@ const weightOptions = [
 function LogoMark({ size = 32, color = colors.accent, strokeWidth = 3 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
-      <path d="M4 20 H14 L18 8 L22 32 L26 20 H36" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="4.5" cy="20" r="2.5" fill={color} />
+      <path d="M7.5 20 H14 L18 6.5 L22 33.5 L26 20 H36" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 const bodyZones = [
-  { region: 'lower_back', label: 'Schiena', shape: 'circle', props: { cx: 100, cy: 116, r: 15 } },
-  { region: 'hip_groin', label: 'Anca/inguine', shape: 'rect', props: { x: 72, y: 132, width: 56, height: 17, rx: 8.5 } },
-  { region: 'thigh', label: 'Coscia sx', shape: 'rect', props: { x: 76, y: 150, width: 20, height: 60, rx: 10 } },
-  { region: 'thigh', label: 'Coscia dx', shape: 'rect', props: { x: 104, y: 150, width: 20, height: 60, rx: 10 } },
-  { region: 'knee', label: 'Ginocchio sx', shape: 'circle', props: { cx: 86, cy: 216, r: 11 } },
-  { region: 'knee', label: 'Ginocchio dx', shape: 'circle', props: { cx: 114, cy: 216, r: 11 } },
-  { region: 'calf_region', label: 'Polpaccio sx', shape: 'rect', props: { x: 77, y: 228, width: 18, height: 54, rx: 9 } },
-  { region: 'calf_region', label: 'Polpaccio dx', shape: 'rect', props: { x: 105, y: 228, width: 18, height: 54, rx: 9 } },
-  { region: 'ankle_foot', label: 'Caviglia sx', shape: 'ellipse', props: { cx: 86, cy: 290, rx: 13, ry: 10 } },
-  { region: 'ankle_foot', label: 'Caviglia dx', shape: 'ellipse', props: { cx: 114, cy: 290, rx: 13, ry: 10 } },
+  { region: 'lower_back', label: 'Schiena', shape: 'rect', center: { cx: 100, cy: 109 }, props: { x: 70, y: 95, width: 60, height: 28, rx: 13 } },
+  { region: 'hip_groin', label: 'Anca/inguine', shape: 'rect', center: { cx: 100, cy: 140.5 }, props: { x: 72, y: 132, width: 56, height: 17, rx: 8.5 } },
+  { region: 'thigh', label: 'Coscia sx', shape: 'rect', center: { cx: 86, cy: 180 }, props: { x: 76, y: 150, width: 20, height: 60, rx: 10 } },
+  { region: 'thigh', label: 'Coscia dx', shape: 'rect', center: { cx: 114, cy: 180 }, props: { x: 104, y: 150, width: 20, height: 60, rx: 10 } },
+  { region: 'knee', label: 'Ginocchio sx', shape: 'circle', center: { cx: 86, cy: 216 }, props: { cx: 86, cy: 216, r: 11 } },
+  { region: 'knee', label: 'Ginocchio dx', shape: 'circle', center: { cx: 114, cy: 216 }, props: { cx: 114, cy: 216, r: 11 } },
+  { region: 'calf_region', label: 'Polpaccio sx', shape: 'rect', center: { cx: 86, cy: 255 }, props: { x: 77, y: 228, width: 18, height: 54, rx: 9 } },
+  { region: 'calf_region', label: 'Polpaccio dx', shape: 'rect', center: { cx: 114, cy: 255 }, props: { x: 105, y: 228, width: 18, height: 54, rx: 9 } },
+  { region: 'ankle_foot', label: 'Caviglia sx', shape: 'ellipse', center: { cx: 86, cy: 290 }, props: { cx: 86, cy: 290, rx: 13, ry: 10 } },
+  { region: 'ankle_foot', label: 'Caviglia dx', shape: 'ellipse', center: { cx: 114, cy: 290 }, props: { cx: 114, cy: 290, rx: 13, ry: 10 } },
 ];
 
 function BodyDiagram({ onSelectRegion }) {
   const [pressed, setPressed] = useState(null);
+  const [pinging, setPinging] = useState(null);
   const Shape = { rect: 'rect', circle: 'circle', ellipse: 'ellipse' };
+
+  const handleSelect = (i, region) => {
+    setPinging(i);
+    setTimeout(() => { onSelectRegion(region); setPinging(null); }, 260);
+  };
+
   return (
     <svg viewBox="0 0 200 312" className="w-full mx-auto" style={{ maxWidth: '220px', display: 'block' }} role="img" aria-label="Sagoma del corpo, tocca la zona dove senti dolore">
+      <style>{`
+        @keyframes os-radar { 0% { r: 4; opacity: 0.9; } 100% { r: 30; opacity: 0; } }
+        .os-radar-ring { animation: os-radar 0.55s ease-out; transform-origin: center; }
+      `}</style>
       {/* Corpo decorativo, non interattivo */}
       <circle cx="100" cy="26" r="19" fill={colors.hairline} />
       <rect x="94" y="43" width="12" height="9" fill={colors.hairline} />
@@ -776,7 +815,7 @@ function BodyDiagram({ onSelectRegion }) {
           stroke: colors.accent,
           strokeWidth: 1.3,
           style: { cursor: 'pointer', transition: 'fill 0.12s ease' },
-          onClick: () => onSelectRegion(zone.region),
+          onClick: () => handleSelect(i, zone.region),
           onMouseDown: () => setPressed(i),
           onMouseUp: () => setPressed(null),
           onMouseLeave: () => setPressed(null),
@@ -785,11 +824,15 @@ function BodyDiagram({ onSelectRegion }) {
           role: 'button',
           'aria-label': zone.label,
           tabIndex: 0,
-          onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') onSelectRegion(zone.region); },
+          onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') handleSelect(i, zone.region); },
         };
         const ShapeTag = Shape[zone.shape];
         return <ShapeTag key={i} {...zone.props} {...commonProps} />;
       })}
+
+      {pinging !== null && (
+        <circle className="os-radar-ring" cx={bodyZones[pinging].center.cx} cy={bodyZones[pinging].center.cy} r="4" fill="none" stroke={colors.accent} strokeWidth="2" />
+      )}
     </svg>
   );
 }
@@ -800,7 +843,7 @@ function loadFontsOnce() {
   const link = document.createElement('link');
   link.id = 'os-fonts';
   link.rel = 'stylesheet';
-  link.href = 'https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap';
+  link.href = 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap';
   document.head.appendChild(link);
 }
 
@@ -872,6 +915,7 @@ export default function Offside() {
   const [shareCopied, setShareCopied] = useState(false);
   const [trackerTab, setTrackerTab] = useState('oggi');
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [deletingKey, setDeletingKey] = useState(null);
   const [playerPosition, setPlayerPosition] = useState(null);
 
   useEffect(() => {
@@ -890,7 +934,6 @@ export default function Offside() {
           setPlayerPosition(data.playerPosition || null);
           if (data.selectedInjury) {
             setSelectedRegion(regionOfInjury(data.selectedInjury));
-            setScreen('tracker');
           }
         }
       } catch (err) {
@@ -939,6 +982,7 @@ export default function Offside() {
     persist({ selectedInjury: key, activePhase: suggested, progress, injuryDates, injurySeverities, dailyLog, playerPosition });
   };
   const startTriage = () => { setTriageAnswers({ mechanism: null, pop: null, weight: null }); setTriageTag(null); setScreen('triage'); };
+  const handleScenario = (scenario) => { setTriageTag(scenario.tag); openRegion(scenario.region); };
 
   const chooseInjury = (key) => {
     const severity = injurySeverities[key] || 'moderato';
@@ -1013,6 +1057,17 @@ export default function Offside() {
     persist(snapshot({ dailyLog: nextLog }));
   };
 
+  const setTodayStiffness = (stiffness) => {
+    const today = todayKey();
+    const current = dailyLog[selectedInjury] || {};
+    const todayEntry = current[today] || {};
+    const nextEntry = { ...todayEntry, stiffness };
+    const nextForInjury = { ...current, [today]: nextEntry };
+    const nextLog = { ...dailyLog, [selectedInjury]: nextForInjury };
+    setDailyLog(nextLog);
+    persist(snapshot({ dailyLog: nextLog }));
+  };
+
   const resetInjury = () => {
     const nextProgress = { ...progress };
     injuriesData[selectedInjury].phases.forEach((_, i) => delete nextProgress[`${selectedInjury}-${i}`]);
@@ -1031,6 +1086,22 @@ export default function Offside() {
     persist(snapshot({ selectedInjury: null, activePhase: 0, progress: nextProgress, injuryDates: nextDates, dailyLog: nextLog }));
   };
 
+  const deleteInjuryData = (key) => {
+    const nextProgress = { ...progress };
+    injuriesData[key].phases.forEach((_, i) => delete nextProgress[`${key}-${i}`]);
+    const nextDates = { ...injuryDates };
+    delete nextDates[key];
+    const nextLog = { ...dailyLog };
+    delete nextLog[key];
+    const nextSelected = selectedInjury === key ? null : selectedInjury;
+    setProgress(nextProgress);
+    setInjuryDates(nextDates);
+    setDailyLog(nextLog);
+    setSelectedInjury(nextSelected);
+    setDeletingKey(null);
+    persist({ selectedInjury: nextSelected, activePhase, progress: nextProgress, injuryDates: nextDates, injurySeverities, dailyLog: nextLog, playerPosition });
+  };
+
   const answerTriage = (field, value) => setTriageAnswers({ ...triageAnswers, [field]: value });
   const triageComplete = triageAnswers.mechanism && triageAnswers.pop && triageAnswers.weight;
   const triageRedirect = triageAnswers.weight === 'fatica' || (triageAnswers.pop === 'si' && triageAnswers.mechanism === 'torsione');
@@ -1040,7 +1111,7 @@ export default function Offside() {
     setScreen('regions');
   };
 
-  const displayFont = { fontFamily: "'Oswald', sans-serif" };
+  const displayFont = { fontFamily: "'Space Grotesk', sans-serif" };
   const bodyFont = { fontFamily: "'Inter', sans-serif" };
 
   const injury = selectedInjury ? injuriesData[selectedInjury] : null;
@@ -1110,10 +1181,11 @@ export default function Offside() {
 
   if (screen === 'cover') {
     return (
-      <div style={{ backgroundColor: colors.ink, ...bodyFont }} className="w-full min-h-[100dvh] relative">
+      <div style={{ background: 'radial-gradient(ellipse 120% 80% at 50% 0%, #16283A 0%, #0A1118 65%)', ...bodyFont }} className="w-full min-h-[100dvh] relative">
         <style>{sharedStyle}</style>
-        <svg className="absolute inset-0 w-full h-full opacity-[0.06]" viewBox="0 0 400 560" fill="none" preserveAspectRatio="xMidYMid slice">
+        <svg className="absolute inset-0 w-full h-full opacity-[0.07]" viewBox="0 0 400 560" fill="none" preserveAspectRatio="xMidYMid slice">
           <circle cx="200" cy="300" r="170" stroke={colors.accent} strokeWidth="1.5" />
+          <circle cx="200" cy="300" r="230" stroke={colors.accent} strokeWidth="1" />
           <line x1="-20" y1="300" x2="420" y2="300" stroke={colors.accent} strokeWidth="1.5" />
           <circle cx="200" cy="300" r="3" fill={colors.accent} />
         </svg>
@@ -1129,7 +1201,7 @@ export default function Offside() {
             <h1 style={{ ...displayFont, letterSpacing: '0.01em' }} className="text-6xl sm:text-7xl font-bold leading-none mb-4">
               <span style={{ color: '#FFFFFF' }}>OFF</span><span style={{ color: colors.accent }}>SIDE</span>
             </h1>
-            <p style={{ color: '#A9B7C4' }} className="text-sm sm:text-base leading-relaxed max-w-sm">Il percorso di recupero pensato per il calcio amatoriale. Sai sempre a che punto sei, cosa fare oggi, e quando è il momento di chiamare un professionista.</p>
+            <p style={{ color: '#C4D3CC' }} className="text-lg sm:text-xl leading-snug font-medium max-w-sm">Il fisio che non hai in panchina.</p>
           </div>
           <div className="mb-6">
             {['Ogni giorno una sessione. Costruisci la serie.',
@@ -1228,14 +1300,26 @@ export default function Offside() {
                 </p>
                 <div className="space-y-2">
                   {activeInjuryKeys.map((key) => (
-                    <button key={key} onClick={() => resumeInjury(key)} style={{ backgroundColor: colors.accentDark }} className="os-focus w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left hover:opacity-90 transition-opacity">
-                      <PlayCircle size={20} color="#FFFFFF" className="flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p style={{ color: '#FFFFFF' }} className="text-sm font-medium truncate">{injuriesData[key].label}</p>
-                        <p style={{ color: '#B9CDE0' }} className="text-xs">Giorno {daysSince(injuryDates[key])}</p>
-                      </div>
-                      <ChevronRight size={18} color="#B9CDE0" className="flex-shrink-0" />
-                    </button>
+                    <div key={key} style={{ backgroundColor: colors.accentDark }} className="flex items-stretch rounded-xl overflow-hidden">
+                      <button onClick={() => resumeInjury(key)} className="os-focus flex-1 flex items-center gap-3 px-4 py-3.5 text-left hover:opacity-90 transition-opacity min-w-0">
+                        <PlayCircle size={20} color="#FFFFFF" className="flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p style={{ color: '#FFFFFF' }} className="text-sm font-medium truncate">{injuriesData[key].label}</p>
+                          <p style={{ color: '#B9CDE0' }} className="text-xs">Giorno {daysSince(injuryDates[key])}</p>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (deletingKey === key) deleteInjuryData(key);
+                          else { setDeletingKey(key); setTimeout(() => setDeletingKey((k) => (k === key ? null : k)), 3000); }
+                        }}
+                        style={{ backgroundColor: deletingKey === key ? colors.red : 'rgba(255,255,255,0.1)' }}
+                        className="os-focus flex-shrink-0 w-12 flex items-center justify-center transition-colors"
+                        aria-label={deletingKey === key ? 'Conferma eliminazione' : 'Elimina questo percorso'}
+                      >
+                        <X size={16} color="#FFFFFF" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1245,22 +1329,23 @@ export default function Offside() {
               <div style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"><Snowflake size={20} color="#FFFFFF" /></div>
               <div className="flex-1">
                 <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-medium">Ti sei appena fatto male?</p>
-                <p style={{ color: '#DCEAF9' }} className="text-xs">Cosa fare nei primi minuti</p>
+                <p style={{ color: '#DCFCE7' }} className="text-xs">Cosa fare nei primi minuti</p>
               </div>
-              <ChevronRight size={18} color="#DCEAF9" />
+              <ChevronRight size={18} color="#DCFCE7" />
             </button>
 
-            <button onClick={startTriage} style={{ backgroundColor: colors.ink }} className="os-focus w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-4 hover:opacity-90 transition-opacity">
-              <div style={{ backgroundColor: colors.accent }} className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"><HelpCircle size={20} color="#FFFFFF" /></div>
+            <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase mb-2.5">Cos'è successo?</p>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              {injuryScenarios.map((sc, i) => (
+                <button key={i} onClick={() => handleScenario(sc)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus flex flex-col items-start gap-2 p-3 rounded-xl text-left hover:shadow-sm transition-shadow">
+                  <sc.icon size={18} color={colors.accent} strokeWidth={1.75} />
+                  <span style={{ color: colors.ink }} className="text-xs leading-snug font-medium">{sc.label}</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={startTriage} style={{ color: colors.accent }} className="os-focus text-xs underline hover:opacity-70 mb-6 block">Nessuno di questi — rispondi a 3 domande</button>
 
-              <div className="flex-1">
-                <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-medium">Non sai cosa hai?</p>
-                <p style={{ color: '#A9B7C4' }} className="text-xs">Rispondi a 3 domande veloci</p>
-              </div>
-              <ChevronRight size={18} color="#A9B7C4" />
-            </button>
-
-            <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase text-center mb-3">Tocca dove senti il problema</p>
+            <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase text-center mb-3">Oppure tocca dove senti il problema</p>
             <div className="mb-6">
               <BodyDiagram onSelectRegion={openRegion} />
             </div>
@@ -1431,6 +1516,30 @@ export default function Offside() {
                       ))}
                     </div>
                   )}
+
+                  <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mt-3 relative overflow-hidden">
+                    <svg className="absolute bottom-0 left-0 w-full opacity-30" height="36" viewBox="0 0 200 36" preserveAspectRatio="none">
+                      <path d="M0 34 Q 50 34 90 20 T 200 2" stroke={colors.accent} strokeWidth="2" fill="none" />
+                    </svg>
+                    <div className="relative">
+                      <p style={{ ...displayFont, color: '#A7D9BC', letterSpacing: '0.06em' }} className="text-[10px] font-semibold uppercase mb-1">Stima di recupero, gravità {severityLabels[severity].toLowerCase()}</p>
+                      <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-2xl font-bold os-tabular mb-1">~{injury.severityData[severity].totalEstimateDays} giorni</p>
+                      <p style={{ color: '#A9B7C4' }} className="text-[11px] leading-relaxed mb-3">Percorso indicativo, non una promessa — dipende da come risponde il tuo corpo e da quanto segui il percorso.</p>
+                      <button
+                        onClick={async () => {
+                          const text = `Mi sono fatto male: ${injury.label.toLowerCase()} (gravità ${severityLabels[severity].toLowerCase()}). Su Offside la stima indicativa è di circa ${injury.severityData[severity].totalEstimateDays} giorni, seguendo il percorso — vediamo come va, vi aggiorno.`;
+                          try {
+                            if (navigator.share) await navigator.share({ text });
+                            else if (navigator.clipboard) { await navigator.clipboard.writeText(text); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); }
+                          } catch (err) {}
+                        }}
+                        style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#FFFFFF' }}
+                        className="os-focus flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium w-full"
+                      >
+                        <Share2 size={13} />{shareCopied ? 'Copiato' : 'Dillo alla squadra'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="pt-4">
                   <p className="flex items-center gap-2 mb-3"><Calendar size={15} color={colors.accent} /><span style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">Quando è successo?</span></p>
@@ -1468,12 +1577,19 @@ export default function Offside() {
                             <span style={{ ...displayFont, color: colors.mutedInk }} className="text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1">Corsia di recupero <Pencil size={11} className="ml-1" /></span>
                             <span style={{ ...displayFont, color: colors.accent }} className="os-tabular text-xl font-bold">Giorno {dayCount}</span>
                           </div>
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 relative pt-1.5">
                             {segments.map((seg, i) => (
                               <div key={i} className="relative h-3 rounded-full overflow-hidden" style={{ backgroundColor: colors.laneBg, flexGrow: seg.span, flexBasis: 0 }}>
                                 <div className="os-fill absolute inset-y-0 left-0 rounded-full" style={{ width: `${seg.fill}%`, backgroundColor: colors.accent }} />
                               </div>
                             ))}
+                            <div
+                              className="absolute rounded-full os-fill"
+                              style={{
+                                width: '9px', height: '9px', top: 0, backgroundColor: colors.ink, border: `2px solid ${colors.accent}`,
+                                left: `calc(${Math.min(100, (dayCount / totalEstimateDays) * 100)}% - 4.5px)`,
+                              }}
+                            />
                           </div>
                           <div className="flex gap-1 mt-1.5">
                             {injury.phases.map((p, i) => (
@@ -1512,10 +1628,33 @@ export default function Offside() {
                             </button>
                           ))}
                         </div>
-                        {todayEntry.feeling === 'male' && (
+
+                        <p style={{ color: todayEntry.done ? '#C9D8E5' : colors.mutedInk }} className="text-xs mb-2">Rigidità stamattina?</p>
+                        <div className="flex gap-1.5 mb-3">
+                          {stiffnessOptions.map((opt) => (
+                            <button
+                              key={opt.key}
+                              onClick={() => setTodayStiffness(opt.key)}
+                              style={{
+                                backgroundColor: todayEntry.stiffness === opt.key ? colors.accent : (todayEntry.done ? 'rgba(255,255,255,0.1)' : colors.paper),
+                                color: todayEntry.stiffness === opt.key ? '#FFFFFF' : (todayEntry.done ? '#D7E1EA' : colors.ink),
+                              }}
+                              className="os-focus flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {todayEntry.feeling === 'male' ? (
                           <p style={{ color: todayEntry.done ? '#FFD0CC' : colors.red }} className="text-xs mb-3 leading-relaxed">
                             Magari oggi vacci piano — rivedi i segnali d'allarme in alto, e se il dolore è più forte del solito considera di aspettare prima di caricare.
                           </p>
+                        ) : dailyGuidance(todayEntry.feeling, todayEntry.stiffness) && (
+                          <div style={{ backgroundColor: todayEntry.done ? 'rgba(255,255,255,0.1)' : colors.accentTint }} className="rounded-lg p-2.5 mb-3">
+                            <p style={{ ...displayFont, color: todayEntry.done ? '#FFFFFF' : colors.accentDark }} className="text-xs font-semibold mb-0.5">{dailyGuidance(todayEntry.feeling, todayEntry.stiffness).label}</p>
+                            <p style={{ color: todayEntry.done ? '#C9D8E5' : colors.accentDark }} className="text-[11px] leading-snug">{dailyGuidance(todayEntry.feeling, todayEntry.stiffness).detail}</p>
+                          </div>
                         )}
 
                         <button
