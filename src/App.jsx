@@ -749,9 +749,9 @@ const dateChips = [
 ];
 
 const mechanismOptions = [
-  { key: 'contatto', label: 'Contatto con un avversario' },
-  { key: 'torsione', label: 'Movimento del corpo (torsione, scatto, salto)' },
-  { key: 'sovraccarico', label: 'Iniziato gradualmente, senza un momento preciso' },
+  { key: 'contatto', label: 'Contatto con un avversario', icon: Shield },
+  { key: 'torsione', label: 'Movimento del corpo (torsione, scatto, salto)', icon: Zap },
+  { key: 'sovraccarico', label: 'Iniziato gradualmente, senza un momento preciso', icon: TrendingUp },
 ];
 const popOptions = [{ key: 'si', label: 'Sì' }, { key: 'no', label: 'No' }];
 const weightOptions = [
@@ -1352,24 +1352,13 @@ export default function Offside() {
               <ChevronRight size={18} color={colors.ink} className="opacity-60" />
             </button>
 
-            <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase mb-2.5">Cos'è successo?</p>
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              {injuryScenarios.map((sc, i) => (
-                <button key={i} onClick={() => handleScenario(sc)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus flex flex-col items-start gap-2 p-3 rounded-xl text-left hover:border-green-400 transition-colors shadow-sm">
-                  <sc.icon size={18} color={colors.accentDark} strokeWidth={2} />
-                  <span style={{ color: colors.ink }} className="text-xs leading-snug font-medium">{sc.label}</span>
-                </button>
-              ))}
-            </div>
-            <button onClick={startTriage} style={{ color: colors.accentDark }} className="os-focus text-xs underline hover:opacity-70 mb-6 block">Nessuno di questi — rispondi a 3 domande</button>
-
-            <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase text-center mb-3">Oppure tocca dove senti il problema</p>
+            <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase text-center mb-3">Tocca dove senti il problema</p>
             <div className="mb-6">
               <BodyDiagram onSelectRegion={openRegion} />
             </div>
 
-            <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.1em' }} className="text-xs font-semibold uppercase mb-3">Scegli il distretto manualmente</p>
-            <div className="space-y-2.5">
+            <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.1em' }} className="text-xs font-semibold uppercase mb-3">Oppure scegli il distretto</p>
+            <div className="space-y-2.5 mb-6">
               {Object.entries(regions).map(([key, data]) => {
                 const Icon = data.icon;
                 return (
@@ -1381,6 +1370,18 @@ export default function Offside() {
                 );
               })}
             </div>
+
+            <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase mb-2.5">Oppure, cos'è successo?</p>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              {injuryScenarios.map((sc, i) => (
+                <button key={i} onClick={() => handleScenario(sc)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus flex flex-col items-start gap-2 p-3 rounded-xl text-left hover:border-green-400 transition-colors shadow-sm">
+                  <sc.icon size={18} color={colors.accentDark} strokeWidth={2} />
+                  <span style={{ color: colors.ink }} className="text-xs leading-snug font-medium">{sc.label}</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={startTriage} style={{ color: colors.accentDark }} className="os-focus text-xs underline hover:opacity-70 mb-2 block">Nessuno di questi — rispondi a 3 domande</button>
+
             <button onClick={() => setScreen('cover')} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-5 block mx-auto">Torna alla copertina</button>
           </>
         )}
@@ -1421,40 +1422,60 @@ export default function Offside() {
         )}
 
         {screen === 'triage' && (
-          <div className="space-y-5">
-            <div>
-              <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold mb-2">Com'è successo?</p>
-              <div className="space-y-2">
-                {mechanismOptions.map((opt) => (
-                  <button key={opt.key} onClick={() => answerTriage('mechanism', opt.key)}
-                    style={{ backgroundColor: triageAnswers.mechanism === opt.key ? colors.accent : colors.card, color: triageAnswers.mechanism === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.mechanism === opt.key ? colors.accent : colors.hairline}` }}
-                    className="os-focus w-full text-left px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">{opt.label}</button>
-                ))}
-              </div>
+          <div>
+            <div className="flex gap-1.5 mb-6">
+              {[triageAnswers.mechanism, triageAnswers.pop, triageAnswers.weight].map((answered, i) => (
+                <div key={i} style={{ backgroundColor: answered ? colors.accent : colors.hairline }} className="flex-1 h-1 rounded-full transition-colors" />
+              ))}
             </div>
-            <div>
-              <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold mb-2">Hai sentito uno schiocco o un "pop"?</p>
-              <div className="flex gap-2">
-                {popOptions.map((opt) => (
-                  <button key={opt.key} onClick={() => answerTriage('pop', opt.key)}
-                    style={{ backgroundColor: triageAnswers.pop === opt.key ? colors.accent : colors.card, color: triageAnswers.pop === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.pop === opt.key ? colors.accent : colors.hairline}` }}
-                    className="os-focus flex-1 text-center px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">{opt.label}</button>
-                ))}
+
+            <div className="space-y-6">
+              <div>
+                <p className="flex items-center gap-2.5 mb-3">
+                  <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">1</span>
+                  <span style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">Com'è successo?</span>
+                </p>
+                <div className="space-y-2">
+                  {mechanismOptions.map((opt) => (
+                    <button key={opt.key} onClick={() => answerTriage('mechanism', opt.key)}
+                      style={{ backgroundColor: triageAnswers.mechanism === opt.key ? colors.accent : colors.card, color: triageAnswers.mechanism === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.mechanism === opt.key ? colors.accent : colors.hairline}` }}
+                      className="os-focus w-full flex items-center gap-2.5 text-left px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">
+                      <opt.icon size={16} color={triageAnswers.mechanism === opt.key ? '#FFFFFF' : colors.accent} className="flex-shrink-0" />
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div>
-              <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold mb-2">Riesci ad appoggiare il peso sulla gamba?</p>
-              <div className="space-y-2">
-                {weightOptions.map((opt) => (
-                  <button key={opt.key} onClick={() => answerTriage('weight', opt.key)}
-                    style={{ backgroundColor: triageAnswers.weight === opt.key ? colors.accent : colors.card, color: triageAnswers.weight === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.weight === opt.key ? colors.accent : colors.hairline}` }}
-                    className="os-focus w-full text-left px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">{opt.label}</button>
-                ))}
+              <div>
+                <p className="flex items-center gap-2.5 mb-3">
+                  <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">2</span>
+                  <span style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">Hai sentito uno schiocco o un "pop"?</span>
+                </p>
+                <div className="flex gap-2">
+                  {popOptions.map((opt) => (
+                    <button key={opt.key} onClick={() => answerTriage('pop', opt.key)}
+                      style={{ backgroundColor: triageAnswers.pop === opt.key ? colors.accent : colors.card, color: triageAnswers.pop === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.pop === opt.key ? colors.accent : colors.hairline}` }}
+                      className="os-focus flex-1 text-center px-4 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm">{opt.label}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="flex items-center gap-2.5 mb-3">
+                  <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">3</span>
+                  <span style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">Riesci ad appoggiare il peso sulla gamba?</span>
+                </p>
+                <div className="space-y-2">
+                  {weightOptions.map((opt) => (
+                    <button key={opt.key} onClick={() => answerTriage('weight', opt.key)}
+                      style={{ backgroundColor: triageAnswers.weight === opt.key ? colors.accent : colors.card, color: triageAnswers.weight === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.weight === opt.key ? colors.accent : colors.hairline}` }}
+                      className="os-focus w-full text-left px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">{opt.label}</button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {triageComplete && triageRedirect && (
-              <div style={{ backgroundColor: colors.redTint }} className="rounded-xl p-4 flex gap-2.5">
+              <div style={{ backgroundColor: colors.redTint }} className="rounded-xl p-4 flex gap-2.5 mt-6">
                 <AlertTriangle size={18} color={colors.red} className="flex-shrink-0 mt-0.5" />
                 <div>
                   <p style={{ color: colors.red, fontWeight: 600 }} className="text-sm mb-1">Meglio farlo vedere da un professionista</p>
@@ -1464,7 +1485,7 @@ export default function Offside() {
               </div>
             )}
             {triageComplete && !triageRedirect && (
-              <button onClick={finishTriage} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 shadow-sm">
+              <button onClick={finishTriage} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 shadow-sm mt-6">
                 <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">Continua</span><ArrowRight size={16} />
               </button>
             )}
@@ -1479,6 +1500,7 @@ export default function Offside() {
               const Icon = data.icon;
               const hasProgress = injuryDates[key];
               const matches = triageTag && data.mechanismTags.includes(triageTag);
+              const weeksEstimate = Math.round(data.severityData.moderato.totalEstimateDays / 7);
               return (
                 <button key={key} onClick={() => chooseInjury(key)} style={{ backgroundColor: colors.card, border: `1px solid ${matches ? colors.accent : colors.hairline}` }} className="os-focus w-full flex items-center gap-4 px-4 py-4 rounded-xl text-left hover:shadow-sm transition-shadow">
                   <div style={{ backgroundColor: colors.card, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><Icon size={19} color={colors.accentDark} strokeWidth={2} /></div>
@@ -1488,6 +1510,7 @@ export default function Offside() {
                       {matches && <span style={{ backgroundColor: colors.accentTint, color: colors.accentDark }} className="text-[10px] px-2 py-0.5 rounded-full font-medium">Probabilmente questo</span>}
                     </div>
                     <p style={{ color: colors.mutedInk }} className="text-sm">{data.subtitle}{hasProgress ? ' · in corso' : ''}</p>
+                    <p style={{ color: colors.accentDark }} className="text-xs font-medium mt-0.5">~{weeksEstimate} settimane, gravità media</p>
                   </div>
                   <ChevronRight size={20} color={colors.mutedInk} className="flex-shrink-0" />
                 </button>
@@ -1752,17 +1775,44 @@ export default function Offside() {
                     </div>
 
                     {completedCount === phase.exercises.length && phase.exercises.length > 0 && (
-                      <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-4 flex items-center gap-3 os-fadein shadow-md">
-                        <div style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
-                          <Trophy size={19} color={colors.accent} strokeWidth={2} />
+                      activePhase === injury.phases.length - 1 ? (
+                        <div style={{ background: 'linear-gradient(160deg, #16283A 0%, #0A1118 100%)', border: `1px solid ${colors.accent}55` }} className="rounded-xl p-5 mb-4 relative overflow-hidden os-fadein shadow-lg">
+                          <svg className="absolute inset-0 w-full h-full opacity-[0.08]" viewBox="0 0 300 150" fill="none" preserveAspectRatio="xMidYMid slice">
+                            <circle cx="150" cy="20" r="120" stroke={colors.accent} strokeWidth="1.5" />
+                          </svg>
+                          <div className="relative text-center">
+                            <div style={{ backgroundColor: 'rgba(255,255,255,0.1)', border: `1.5px solid ${colors.accent}` }} className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3">
+                              <Trophy size={26} color={colors.accent} strokeWidth={2} />
+                            </div>
+                            <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase mb-1">Percorso completato</p>
+                            <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-lg font-bold mb-2">{injury.label}</p>
+                            <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed mb-4 max-w-xs mx-auto">Hai portato a termine tutte le fasi del percorso guidato. Se ti senti pronto per il rientro pieno, un ultimo controllo con un professionista non fa mai male.</p>
+                            <button
+                              onClick={async () => {
+                                const text = `Ho completato il percorso di recupero da ${injury.label.toLowerCase()} su Offside — tutte le fasi fatte. Si torna in campo! 💪`;
+                                try {
+                                  if (navigator.share) await navigator.share({ text });
+                                  else if (navigator.clipboard) { await navigator.clipboard.writeText(text); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); }
+                                } catch (err) {}
+                              }}
+                              style={{ backgroundColor: colors.accent, color: '#101B26' }}
+                              className="os-focus flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold mx-auto"
+                            >
+                              <Share2 size={13} />{shareCopied ? 'Copiato' : 'Condividi il traguardo'}
+                            </button>
+                          </div>
                         </div>
-                        <div>
-                          <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-semibold">Fase completata</p>
-                          <p style={{ color: '#B9C4CF' }} className="text-xs leading-snug">
-                            {activePhase < injury.phases.length - 1 ? 'Quando ti senti pronto, passa alla fase successiva in alto.' : 'Ultima fase: controlla bene i criteri prima del rientro.'}
-                          </p>
+                      ) : (
+                        <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-4 flex items-center gap-3 os-fadein shadow-md">
+                          <div style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
+                            <Trophy size={19} color={colors.accent} strokeWidth={2} />
+                          </div>
+                          <div>
+                            <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-semibold">Fase completata</p>
+                            <p style={{ color: '#B9C4CF' }} className="text-xs leading-snug">Quando ti senti pronto, passa alla fase successiva in alto.</p>
+                          </div>
                         </div>
-                      </div>
+                      )
                     )}
 
                     <div className="flex items-center justify-between mb-1">
