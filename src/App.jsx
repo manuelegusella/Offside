@@ -6,7 +6,7 @@ import {
   Calendar, Scale, Dumbbell, Move, Wind, Timer, Pause, Pencil, Target,
   HelpCircle, PlayCircle, Flame, Share2, ClipboardCheck, Check, Gauge, Waves,
   Aperture, PersonStanding, Ruler, Sprout, RotateCw, CircleDashed, ShieldAlert,
-  Snowflake, Bandage, ArrowUp, Trophy,
+  Snowflake, Bandage, ArrowUp, Trophy, Video
 } from 'lucide-react';
 
 const colors = {
@@ -54,9 +54,6 @@ function dailyGuidance(feeling, stiffness) {
 }
 
 // Tempistiche verificate su fonti ortopediche/fisioterapiche (ago 2026).
-// I criteri di avanzamento sono un autocontrollo orientativo, non un test
-// clinico. Alcuni infortuni hanno "specialRedFlags" aggiuntivi, mostrati
-// insieme ai segnali generali quando quell'infortunio è selezionato.
 const injuriesData = {
   ankle: {
     relatedInjuries: ['calf', 'knee'], relatedReason: 'La caviglia instabile fa lavorare di più polpaccio e ginocchio per compensare l\'equilibrio.',
@@ -78,7 +75,7 @@ const injuriesData = {
         criteriaToAdvance: ['Riesci a camminare senza zoppicare in modo evidente', 'Il gonfiore è chiaramente diminuito rispetto ai primi giorni'],
         exercises: [
           { text: 'Equilibrio su una gamba sola, 30 secondi (poi a occhi chiusi se comodo)', cat: 'balance' },
-          { text: 'Rinforzo con elastico in tutte le direzioni (2-3 serie da 12-15 per direzione, come punto di partenza)', cat: 'strength' },
+          { text: 'Rinforzo con elastico in tutte le direzioni (2-3 serie da 12-15 per direzione)', cat: 'strength' },
           { text: 'Calf raises a corpo libero (3 serie da 12-15, aumenta se non c\'è dolore)', cat: 'strength' },
           { text: 'Cammino su superfici leggermente instabili', cat: 'balance' },
         ] },
@@ -107,15 +104,15 @@ const injuriesData = {
           { text: 'Cammina normalmente se ben tollerato', cat: 'rest' },
           { text: 'Isometria: sollevati leggermente sulle punte e mantieni la posizione (30-45 secondi, 4-5 volte)', cat: 'hold' },
         ] },
-      { name: 'Rinforzo progressivo', why: 'Il rinforzo eccentrico (allungamento del tendine sotto carico) ha più evidenza scientifica per i tendini, ma va introdotto con gradualità — i tendini si adattano molto più lentamente dei muscoli.',
-        criteriaToAdvance: ['Riesci a camminare normalmente senza dolore a riposo', 'Il dolore nelle attività quotidiane resta lieve (non peggiora nel tempo)'],
+      { name: 'Rinforzo progressivo', why: 'Il rinforzo eccentrico (allungamento del tendine sotto carico) ha più evidenza scientifica per i tendini, ma va introdotto con gradualità.',
+        criteriaToAdvance: ['Riesci a camminare normalmente senza dolore a riposo', 'Il dolore nelle attività quotidiane resta lieve'],
         exercises: [
-          { text: 'Calf raises eccentrici: sali su due gambe, scendi lentamente su una sola (3 serie da 10-15, come punto di partenza)', cat: 'strength' },
+          { text: 'Calf raises eccentrici: sali su due gambe, scendi lentamente su una sola (3 serie da 10-15)', cat: 'strength' },
           { text: 'Aumenta gradualmente carico e ripetizioni settimana dopo settimana', cat: 'strength' },
           { text: 'Stretching dolce del polpaccio, senza forzare', cat: 'stretch' },
         ] },
       { name: 'Ritorno allo sport', why: 'Anche senza dolore, il tendine potrebbe non essere ancora pronto per sprint e salti ripetuti: qui più che altrove vale la regola di non affrettare.',
-        criteriaToAdvance: ['Riesci a fare calf raises su due gambe senza dolore significativo', 'Il dolore il giorno dopo l\'allenamento non peggiora rispetto al giorno prima'],
+        criteriaToAdvance: ['Riesci a fare calf raises su due gambe senza dolore significativo', 'Il dolore il giorno dopo l\'allenamento non peggiora'],
         exercises: [
           { text: 'Corsa progressiva, aumentando distanza e intensità con calma', cat: 'run' },
           { text: 'Salti e cambi di direzione introdotti per ultimi', cat: 'strength' },
@@ -138,10 +135,10 @@ const injuriesData = {
           { text: 'Mantieni attività ben tollerate (spesso la bici leggera va bene)', cat: 'rest' },
           { text: 'Squat isometrico a parete, breve durata (20-30 secondi, 3-4 volte)', cat: 'hold' },
         ] },
-      { name: 'Rinforzo progressivo', why: 'Il rinforzo di quadricipite E anca/gluteo è centrale — spesso l\'anca viene trascurata ma è molto rilevante. Quanto più a lungo il dolore è presente prima di iniziare, tanto più lungo tende a essere il recupero.',
+      { name: 'Rinforzo progressivo', why: 'Il rinforzo di quadricipite E anca/gluteo è centrale — spesso l\'anca viene trascurata ma è molto rilevante.',
         criteriaToAdvance: ['Riesci a salire/scendere le scale con dolore lieve o assente', 'Lo squat isometrico a parete non scatena dolore acuto'],
         exercises: [
-          { text: 'Squat controllati, aumenta gradualmente la profondità (2-3 serie da 10-12, come punto di partenza)', cat: 'strength' },
+          { text: 'Squat controllati, aumenta gradualmente la profondità (2-3 serie da 10-12)', cat: 'strength' },
           { text: 'Step-up bassi (2-3 serie da 10-12 per gamba)', cat: 'strength' },
           { text: 'Rinforzo abduttori e gluteo medio (2-3 serie da 15)', cat: 'strength' },
           { text: 'Leg press a range parziale se disponibile (3 serie da 10-12)', cat: 'strength' },
@@ -164,7 +161,7 @@ const injuriesData = {
       severo: { dayThresholds: [21, 42], totalEstimateDays: 84 },
     },
     phases: [
-      { name: 'Protezione', why: 'Il legamento collaterale mediale stabilizza il ginocchio nei movimenti laterali, tipici dei contrasti. Nei primi giorni serve proteggerlo da stress laterali. Buona notizia: rispetto ad altri legamenti, guarisce relativamente bene anche nei casi più seri.',
+      { name: 'Protezione', why: 'Il legamento collaterale mediale stabilizza il ginocchio nei movimenti laterali. Nei primi giorni serve proteggerlo da stress laterali.',
         exercises: [
           { text: 'Cammino nei limiti del dolore, evita torsioni e movimenti laterali bruschi', cat: 'rest' },
           { text: 'Elevazione della gamba quando possibile', cat: 'rest' },
@@ -262,7 +259,7 @@ const injuriesData = {
       severo: { dayThresholds: [30, 70], totalEstimateDays: 160 },
     },
     phases: [
-      { name: 'Riduzione carico', why: 'La bandelletta ileotibiale scorre lungo il lato esterno della coscia fino al ginocchio: il dolore da sovraccarico peggiora con la corsa ripetuta, specialmente in discesa. Ridurre temporaneamente il volume aiuta a calmare l\'irritazione.',
+      { name: 'Riduzione carico', why: 'La bandelletta ileotibiale scorre lungo il lato esterno della coscia fino al ginocchio: il dolore da sovraccarico peggiora con la corsa ripetuta, specialmente in discesa.',
         exercises: [
           { text: 'Riduci temporaneamente la corsa, specialmente in discesa, se scatena dolore persistente', cat: 'rest' },
           { text: 'Sostituisci con attività a basso impatto se tollerate (bici con sella alta)', cat: 'rest' },
@@ -293,7 +290,7 @@ const injuriesData = {
       severo: { dayThresholds: [35, 84], totalEstimateDays: 200 },
     },
     phases: [
-      { name: 'Riduzione carico', why: 'Osgood-Schlatter è un\'infiammazione del punto in cui il tendine rotuleo si attacca alla tibia, tipica durante la crescita, causata da sovraccarico ripetuto (salti, sprint). Non è una lesione grave, ma richiede gestione del carico più che riposo assoluto.',
+      { name: 'Riduzione carico', why: 'Osgood-Schlatter è un\'infiammazione del punto in cui il tendine rotuleo si attacca alla tibia, tipica durante la crescita. Non è una lesione grave, ma richiede gestione del carico.',
         exercises: [
           { text: 'Riduci temporaneamente salti e sprint se scatenano dolore persistente', cat: 'rest' },
           { text: 'Applica ghiaccio dopo l\'attività se il dolore è presente', cat: 'rest' },
@@ -306,12 +303,12 @@ const injuriesData = {
           { text: 'Squat controllati in range limitato, senza dolore (2-3 serie da 10)', cat: 'strength' },
           { text: 'Stretching quotidiano di quadricipite e ischiocrurali', cat: 'stretch' },
         ] },
-      { name: 'Gestione del rientro', why: 'Osgood-Schlatter tende ad avere alti e bassi durante la crescita: l\'obiettivo realistico è gestire i sintomi durante lo sport, non eliminarli del tutto finché la crescita non è completa.',
+      { name: 'Gestione del rientro', why: 'L\'obiettivo realistico è gestire i sintomi durante lo sport, non eliminarli del tutto finché la crescita non è completa.',
         criteriaToAdvance: ['Riesci ad allenarti senza dolore che peggiora nei giorni successivi', 'Il dolore non compare più a riposo'],
         exercises: [
           { text: 'Corsa e salti reintrodotti gradualmente, monitorando la risposta il giorno dopo', cat: 'run' },
-          { text: 'Riduci temporaneamente l\'attività nei periodi di dolore più acuto, anche a percorso avanzato', cat: 'rest' },
-          { text: 'Parlane con un fisioterapista se il dolore limita spesso l\'attività: esistono strategie specifiche per l\'età di crescita', cat: 'rest' },
+          { text: 'Riduci temporaneamente l\'attività nei periodi di dolore più acuto', cat: 'rest' },
+          { text: 'Parlane con un fisioterapista se il dolore limita spesso l\'attività', cat: 'rest' },
         ] },
     ],
   },
@@ -330,10 +327,10 @@ const injuriesData = {
           { text: 'Isometria leggera: da seduto, spingi il tallone contro il pavimento (tenuta 20-30 secondi, 3-4 volte)', cat: 'hold' },
           { text: 'Evita stretching aggressivo in questi giorni', cat: 'rest' },
         ] },
-      { name: 'Recupero attivo', why: 'Si reintroduce gradualmente carico e allungamento controllato. Gli hamstring hanno il tasso di recidiva più alto tra tutti gli strappi muscolari se il rientro è troppo affrettato.',
+      { name: 'Recupero attivo', why: 'Gli hamstring hanno il tasso di recidiva più alto tra tutti gli strappi muscolari se il rientro è troppo affrettato. Si reintroduce gradualmente carico e allungamento.',
         criteriaToAdvance: ['Riesci a camminare senza zoppicare', 'L\'isometria leggera non scatena dolore acuto'],
         exercises: [
-          { text: 'Nordic curl assistito, range limitato all\'inizio (2-3 serie da 5-6, come punto di partenza)', cat: 'strength' },
+          { text: 'Nordic curl assistito, range limitato all\'inizio (2-3 serie da 5-6)', cat: 'strength' },
           { text: 'Ponte glutei/hamstring, bridge (3 serie da 12-15)', cat: 'strength' },
           { text: 'Stretching dolce e progressivo, mai fino al dolore acuto', cat: 'stretch' },
           { text: 'Rinforzo eccentrico leggero', cat: 'strength' },
@@ -397,10 +394,10 @@ const injuriesData = {
         criteriaToAdvance: ['Il gonfiore acuto è stabile o in diminuzione, non più in aumento', 'Riesci a muovere l\'articolazione vicina senza dolore acuto'],
         exercises: [
           { text: 'Mobilità dolce e progressiva della zona colpita', cat: 'stretch' },
-          { text: 'Rinforzo leggero quando il dolore lo permette (2 serie da 12-15, solo se indolore)', cat: 'strength' },
+          { text: 'Rinforzo leggero quando il dolore lo permette (2 serie da 12-15)', cat: 'strength' },
           { text: 'Stretching gentile, mai forzato', cat: 'stretch' },
         ] },
-      { name: 'Rientro in campo', why: 'Le contusioni importanti alla coscia hanno un rischio di miosite ossificante se il rientro è troppo affrettato: un motivo in più per non accelerare, specialmente nei casi più gonfi/dolorosi.',
+      { name: 'Rientro in campo', why: 'Le contusioni importanti alla coscia hanno un rischio di miosite ossificante se il rientro è troppo affrettato.',
         criteriaToAdvance: ['Riesci a fare stretching gentile della zona senza dolore acuto', 'La forza sta tornando, anche se non ancora completa'],
         exercises: [
           { text: 'Corsa progressiva', cat: 'run' },
@@ -498,161 +495,6 @@ const injuriesData = {
           { text: 'Corsa progressiva su superfici non troppo dure', cat: 'run' },
           { text: 'Salti e scatti introdotti per ultimi', cat: 'run' },
           { text: 'Valuta calzature con un buon supporto dell\'arco durante il recupero', cat: 'rest' },
-        ] },
-    ],
-  },
-  groin: {
-    relatedInjuries: ['hipflexor', 'piriformis'], relatedReason: 'Adduttori, flessori dell\'anca e piriforme lavorano insieme in ogni gesto di calcio e corsa.',
-    label: 'Pubalgia / stiramento adduttori', subtitle: 'Inguine e adduttori', icon: ArrowLeftRight, mechanismTags: ['acute', 'overuse'],
-    severityData: {
-      lieve: { dayThresholds: [5, 10], totalEstimateDays: 21 },
-      moderato: { dayThresholds: [10, 28], totalEstimateDays: 56 },
-      severo: { dayThresholds: [21, 56], totalEstimateDays: 168 },
-    },
-    phases: [
-      { name: 'Protezione', why: 'La zona inguinale è sollecitata in ogni calcio e cambio di direzione. Serve ridurre i movimenti che scatenano dolore prima di provare a rinforzare.',
-        exercises: [
-          { text: 'Riduci i movimenti che scatenano dolore (calci, cambi di direzione bruschi)', cat: 'rest' },
-          { text: 'Isometria leggera: da sdraiato, schiaccia dolcemente un cuscino tra le ginocchia (tenuta 15-20 secondi, 4-5 volte)', cat: 'hold' },
-          { text: 'Cammino nei limiti del dolore', cat: 'rest' },
-        ] },
-      { name: 'Recupero attivo', why: 'La pubalgia tende a cronicizzare se il rientro è affrettato — è tra gli infortuni dove la pazienza conta di più: qui il rinforzo va aumentato con calma, insieme alla stabilità del bacino.',
-        criteriaToAdvance: ['Riesci a camminare senza dolore evidente', 'L\'isometria leggera degli adduttori non scatena dolore acuto'],
-        exercises: [
-          { text: 'Rinforzo isometrico degli adduttori, intensità crescente (3-4 serie da 8-10 tenute)', cat: 'strength' },
-          { text: 'Stretching dolce degli adduttori', cat: 'stretch' },
-          { text: 'Esercizi di stabilità del bacino e del core (2-3 serie da 30-45 secondi)', cat: 'strength' },
-        ] },
-      { name: 'Rientro in campo', why: 'Calci, sprint e cambi di direzione laterali vanno reintrodotti per ultimi: sono i gesti che sollecitano di più questa zona.',
-        criteriaToAdvance: ['Riesci a fare rinforzo isometrico a intensità moderata senza dolore', 'Nessun peggioramento il giorno dopo — qui affrettarsi rischia di più'],
-        exercises: [
-          { text: 'Cambi di direzione progressivi', cat: 'run' },
-          { text: 'Calci a bassa intensità, poi progressivi', cat: 'strength' },
-          { text: 'Sprint e accelerazioni laterali prima del rientro in gruppo', cat: 'run' },
-        ] },
-    ],
-  },
-  hipflexor: {
-    relatedInjuries: ['groin', 'quad'], relatedReason: 'Il flessore dell\'anca lavora a stretto contatto con adduttori e quadricipite nel gesto del calcio.',
-    label: 'Stiramento flessore dell\'anca', subtitle: 'Ileopsoas, gesto del calcio', icon: Compass, mechanismTags: ['acute'],
-    severityData: {
-      lieve: { dayThresholds: [5, 10], totalEstimateDays: 21 },
-      moderato: { dayThresholds: [10, 24], totalEstimateDays: 42 },
-      severo: { dayThresholds: [18, 49], totalEstimateDays: 120 },
-    },
-    phases: [
-      { name: 'Protezione', why: 'Il flessore dell\'anca è il muscolo principale nel gesto del calcio al pallone: dopo uno stiramento serve ridurre quel movimento nei primi giorni.',
-        exercises: [
-          { text: 'Riduci calci e movimenti di flessione dell\'anca ripetuti', cat: 'rest' },
-          { text: 'Isometria leggera: solleva il ginocchio verso il petto contro una leggera resistenza (tenuta 15-20 secondi, 4-5 volte)', cat: 'hold' },
-          { text: 'Cammino nei limiti del dolore', cat: 'rest' },
-        ] },
-      { name: 'Recupero attivo', why: 'Si reintroduce gradualmente il movimento di flessione dell\'anca sotto carico controllato.',
-        criteriaToAdvance: ['Riesci a camminare senza dolore evidente', 'L\'isometria leggera non scatena dolore acuto'],
-        exercises: [
-          { text: 'Rinforzo progressivo del flessore dell\'anca con elastico (2-3 serie da 12-15)', cat: 'strength' },
-          { text: 'Stretching dolce, mai forzato', cat: 'stretch' },
-          { text: 'Esercizi di stabilità del bacino (2-3 serie da 30-45 secondi)', cat: 'strength' },
-        ] },
-      { name: 'Rientro in campo', why: 'Il calcio al pallone e lo sprint richiedono al flessore dell\'anca di lavorare velocemente: va riportato a tollerare quella velocità gradualmente.',
-        criteriaToAdvance: ['Riesci a fare il rinforzo con elastico senza dolore significativo', 'Nessun peggioramento il giorno dopo'],
-        exercises: [
-          { text: 'Calci a bassa intensità, poi progressivi', cat: 'strength' },
-          { text: 'Corsa progressiva con affondo del ginocchio', cat: 'run' },
-          { text: 'Sprint e cambi di ritmo prima del rientro in gruppo', cat: 'run' },
-        ] },
-    ],
-  },
-  piriformis: {
-    relatedInjuries: ['lowback', 'trochanteric'], relatedReason: 'Piriforme, lombare e anca esterna sono strettamente collegati nella stabilità del bacino.',
-    label: 'Sindrome del piriforme', subtitle: 'Muscolo dei glutei, spesso confuso con la lombalgia', icon: CircleDashed, mechanismTags: ['overuse'],
-    severityData: {
-      lieve: { dayThresholds: [7, 14], totalEstimateDays: 28 },
-      moderato: { dayThresholds: [14, 28], totalEstimateDays: 56 },
-      severo: { dayThresholds: [21, 56], totalEstimateDays: 150 },
-    },
-    phases: [
-      { name: 'Riduzione carico', why: 'Il muscolo piriforme, quando irritato, può comprimere il nervo sciatico e dare dolore che scende lungo la gamba — spesso viene scambiato per un problema lombare. Nei primi giorni si riduce quello che scatena il dolore, senza fermarsi del tutto.',
-        exercises: [
-          { text: 'Riduci temporaneamente stare seduto a lungo o correre se scatenano dolore', cat: 'rest' },
-          { text: 'Stretching dolce: da sdraiato, porta il ginocchio verso il petto e leggermente verso il lato opposto (tenuta 20-30 secondi, 3-4 volte)', cat: 'stretch' },
-          { text: 'Ghiaccio nei momenti più dolorosi', cat: 'rest' },
-        ] },
-      { name: 'Recupero attivo', why: 'Il rinforzo dei glutei e la mobilità dell\'anca aiutano a scaricare il piriforme dal lavoro eccessivo che spesso lo irrita.',
-        criteriaToAdvance: ['Il dolore che scende lungo la gamba è chiaramente diminuito', 'Riesci a stare seduto per periodi normali senza dolore che peggiora'],
-        exercises: [
-          { text: 'Rinforzo del gluteo medio con elastico (2-3 serie da 15 per lato)', cat: 'strength' },
-          { text: 'Stretching della muscolatura glutea e dell\'anca', cat: 'stretch' },
-          { text: 'Auto-massaggio con pallina o rullo sulla zona, se tollerato', cat: 'stretch' },
-        ] },
-      { name: 'Ritorno allo sport', why: 'Corsa e cambi di direzione vanno reintrodotti gradualmente, mantenendo il rinforzo dei glutei per evitare che il piriforme torni a sovraccaricarsi.',
-        criteriaToAdvance: ['Riesci a correre leggero senza dolore che scende lungo la gamba', 'Nessun peggioramento dopo attività quotidiane più intense'],
-        exercises: [
-          { text: 'Corsa progressiva', cat: 'run' },
-          { text: 'Cambi di direzione graduali', cat: 'run' },
-          { text: 'Mantieni il rinforzo dei glutei anche dopo la scomparsa del dolore, per prevenire ricadute', cat: 'strength' },
-        ] },
-    ],
-  },
-  trochanteric: {
-    relatedInjuries: ['knee', 'itband'], relatedReason: 'Un gluteo medio debole non stabilizza solo l\'anca: si ripercuote fino al ginocchio.',
-    label: 'Borsite trocanterica', subtitle: 'Fianco esterno, dolore da sdraiato su un lato', icon: Target, mechanismTags: ['overuse'],
-    severityData: {
-      lieve: { dayThresholds: [10, 21], totalEstimateDays: 42 },
-      moderato: { dayThresholds: [21, 42], totalEstimateDays: 84 },
-      severo: { dayThresholds: [35, 84], totalEstimateDays: 200 },
-    },
-    phases: [
-      { name: 'Riduzione carico', why: 'La borsa che protegge l\'anca esterna si infiamma per attrito ripetuto. Ridurre temporaneamente le posizioni che comprimono la zona (stare sdraiati su quel lato, stare a lungo in piedi) aiuta a calmarla.',
-        exercises: [
-          { text: 'Evita di dormire sul lato dolente per qualche notte', cat: 'rest' },
-          { text: 'Riduci temporaneamente corsa e scale se scatenano dolore', cat: 'rest' },
-          { text: 'Ghiaccio sulla zona esterna dell\'anca, a intervalli', cat: 'rest' },
-        ] },
-      { name: 'Rinforzo progressivo', why: 'Il rinforzo del gluteo medio è centrale: un\'anca debole in quella zona fa lavorare di più la borsa a ogni passo.',
-        criteriaToAdvance: ['Riesci a stare sdraiato sul fianco senza dolore acuto', 'Il dolore camminando è chiaramente diminuito'],
-        exercises: [
-          { text: 'Rinforzo del gluteo medio: sollevamento gamba laterale (2-3 serie da 15 per lato)', cat: 'strength' },
-          { text: 'Stretching della banda ileotibiale', cat: 'stretch' },
-          { text: 'Cammino su superficie piana, aumenta gradualmente la distanza', cat: 'rest' },
-        ] },
-      { name: 'Ritorno allo sport', why: 'Corsa e salti vanno reintrodotti con calma, mantenendo il rinforzo dell\'anca per evitare che il sovraccarico si ripresenti.',
-        criteriaToAdvance: ['Riesci a correre leggero senza dolore sul fianco', 'Nessun dolore dopo attività quotidiane più intense'],
-        exercises: [
-          { text: 'Corsa progressiva', cat: 'run' },
-          { text: 'Salti e cambi di direzione introdotti per ultimi', cat: 'run' },
-          { text: 'Mantieni il rinforzo del gluteo medio anche dopo la scomparsa del dolore', cat: 'strength' },
-        ] },
-    ],
-  },
-  lcl: {
-    relatedInjuries: ['mcl', 'meniscus'], relatedReason: 'Come il collaterale mediale, lavora insieme al menisco per stabilizzare il ginocchio nei movimenti laterali.',
-    label: 'Distorsione collaterale laterale', subtitle: 'Legamento esterno del ginocchio', icon: ShieldAlert, mechanismTags: ['acute'],
-    severityData: {
-      lieve: { dayThresholds: [7, 18], totalEstimateDays: 35 },
-      moderato: { dayThresholds: [14, 35], totalEstimateDays: 70 },
-      severo: { dayThresholds: [21, 49], totalEstimateDays: 150 },
-    },
-    phases: [
-      { name: 'Protezione', why: 'Il legamento collaterale laterale stabilizza il ginocchio contro le sollecitazioni verso l\'interno. Rispetto al collaterale mediale è meno comune ma tende a essere seguito più da vicino: se senti instabilità vera, non solo dolore, vale la pena farlo controllare presto.',
-        exercises: [
-          { text: 'Cammino nei limiti del dolore, evita torsioni', cat: 'rest' },
-          { text: 'Elevazione della gamba quando possibile', cat: 'rest' },
-          { text: 'Contrazioni isometriche leggere del quadricipite (tenuta 20-30 secondi, 3-4 volte)', cat: 'hold' },
-        ] },
-      { name: 'Recupero attivo', why: 'Si reintroduce movimento e carico controllato, senza ancora sollecitare il ginocchio con stress verso l\'interno.',
-        criteriaToAdvance: ['Riesci a camminare senza sensazione di cedimento del ginocchio', 'Il gonfiore è chiaramente diminuito'],
-        exercises: [
-          { text: 'Squat controllati in range limitato (2-3 serie da 10)', cat: 'strength' },
-          { text: 'Rinforzo di quadricipite e ischiocrurali (2-3 serie da 12)', cat: 'strength' },
-          { text: 'Equilibrio su una gamba sola, senza torsioni', cat: 'balance' },
-        ] },
-      { name: 'Rientro in campo', why: 'Prima di tornare ai contrasti e ai cambi di direzione, il ginocchio deve tollerare stress laterali senza cedere.',
-        criteriaToAdvance: ['Riesci a fare squat senza dolore sul lato esterno del ginocchio', 'Nessuna instabilità percepita nei movimenti quotidiani'],
-        exercises: [
-          { text: 'Cambi di direzione progressivi, partendo da angoli ampi', cat: 'run' },
-          { text: 'Corsa con curve controllate', cat: 'run' },
-          { text: 'Contatti leggeri e contrasti controllati prima del rientro in gruppo', cat: 'run' },
         ] },
     ],
   },
@@ -801,7 +643,6 @@ function BodyDiagram({ onSelectRegion }) {
         @keyframes os-radar { 0% { r: 4; opacity: 0.9; } 100% { r: 30; opacity: 0; } }
         .os-radar-ring { animation: os-radar 0.55s ease-out; transform-origin: center; }
       `}</style>
-      {/* Corpo decorativo, non interattivo */}
       <circle cx="100" cy="26" r="19" fill={colors.hairline} />
       <rect x="94" y="43" width="12" height="9" fill={colors.hairline} />
       <rect x="68" y="51" width="64" height="72" rx="20" fill={colors.hairline} />
@@ -837,6 +678,24 @@ function BodyDiagram({ onSelectRegion }) {
   );
 }
 
+// Componente Placeholder Elegante per le GIF
+function ExerciseMediaPlaceholder() {
+  return (
+    <div style={{ backgroundColor: '#0A1118', border: `1px solid ${colors.hairline}` }} className="mt-2.5 rounded-xl overflow-hidden relative">
+      <div className="aspect-video w-full flex flex-col items-center justify-center p-4 relative">
+        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ background: 'radial-gradient(circle at center, #22C55E 0%, transparent 70%)' }}></div>
+        <Video size={28} color={colors.accent} className="mb-2 opacity-80" strokeWidth={1.5} />
+        <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#FFFFFF' }} className="text-xs font-semibold text-center z-10 tracking-wide uppercase">
+          Animazione / Video Esercizio
+        </p>
+        <p style={{ color: '#A9B7C4' }} className="text-[10px] text-center mt-1 z-10 max-w-[200px] leading-relaxed">
+          Spazio riservato per inserire la tua GIF (mp4/webp) dell'esecuzione corretta.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function loadFontsOnce() {
   if (typeof document === 'undefined') return;
   if (document.getElementById('os-fonts')) return;
@@ -845,12 +704,6 @@ function loadFontsOnce() {
   link.rel = 'stylesheet';
   link.href = 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap';
   document.head.appendChild(link);
-}
-
-function scrollToId(id) {
-  if (typeof document === 'undefined') return;
-  const el = document.getElementById(id);
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function toISODate(d) { return d.toISOString().slice(0, 10); }
@@ -917,6 +770,9 @@ export default function Offside() {
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [deletingKey, setDeletingKey] = useState(null);
   const [playerPosition, setPlayerPosition] = useState(null);
+  
+  // Nuovo stato per l'esercizio attualmente aperto in visualizzazione video
+  const [activeVideo, setActiveVideo] = useState(null);
 
   useEffect(() => {
     loadFontsOnce();
@@ -936,9 +792,7 @@ export default function Offside() {
             setSelectedRegion(regionOfInjury(data.selectedInjury));
           }
         }
-      } catch (err) {
-        // Nessun dato salvato: si parte da zero.
-      } finally {
+      } catch (err) {} finally {
         setLoading(false);
       }
     })();
@@ -978,9 +832,11 @@ export default function Offside() {
     setSelectedRegion(regionOfInjury(key));
     setTrackerTab('oggi');
     setEditingSetup(false);
+    setActiveVideo(null);
     setScreen('tracker');
     persist({ selectedInjury: key, activePhase: suggested, progress, injuryDates, injurySeverities, dailyLog, playerPosition });
   };
+  
   const startTriage = () => { setTriageAnswers({ mechanism: null, pop: null, weight: null }); setTriageTag(null); setScreen('triage'); };
   const handleScenario = (scenario) => { setTriageTag(scenario.tag); openRegion(scenario.region); };
 
@@ -992,6 +848,7 @@ export default function Offside() {
     setInjurySeverities(nextSeverities);
     setEditingSetup(!injuryDates[key]);
     setTrackerTab('oggi');
+    setActiveVideo(null);
     setScreen('tracker');
     persist(snapshot({ selectedInjury: key, activePhase: 0, injurySeverities: nextSeverities }));
   };
@@ -1022,7 +879,7 @@ export default function Offside() {
   };
 
   const skipDate = () => { setEditingSetup(false); setPendingDate(''); };
-  const changePhase = (idx) => { setActivePhase(idx); persist(snapshot({ activePhase: idx })); };
+  const changePhase = (idx) => { setActivePhase(idx); setActiveVideo(null); persist(snapshot({ activePhase: idx })); };
 
   const toggleExercise = (exIdx) => {
     const pKey = `${selectedInjury}-${activePhase}`;
@@ -1156,9 +1013,7 @@ export default function Offside() {
         setShareCopied(true);
         setTimeout(() => setShareCopied(false), 2000);
       }
-    } catch (err) {
-      // Condivisione annullata dall'utente: nessuna azione necessaria.
-    }
+    } catch (err) {}
   };
 
   if (loading) {
@@ -1181,28 +1036,28 @@ export default function Offside() {
 
   if (screen === 'cover') {
     return (
-      <div style={{ background: 'radial-gradient(ellipse 120% 80% at 50% 0%, #16283A 0%, #0A1118 65%)', ...bodyFont }} className="w-full min-h-[100dvh] relative">
+      <div style={{ background: 'radial-gradient(ellipse 120% 80% at 50% 0%, #16283A 0%, #0A1118 65%)', ...bodyFont }} className="w-full min-h-[100dvh] relative flex flex-col">
         <style>{sharedStyle}</style>
-        <svg className="absolute inset-0 w-full h-full opacity-[0.07]" viewBox="0 0 400 560" fill="none" preserveAspectRatio="xMidYMid slice">
+        <svg className="absolute inset-0 w-full h-full opacity-[0.07] pointer-events-none" viewBox="0 0 400 560" fill="none" preserveAspectRatio="xMidYMid slice">
           <circle cx="200" cy="300" r="170" stroke={colors.accent} strokeWidth="1.5" />
           <circle cx="200" cy="300" r="230" stroke={colors.accent} strokeWidth="1" />
           <line x1="-20" y1="300" x2="420" y2="300" stroke={colors.accent} strokeWidth="1.5" />
           <circle cx="200" cy="300" r="3" fill={colors.accent} />
         </svg>
-        <div className="relative px-6 sm:px-10 pt-12 pb-8 flex flex-col min-h-screen">
+        <div className="relative px-6 sm:px-10 pt-12 pb-8 flex flex-col flex-1">
           <div className="flex items-center justify-between mb-5">
             <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `2px solid ${colors.accent}44` }} className="w-20 h-20 rounded-full flex items-center justify-center">
               <LogoMark size={38} color={colors.accent} />
             </div>
             <span style={{ ...displayFont, backgroundColor: '#17293D', color: colors.accent, letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full">Beta</span>
           </div>
-          <div className="flex-1">
-            <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.2em' }} className="text-xs font-semibold uppercase mb-3">Per chi in campo non ha un fisio a casa</p>
-            <h1 style={{ ...displayFont, letterSpacing: '0.01em' }} className="text-6xl sm:text-7xl font-bold leading-none mb-4">
+          
+          <div className="flex-1 flex flex-col justify-center mb-8">
+            <h1 style={{ ...displayFont, letterSpacing: '0.02em' }} className="text-[72px] sm:text-[84px] font-bold leading-none mb-1">
               <span style={{ color: '#FFFFFF' }}>OFF</span><span style={{ color: colors.accent }}>SIDE</span>
             </h1>
-            <p style={{ color: '#C4D3CC' }} className="text-lg sm:text-xl leading-snug font-medium max-w-sm">Il fisio che non hai in panchina.</p>
           </div>
+          
           <div className="mb-6">
             {['Ogni giorno una sessione. Costruisci la serie.',
               'Avanzi in base a come stai, non al calendario.',
@@ -1248,17 +1103,17 @@ export default function Offside() {
 
       <div style={{ borderBottom: `1px solid ${colors.hairline}` }} className="relative px-5 sm:px-8 pt-5 pb-4 flex items-center gap-3">
         <button onClick={goBack} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity" aria-label="Torna indietro">
-          <ArrowLeft size={16} color={colors.accent} />
+          <ArrowLeft size={16} color={colors.accentDark} />
         </button>
         <div className="flex-1 min-w-0">
-          <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">Offside</p>
+          <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">Offside</p>
           <h1 style={{ ...displayFont, color: colors.ink }} className="text-lg sm:text-xl font-semibold truncate">
             {screen === 'regions' ? 'Dove senti il problema?' : screen === 'triage' ? 'Non sai cosa hai?' : screen === 'firstaid' ? 'Primi soccorsi' : screen === 'injuries' ? regions[selectedRegion].label : 'Il tuo percorso'}
           </h1>
         </div>
         {screen === 'tracker' && injury && (
           <button onClick={shareProgress} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity" aria-label="Condividi il tuo percorso">
-            {shareCopied ? <Check size={15} color={colors.accent} /> : <Share2 size={15} color={colors.accent} />}
+            {shareCopied ? <Check size={15} color={colors.accentDark} /> : <Share2 size={15} color={colors.accentDark} />}
           </button>
         )}
       </div>
@@ -1300,12 +1155,12 @@ export default function Offside() {
                 </p>
                 <div className="space-y-2">
                   {activeInjuryKeys.map((key) => (
-                    <div key={key} style={{ backgroundColor: colors.accentDark }} className="flex items-stretch rounded-xl overflow-hidden">
+                    <div key={key} style={{ backgroundColor: colors.ink }} className="flex items-stretch rounded-xl overflow-hidden shadow-sm">
                       <button onClick={() => resumeInjury(key)} className="os-focus flex-1 flex items-center gap-3 px-4 py-3.5 text-left hover:opacity-90 transition-opacity min-w-0">
-                        <PlayCircle size={20} color="#FFFFFF" className="flex-shrink-0" />
+                        <PlayCircle size={20} color={colors.accent} className="flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p style={{ color: '#FFFFFF' }} className="text-sm font-medium truncate">{injuriesData[key].label}</p>
-                          <p style={{ color: '#B9CDE0' }} className="text-xs">Giorno {daysSince(injuryDates[key])}</p>
+                          <p style={{ color: '#A9B7C4' }} className="text-xs">Giorno {daysSince(injuryDates[key])}</p>
                         </div>
                       </button>
                       <button
@@ -1313,11 +1168,11 @@ export default function Offside() {
                           if (deletingKey === key) deleteInjuryData(key);
                           else { setDeletingKey(key); setTimeout(() => setDeletingKey((k) => (k === key ? null : k)), 3000); }
                         }}
-                        style={{ backgroundColor: deletingKey === key ? colors.red : 'rgba(255,255,255,0.1)' }}
+                        style={{ backgroundColor: deletingKey === key ? colors.red : 'rgba(255,255,255,0.05)' }}
                         className="os-focus flex-shrink-0 w-12 flex items-center justify-center transition-colors"
                         aria-label={deletingKey === key ? 'Conferma eliminazione' : 'Elimina questo percorso'}
                       >
-                        <X size={16} color="#FFFFFF" />
+                        <X size={16} color={deletingKey === key ? "#FFFFFF" : colors.mutedInk} />
                       </button>
                     </div>
                   ))}
@@ -1325,38 +1180,38 @@ export default function Offside() {
               </div>
             )}
 
-            <button onClick={() => setScreen('firstaid')} style={{ backgroundColor: colors.accent }} className="os-focus w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-3 hover:opacity-90 transition-opacity">
+            <button onClick={() => setScreen('firstaid')} style={{ backgroundColor: colors.accent }} className="os-focus w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-3 hover:opacity-90 transition-opacity shadow-sm">
               <div style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"><Snowflake size={20} color="#FFFFFF" /></div>
               <div className="flex-1">
                 <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-medium">Ti sei appena fatto male?</p>
-                <p style={{ color: '#DCFCE7' }} className="text-xs">Cosa fare nei primi minuti</p>
+                <p style={{ color: colors.ink, fontWeight: 500 }} className="text-xs opacity-80">Cosa fare nei primi minuti</p>
               </div>
-              <ChevronRight size={18} color="#DCFCE7" />
+              <ChevronRight size={18} color={colors.ink} className="opacity-60" />
             </button>
 
             <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase mb-2.5">Cos'è successo?</p>
             <div className="grid grid-cols-2 gap-2 mb-2">
               {injuryScenarios.map((sc, i) => (
-                <button key={i} onClick={() => handleScenario(sc)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus flex flex-col items-start gap-2 p-3 rounded-xl text-left hover:shadow-sm transition-shadow">
-                  <sc.icon size={18} color={colors.accent} strokeWidth={1.75} />
+                <button key={i} onClick={() => handleScenario(sc)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus flex flex-col items-start gap-2 p-3 rounded-xl text-left hover:border-green-400 transition-colors shadow-sm">
+                  <sc.icon size={18} color={colors.accentDark} strokeWidth={2} />
                   <span style={{ color: colors.ink }} className="text-xs leading-snug font-medium">{sc.label}</span>
                 </button>
               ))}
             </div>
-            <button onClick={startTriage} style={{ color: colors.accent }} className="os-focus text-xs underline hover:opacity-70 mb-6 block">Nessuno di questi — rispondi a 3 domande</button>
+            <button onClick={startTriage} style={{ color: colors.accentDark }} className="os-focus text-xs underline hover:opacity-70 mb-6 block">Nessuno di questi — rispondi a 3 domande</button>
 
             <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase text-center mb-3">Oppure tocca dove senti il problema</p>
             <div className="mb-6">
               <BodyDiagram onSelectRegion={openRegion} />
             </div>
 
-            <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.1em' }} className="text-xs font-semibold uppercase mb-3">Oppure scegli il distretto</p>
+            <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.1em' }} className="text-xs font-semibold uppercase mb-3">Scegli il distretto manualmente</p>
             <div className="space-y-2.5">
               {Object.entries(regions).map(([key, data]) => {
                 const Icon = data.icon;
                 return (
-                  <button key={key} onClick={() => openRegion(key)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-4 px-4 py-4 rounded-xl text-left hover:shadow-sm transition-shadow">
-                    <div style={{ backgroundColor: colors.card, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><Icon size={19} color={colors.accent} strokeWidth={1.75} /></div>
+                  <button key={key} onClick={() => openRegion(key)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-4 px-4 py-4 rounded-xl text-left hover:shadow-sm hover:border-gray-300 transition-all">
+                    <div style={{ backgroundColor: colors.accentTint, border: `1px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><Icon size={19} color={colors.accentDark} strokeWidth={2} /></div>
                     <div className="flex-1 min-w-0"><p style={{ ...displayFont, color: colors.ink }} className="text-base font-medium">{data.label}</p></div>
                     <ChevronRight size={20} color={colors.mutedInk} className="flex-shrink-0" />
                   </button>
@@ -1374,10 +1229,10 @@ export default function Offside() {
             </p>
             <div className="space-y-3 mb-6">
               {riceSteps.map((step, i) => (
-                <div key={i} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 flex gap-3">
+                <div key={i} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 flex gap-3 shadow-sm">
                   <div style={{ backgroundColor: colors.accentTint }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center relative">
-                    <step.icon size={20} color={colors.accent} strokeWidth={1.75} />
-                    <span style={{ ...displayFont, backgroundColor: colors.accent, color: '#FFFFFF' }} className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center">{step.letter}</span>
+                    <step.icon size={20} color={colors.accentDark} strokeWidth={2} />
+                    <span style={{ ...displayFont, backgroundColor: colors.accent, color: '#FFFFFF' }} className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shadow-sm">{step.letter}</span>
                   </div>
                   <div className="flex-1">
                     <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold mb-0.5">{step.title}</p>
@@ -1387,16 +1242,16 @@ export default function Offside() {
               ))}
             </div>
 
-            <div style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-6">
+            <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-6 shadow-sm">
               <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2">Da evitare nelle prime ore</p>
               <ul className="space-y-1">
                 {riceAvoid.map((item, i) => (
-                  <li key={i} style={{ color: colors.mutedInk }} className="text-sm flex gap-2"><span>—</span><span>{item}</span></li>
+                  <li key={i} style={{ color: colors.mutedInk }} className="text-sm flex gap-2"><span className="text-red-500">—</span><span>{item}</span></li>
                 ))}
               </ul>
             </div>
 
-            <button onClick={() => setScreen('regions')} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium">
+            <button onClick={() => setScreen('regions')} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium shadow-sm hover:opacity-90 transition-opacity">
               <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">Ora scegli dove hai male</span><ArrowRight size={16} />
             </button>
           </div>
@@ -1410,7 +1265,7 @@ export default function Offside() {
                 {mechanismOptions.map((opt) => (
                   <button key={opt.key} onClick={() => answerTriage('mechanism', opt.key)}
                     style={{ backgroundColor: triageAnswers.mechanism === opt.key ? colors.accent : colors.card, color: triageAnswers.mechanism === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.mechanism === opt.key ? colors.accent : colors.hairline}` }}
-                    className="os-focus w-full text-left px-4 py-3 rounded-lg text-sm transition-colors">{opt.label}</button>
+                    className="os-focus w-full text-left px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">{opt.label}</button>
                 ))}
               </div>
             </div>
@@ -1420,7 +1275,7 @@ export default function Offside() {
                 {popOptions.map((opt) => (
                   <button key={opt.key} onClick={() => answerTriage('pop', opt.key)}
                     style={{ backgroundColor: triageAnswers.pop === opt.key ? colors.accent : colors.card, color: triageAnswers.pop === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.pop === opt.key ? colors.accent : colors.hairline}` }}
-                    className="os-focus flex-1 text-center px-4 py-3 rounded-lg text-sm transition-colors">{opt.label}</button>
+                    className="os-focus flex-1 text-center px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">{opt.label}</button>
                 ))}
               </div>
             </div>
@@ -1430,7 +1285,7 @@ export default function Offside() {
                 {weightOptions.map((opt) => (
                   <button key={opt.key} onClick={() => answerTriage('weight', opt.key)}
                     style={{ backgroundColor: triageAnswers.weight === opt.key ? colors.accent : colors.card, color: triageAnswers.weight === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.weight === opt.key ? colors.accent : colors.hairline}` }}
-                    className="os-focus w-full text-left px-4 py-3 rounded-lg text-sm transition-colors">{opt.label}</button>
+                    className="os-focus w-full text-left px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">{opt.label}</button>
                 ))}
               </div>
             </div>
@@ -1446,7 +1301,7 @@ export default function Offside() {
               </div>
             )}
             {triageComplete && !triageRedirect && (
-              <button onClick={finishTriage} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5">
+              <button onClick={finishTriage} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 shadow-sm">
                 <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">Continua</span><ArrowRight size={16} />
               </button>
             )}
@@ -1462,7 +1317,7 @@ export default function Offside() {
               const matches = triageTag && data.mechanismTags.includes(triageTag);
               return (
                 <button key={key} onClick={() => chooseInjury(key)} style={{ backgroundColor: colors.card, border: `1px solid ${matches ? colors.accent : colors.hairline}` }} className="os-focus w-full flex items-center gap-4 px-4 py-4 rounded-xl text-left hover:shadow-sm transition-shadow">
-                  <div style={{ backgroundColor: colors.card, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><Icon size={19} color={colors.accent} strokeWidth={1.75} /></div>
+                  <div style={{ backgroundColor: colors.card, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><Icon size={19} color={colors.accentDark} strokeWidth={2} /></div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p style={{ ...displayFont, color: colors.ink }} className="text-base font-medium">{data.label}</p>
@@ -1497,7 +1352,7 @@ export default function Offside() {
             </div>
 
             {editingSetup ? (
-              <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 space-y-4 relative">
+              <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 space-y-4 relative shadow-sm">
                 <button onClick={skipDate} style={{ color: colors.mutedInk }} className="os-focus absolute top-3 right-3" aria-label="Chiudi"><X size={16} /></button>
                 <div>
                   <div className="flex items-center gap-2 mb-2.5 pr-6">
@@ -1510,19 +1365,19 @@ export default function Offside() {
                     ))}
                   </div>
                   {showSeverityInfo && (
-                    <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-3 space-y-2">
+                    <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-3 space-y-2 mt-3">
                       {Object.keys(severityLabels).map((sev) => (
                         <p key={sev} style={{ color: colors.mutedInk }} className="text-xs leading-relaxed"><span style={{ color: colors.ink, fontWeight: 600 }}>{severityLabels[sev]}: </span>{severityInfo[sev]}</p>
                       ))}
                     </div>
                   )}
 
-                  <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mt-3 relative overflow-hidden">
+                  <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mt-4 relative overflow-hidden">
                     <svg className="absolute bottom-0 left-0 w-full opacity-30" height="36" viewBox="0 0 200 36" preserveAspectRatio="none">
                       <path d="M0 34 Q 50 34 90 20 T 200 2" stroke={colors.accent} strokeWidth="2" fill="none" />
                     </svg>
                     <div className="relative">
-                      <p style={{ ...displayFont, color: '#A7D9BC', letterSpacing: '0.06em' }} className="text-[10px] font-semibold uppercase mb-1">Stima di recupero, gravità {severityLabels[severity].toLowerCase()}</p>
+                      <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.06em' }} className="text-[10px] font-semibold uppercase mb-1">Stima di recupero, gravità {severityLabels[severity].toLowerCase()}</p>
                       <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-2xl font-bold os-tabular mb-1">~{injury.severityData[severity].totalEstimateDays} giorni</p>
                       <p style={{ color: '#A9B7C4' }} className="text-[11px] leading-relaxed mb-3">Percorso indicativo, non una promessa — dipende da come risponde il tuo corpo e da quanto segui il percorso.</p>
                       <button
@@ -1534,7 +1389,7 @@ export default function Offside() {
                           } catch (err) {}
                         }}
                         style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#FFFFFF' }}
-                        className="os-focus flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium w-full"
+                        className="os-focus flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium w-full hover:bg-white/20 transition-colors"
                       >
                         <Share2 size={13} />{shareCopied ? 'Copiato' : 'Dillo alla squadra'}
                       </button>
@@ -1542,7 +1397,7 @@ export default function Offside() {
                   </div>
                 </div>
                 <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="pt-4">
-                  <p className="flex items-center gap-2 mb-3"><Calendar size={15} color={colors.accent} /><span style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">Quando è successo?</span></p>
+                  <p className="flex items-center gap-2 mb-3"><Calendar size={15} color={colors.accentDark} /><span style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">Quando è successo?</span></p>
                   <div className="flex flex-wrap gap-2 mb-3">
                     {dateChips.map((chip) => (
                       <button key={chip.label} onClick={() => { const d = new Date(); d.setDate(d.getDate() - chip.days); commitDate(toISODate(d)); }} style={{ backgroundColor: colors.accentTint, color: colors.accentDark }} className="os-focus px-3 py-1.5 rounded-full text-sm hover:opacity-80 transition-opacity">{chip.label}</button>
@@ -1564,18 +1419,18 @@ export default function Offside() {
             ) : (
               <>
                 <div style={{ backgroundColor: colors.laneBg }} className="flex gap-1 p-1 rounded-full mb-4">
-                  <button onClick={() => setTrackerTab('oggi')} style={{ backgroundColor: trackerTab === 'oggi' ? colors.card : 'transparent', color: trackerTab === 'oggi' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 py-2 rounded-full text-sm font-semibold transition-colors">Oggi</button>
-                  <button onClick={() => setTrackerTab('percorso')} style={{ backgroundColor: trackerTab === 'percorso' ? colors.card : 'transparent', color: trackerTab === 'percorso' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 py-2 rounded-full text-sm font-semibold transition-colors">Percorso</button>
+                  <button onClick={() => setTrackerTab('oggi')} style={{ backgroundColor: trackerTab === 'oggi' ? colors.card : 'transparent', color: trackerTab === 'oggi' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 py-2 rounded-full text-sm font-semibold transition-colors shadow-sm">Oggi</button>
+                  <button onClick={() => setTrackerTab('percorso')} style={{ backgroundColor: trackerTab === 'percorso' ? colors.card : 'transparent', color: trackerTab === 'percorso' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 py-2 rounded-full text-sm font-semibold transition-colors shadow-sm">Percorso</button>
                 </div>
 
                 {trackerTab === 'oggi' ? (
                   currentDate ? (
                     <>
                       <button onClick={() => setEditingSetup(true)} className="os-focus w-full text-left mb-3">
-                        <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4">
+                        <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 shadow-sm">
                           <div className="flex items-center justify-between mb-3">
                             <span style={{ ...displayFont, color: colors.mutedInk }} className="text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1">Corsia di recupero <Pencil size={11} className="ml-1" /></span>
-                            <span style={{ ...displayFont, color: colors.accent }} className="os-tabular text-xl font-bold">Giorno {dayCount}</span>
+                            <span style={{ ...displayFont, color: colors.accentDark }} className="os-tabular text-xl font-bold">Giorno {dayCount}</span>
                           </div>
                           <div className="flex gap-1 relative pt-1.5">
                             {segments.map((seg, i) => (
@@ -1584,17 +1439,17 @@ export default function Offside() {
                               </div>
                             ))}
                             <div
-                              className="absolute rounded-full os-fill"
+                              className="absolute rounded-full os-fill shadow-sm"
                               style={{
-                                width: '9px', height: '9px', top: 0, backgroundColor: colors.ink, border: `2px solid ${colors.accent}`,
-                                left: `calc(${Math.min(100, (dayCount / totalEstimateDays) * 100)}% - 4.5px)`,
+                                width: '10px', height: '10px', top: '1px', backgroundColor: colors.ink, border: `2px solid ${colors.accent}`,
+                                left: `calc(${Math.min(100, (dayCount / totalEstimateDays) * 100)}% - 5px)`,
                               }}
                             />
                           </div>
                           <div className="flex gap-1 mt-1.5">
                             {injury.phases.map((p, i) => (
                               <div key={i} style={{ flexGrow: segments[i]?.span || 1, flexBasis: 0 }} className="text-center">
-                                <span style={{ ...displayFont, color: i === activePhase ? colors.accent : colors.mutedInk }} className="text-[10px] font-semibold uppercase">F{i + 1}</span>
+                                <span style={{ ...displayFont, color: i === activePhase ? colors.accentDark : colors.mutedInk }} className="text-[10px] font-semibold uppercase">F{i + 1}</span>
                               </div>
                             ))}
                           </div>
@@ -1602,7 +1457,7 @@ export default function Offside() {
                         </div>
                       </button>
 
-                      <div style={{ backgroundColor: todayEntry.done ? colors.accentDark : colors.card, border: `1px solid ${todayEntry.done ? colors.accentDark : colors.hairline}` }} className="rounded-xl p-4 mb-5">
+                      <div style={{ backgroundColor: todayEntry.done ? colors.accentDark : colors.card, border: `1px solid ${todayEntry.done ? colors.accentDark : colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm transition-colors">
                         <div className="flex items-center justify-between mb-3">
                           <span style={{ ...displayFont, color: todayEntry.done ? '#FFFFFF' : colors.ink }} className="text-sm font-semibold capitalize">{formatTodayLabel()}</span>
                           {streak > 0 && (
@@ -1651,7 +1506,7 @@ export default function Offside() {
                             Magari oggi vacci piano — rivedi i segnali d'allarme in alto, e se il dolore è più forte del solito considera di aspettare prima di caricare.
                           </p>
                         ) : dailyGuidance(todayEntry.feeling, todayEntry.stiffness) && (
-                          <div style={{ backgroundColor: todayEntry.done ? 'rgba(255,255,255,0.1)' : colors.accentTint }} className="rounded-lg p-2.5 mb-3">
+                          <div style={{ backgroundColor: todayEntry.done ? 'rgba(255,255,255,0.1)' : colors.accentTint }} className="rounded-lg p-3 mb-3">
                             <p style={{ ...displayFont, color: todayEntry.done ? '#FFFFFF' : colors.accentDark }} className="text-xs font-semibold mb-0.5">{dailyGuidance(todayEntry.feeling, todayEntry.stiffness).label}</p>
                             <p style={{ color: todayEntry.done ? '#C9D8E5' : colors.accentDark }} className="text-[11px] leading-snug">{dailyGuidance(todayEntry.feeling, todayEntry.stiffness).detail}</p>
                           </div>
@@ -1660,7 +1515,7 @@ export default function Offside() {
                         <button
                           onClick={toggleToday}
                           style={{ backgroundColor: todayEntry.done ? 'rgba(255,255,255,0.15)' : colors.accentTint, color: todayEntry.done ? '#FFFFFF' : colors.accentDark, border: todayEntry.done ? '1px solid rgba(255,255,255,0.3)' : 'none' }}
-                          className="os-focus w-full flex items-center justify-center gap-2 rounded-lg py-3 transition-colors"
+                          className="os-focus w-full flex items-center justify-center gap-2 rounded-lg py-3 mt-2 transition-all hover:opacity-90"
                         >
                           {todayEntry.done ? <CheckCircle2 size={18} strokeWidth={2.25} /> : <Circle size={18} strokeWidth={1.75} />}
                           <span style={displayFont} className="text-sm font-semibold uppercase tracking-wide">
@@ -1670,8 +1525,8 @@ export default function Offside() {
                       </div>
                     </>
                   ) : (
-                    <button onClick={() => setEditingSetup(true)} style={{ color: colors.accent }} className="os-focus flex items-center gap-1.5 text-sm mb-5 hover:opacity-70">
-                      <Calendar size={14} />Aggiungi data e gravità per tracciare il recupero
+                    <button onClick={() => setEditingSetup(true)} style={{ color: colors.accentDark, backgroundColor: colors.accentTint }} className="os-focus w-full justify-center rounded-xl p-4 flex items-center gap-2 text-sm font-medium mb-5 hover:opacity-80 transition-opacity">
+                      <Calendar size={16} />Aggiungi data per sbloccare il tracker
                     </button>
                   )
                 ) : (
@@ -1683,7 +1538,7 @@ export default function Offside() {
                         const pProgress = progress[pKey] || {};
                         const pDone = p.exercises.length > 0 && p.exercises.filter((_, ei) => pProgress[ei]).length === p.exercises.length;
                         return (
-                          <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isActive ? colors.accent : colors.card, border: `1px solid ${isActive ? colors.accent : colors.hairline}`, color: isActive ? '#FFFFFF' : colors.ink }} className="os-focus flex-1 rounded-lg px-2 py-2.5 text-center transition-colors">
+                          <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isActive ? colors.accent : colors.card, border: `1px solid ${isActive ? colors.accent : colors.hairline}`, color: isActive ? '#FFFFFF' : colors.ink }} className="os-focus flex-1 rounded-lg px-2 py-2.5 text-center transition-colors shadow-sm">
                             <div style={displayFont} className="text-[11px] font-semibold uppercase tracking-wide flex items-center justify-center gap-1">Fase {i + 1}{pDone && <CheckCircle2 size={12} strokeWidth={2.5} />}</div>
                             <div className="text-[13px] mt-0.5" style={bodyFont}>{p.name}</div>
                           </button>
@@ -1693,26 +1548,26 @@ export default function Offside() {
 
                     <p style={{ color: colors.mutedInk }} className="text-xs mb-4 flex items-center gap-1.5 flex-wrap">
                       <span style={displayFont} className="uppercase tracking-wide font-medium">{phaseRangeLabel(activePhase, dayThresholds)}</span>
-                      <span>· tempistica indicativa per gravità {severityLabels[severity].toLowerCase()}</span>
+                      <span>· tempistica per gravità {severityLabels[severity].toLowerCase()}</span>
                     </p>
 
                     {phase.criteriaToAdvance && (
-                      <div style={{ backgroundColor: colors.accentTint, border: `1px solid ${colors.accent}33` }} className="rounded-xl p-4 mb-4">
+                      <div style={{ backgroundColor: colors.accentTint, border: `1px solid ${colors.accent}33` }} className="rounded-xl p-4 mb-4 shadow-sm">
                         <p className="flex items-center gap-2 mb-2">
                           <ClipboardCheck size={15} color={colors.accentDark} />
-                          <span style={{ ...displayFont, color: colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">Prima di considerarti in questa fase, chiediti</span>
+                          <span style={{ ...displayFont, color: colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">Prima di avanzare, chiediti</span>
                         </p>
                         <ul className="space-y-1 mb-1">
                           {phase.criteriaToAdvance.map((c, i) => (
                             <li key={i} style={{ color: colors.ink }} className="text-sm flex gap-2"><span style={{ color: colors.accentDark }}>—</span><span>{c}</span></li>
                           ))}
                         </ul>
-                        <p style={{ color: colors.accentDark }} className="text-[11px] mt-2">Un autocontrollo, non un test clinico — nel dubbio chiedi a un professionista.</p>
+                        <p style={{ color: colors.accentDark }} className="text-[11px] mt-2 opacity-80">Un autocontrollo, non un test clinico.</p>
                       </div>
                     )}
 
                     {activePhase === injury.phases.length - 1 && (
-                      <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-4">
+                      <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-4 shadow-sm">
                         <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">Che ruolo giochi?</p>
                         <div className="flex flex-wrap gap-2 mb-3">
                           {playerPositions.map((pos) => (
@@ -1727,20 +1582,20 @@ export default function Offside() {
                       </div>
                     )}
 
-                    <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5">
-                      <p className="flex items-center gap-2 mb-2"><Info size={15} color={colors.accent} /><span style={{ ...displayFont, color: colors.accent }} className="text-xs font-semibold uppercase tracking-wide">Perché questa fase</span></p>
+                    <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
+                      <p className="flex items-center gap-2 mb-2"><Info size={15} color={colors.accentDark} /><span style={{ ...displayFont, color: colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">Perché questa fase</span></p>
                       <p style={{ color: colors.ink }} className="text-sm leading-relaxed">{phase.why}</p>
                     </div>
 
                     {completedCount === phase.exercises.length && phase.exercises.length > 0 && (
-                      <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-4 flex items-center gap-3 os-fadein">
+                      <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-4 flex items-center gap-3 os-fadein shadow-md">
                         <div style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
                           <Trophy size={19} color={colors.accent} strokeWidth={2} />
                         </div>
                         <div>
                           <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-semibold">Fase completata</p>
                           <p style={{ color: '#B9C4CF' }} className="text-xs leading-snug">
-                            {activePhase < injury.phases.length - 1 ? 'Quando ti senti pronto, passa alla fase successiva.' : 'Ultima fase: controlla bene i criteri prima di sentirti davvero pronto per il rientro.'}
+                            {activePhase < injury.phases.length - 1 ? 'Quando ti senti pronto, passa alla fase successiva in alto.' : 'Ultima fase: controlla bene i criteri prima del rientro.'}
                           </p>
                         </div>
                       </div>
@@ -1748,28 +1603,48 @@ export default function Offside() {
 
                     <div className="flex items-center justify-between mb-1">
                       <span style={{ ...displayFont, color: colors.ink, letterSpacing: '0.08em' }} className="text-xs font-semibold uppercase">Esercizi</span>
-                      <span style={{ ...displayFont, color: colors.accent }} className="os-tabular text-lg font-bold">{completedCount}<span style={{ color: colors.mutedInk }} className="text-sm font-normal"> / {phase.exercises.length}</span></span>
+                      <span style={{ ...displayFont, color: colors.accentDark }} className="os-tabular text-lg font-bold">{completedCount}<span style={{ color: colors.mutedInk }} className="text-sm font-normal"> / {phase.exercises.length}</span></span>
                     </div>
-                    <p style={{ color: colors.mutedInk }} className="text-[11px] mb-3">I numeri sono un punto di partenza, non una prescrizione fissa — adattali a come risponde il tuo corpo</p>
+                    <p style={{ color: colors.mutedInk }} className="text-[11px] mb-4">Adattali a come risponde il tuo corpo, non forzare sul dolore acuto.</p>
 
                     <div>
                       {phase.exercises.map((ex, i) => {
                         const done = !!phaseProgress[i];
                         const isLast = i === phase.exercises.length - 1;
+                        const exKey = `${activePhase}-${i}`;
+                        const isVideoOpen = activeVideo === exKey;
+                        
                         return (
                           <div key={i} className="flex gap-3">
                             <div className="flex flex-col items-center flex-shrink-0" style={{ width: '32px' }}>
-                              <button onClick={() => toggleExercise(i)} style={{ backgroundColor: done ? colors.accent : colors.card, border: `2px solid ${done ? colors.accent : colors.hairline}` }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                              <button onClick={() => toggleExercise(i)} style={{ backgroundColor: done ? colors.accent : colors.card, border: `2px solid ${done ? colors.accent : colors.hairline}` }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 shadow-sm transition-colors">
                                 {done ? <Check size={15} color="#FFFFFF" strokeWidth={3} /> : <span style={{ ...displayFont, color: colors.mutedInk }} className="text-xs font-bold">{i + 1}</span>}
                               </button>
-                              {!isLast && <div style={{ backgroundColor: done ? colors.accent : colors.hairline }} className="flex-1 my-1 w-0.5" />}
+                              {!isLast && <div style={{ backgroundColor: done ? colors.accent : colors.hairline }} className="flex-1 -my-1 w-0.5 transition-colors" />}
                             </div>
-                            <button onClick={() => toggleExercise(i)} className="os-focus flex-1 text-left pb-5 pt-1 min-w-0">
-                              <span className="flex items-start justify-between gap-2">
-                                <span style={{ color: done ? colors.accentDark : colors.ink, textDecoration: done ? 'line-through' : 'none', textDecorationColor: colors.accent + '99' }} className="text-sm leading-snug">{ex.text}</span>
+                            <div className="flex-1 min-w-0 pb-6 pt-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <button onClick={() => toggleExercise(i)} className="os-focus text-left flex-1">
+                                  <span style={{ color: done ? colors.accentDark : colors.ink, textDecoration: done ? 'line-through' : 'none', textDecorationColor: colors.accent + '99' }} className="text-sm leading-snug block">{ex.text}</span>
+                                </button>
                                 <span style={{ backgroundColor: colors.paper, color: colors.mutedInk }} className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap mt-0.5">{catLabels[ex.cat]}</span>
-                              </span>
-                            </button>
+                              </div>
+                              
+                              <button 
+                                onClick={() => setActiveVideo(isVideoOpen ? null : exKey)}
+                                style={{ color: colors.accentDark, backgroundColor: colors.accentTint }} 
+                                className="os-focus flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium mt-2 hover:opacity-80 transition-opacity"
+                              >
+                                {isVideoOpen ? <ChevronDown size={12} /> : <PlayCircle size={12} />} 
+                                {isVideoOpen ? 'Chiudi' : 'Come si fa?'}
+                              </button>
+
+                              {isVideoOpen && (
+                                <div className="os-fadein">
+                                  <ExerciseMediaPlaceholder />
+                                </div>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -1806,12 +1681,9 @@ export default function Offside() {
         )}
       </div>
 
-      <div style={{ borderTop: `1px solid ${colors.hairline}`, color: colors.mutedInk }} className="px-5 sm:px-8 py-4 text-xs leading-relaxed">
-        Contenuto informativo generale per infortuni lievi–moderati, con tempistiche indicative basate su letteratura fisioterapica/ortopedica generale. Non è una diagnosi né un piano di trattamento personalizzato — in caso di dubbio, o se riconosci uno dei segnali sopra, rivolgiti a un fisioterapista o medico.
-        {saveError && <div style={{ color: colors.red }} className="mt-2 flex items-center gap-1.5"><X size={13} /> Il salvataggio dei progressi non è riuscito, ma puoi continuare a usare il tracker.</div>}
-        <a href="mailto:tuaemail@esempio.com?subject=Feedback%20Offside" style={{ color: colors.accent }} className="os-focus flex items-center gap-1.5 mt-3 hover:underline w-fit">
-          <Share2 size={11} />Hai trovato un problema o hai un suggerimento? Scrivimelo
-        </a>
+      <div style={{ borderTop: `1px solid ${colors.hairline}`, color: colors.mutedInk }} className="px-5 sm:px-8 py-4 text-xs leading-relaxed text-center">
+        Contenuto informativo generale. Non sostituisce una valutazione medica. In caso di dubbi rivolgiti a un professionista.
+        {saveError && <div style={{ color: colors.red }} className="mt-2 flex items-center justify-center gap-1.5"><X size={13} /> Salvataggio dati non riuscito.</div>}
       </div>
     </div>
   );
