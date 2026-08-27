@@ -39,6 +39,7 @@ const feelingOptions = [
 // insieme ai segnali generali quando quell'infortunio è selezionato.
 const injuriesData = {
   ankle: {
+    relatedInjuries: ['calf', 'knee'], relatedReason: 'La caviglia instabile fa lavorare di più polpaccio e ginocchio per compensare l\'equilibrio.',
     label: 'Distorsione di caviglia', subtitle: 'Legamenti della caviglia', icon: Footprints, mechanismTags: ['acute'],
     severityData: {
       lieve: { dayThresholds: [4, 10], totalEstimateDays: 21 },
@@ -72,6 +73,7 @@ const injuriesData = {
     ],
   },
   achilles: {
+    relatedInjuries: ['calf', 'plantarfasciitis'], relatedReason: 'Achille, polpaccio e fascia plantare condividono lo stesso sistema muscolo-tendineo del piede.',
     label: 'Tendinopatia achillea', subtitle: 'Tendine d\'Achille, spesso da sovraccarico', icon: Anchor, mechanismTags: ['overuse'],
     severityData: {
       lieve: { dayThresholds: [10, 21], totalEstimateDays: 42 },
@@ -102,6 +104,7 @@ const injuriesData = {
     ],
   },
   knee: {
+    relatedInjuries: ['trochanteric', 'quad'], relatedReason: 'Un\'anca debole, soprattutto il gluteo medio, è tra le cause più comuni di dolore femoro-rotuleo.',
     label: 'Dolore femoro-rotuleo', subtitle: 'Dolore anteriore al ginocchio', icon: CircleDot, mechanismTags: ['overuse'],
     severityData: {
       lieve: { dayThresholds: [10, 21], totalEstimateDays: 35 },
@@ -133,6 +136,7 @@ const injuriesData = {
     ],
   },
   mcl: {
+    relatedInjuries: ['lcl', 'meniscus'], relatedReason: 'Legamenti e cartilagine del ginocchio lavorano insieme: un trauma spesso coinvolge più strutture.',
     label: 'Distorsione collaterale mediale', subtitle: 'Legamento interno del ginocchio', icon: ShieldCheck, mechanismTags: ['acute'],
     severityData: {
       lieve: { dayThresholds: [5, 10], totalEstimateDays: 21 },
@@ -163,6 +167,7 @@ const injuriesData = {
     ],
   },
   patellar: {
+    relatedInjuries: ['quad', 'knee'], relatedReason: 'Il tendine rotuleo prosegue il quadricipite: un quadricipite debole lo sovraccarica direttamente.',
     label: 'Tendinopatia rotulea', subtitle: '"Ginocchio del saltatore"', icon: Disc, mechanismTags: ['overuse'],
     severityData: {
       lieve: { dayThresholds: [10, 21], totalEstimateDays: 42 },
@@ -193,6 +198,7 @@ const injuriesData = {
     ],
   },
   meniscus: {
+    relatedInjuries: ['mcl', 'lcl'], relatedReason: 'Le torsioni del ginocchio spesso coinvolgono insieme menisco e legamenti collaterali.',
     label: 'Lesione del menisco', subtitle: 'Cartilagine del ginocchio, spesso da torsione', icon: Aperture, mechanismTags: ['acute'],
     severityData: {
       lieve: { dayThresholds: [10, 21], totalEstimateDays: 42 },
@@ -228,6 +234,7 @@ const injuriesData = {
     ],
   },
   itband: {
+    relatedInjuries: ['trochanteric', 'knee'], relatedReason: 'La bandelletta collega anca e ginocchio: un gluteo debole la sovraccarica lungo tutto il tragitto.',
     label: 'Bandelletta ileotibiale', subtitle: 'Dolore laterale al ginocchio, da sovraccarico', icon: Ruler, mechanismTags: ['overuse'],
     severityData: {
       lieve: { dayThresholds: [10, 21], totalEstimateDays: 42 },
@@ -258,6 +265,7 @@ const injuriesData = {
     ],
   },
   osgood: {
+    relatedInjuries: ['patellar', 'quad'], relatedReason: 'Osgood-Schlatter coinvolge lo stesso tendine rotuleo e quadricipite, in una fase di crescita più sensibile.',
     label: 'Osgood-Schlatter', subtitle: 'Dolore sotto il ginocchio, tipico in età di crescita', icon: Sprout, mechanismTags: ['overuse'],
     severityData: {
       lieve: { dayThresholds: [14, 28], totalEstimateDays: 56 },
@@ -288,6 +296,7 @@ const injuriesData = {
     ],
   },
   hamstring: {
+    relatedInjuries: ['lowback', 'piriformis'], relatedReason: 'Hamstring, glutei e zona lombare formano la catena posteriore: una debolezza qui si ripercuote sulle altre.',
     label: 'Stiramento hamstring', subtitle: 'Posteriore della coscia', icon: Zap, mechanismTags: ['acute'],
     severityData: {
       lieve: { dayThresholds: [5, 10], totalEstimateDays: 21 },
@@ -319,6 +328,7 @@ const injuriesData = {
     ],
   },
   quad: {
+    relatedInjuries: ['patellar', 'knee'], relatedReason: 'Un quadricipite sovraccarico o debole influenza direttamente tendine rotuleo e rotula.',
     label: 'Stiramento del quadricipite', subtitle: 'Anteriore della coscia', icon: TrendingUp, mechanismTags: ['acute'],
     severityData: {
       lieve: { dayThresholds: [4, 9], totalEstimateDays: 18 },
@@ -349,6 +359,7 @@ const injuriesData = {
     ],
   },
   contusion: {
+    relatedInjuries: ['quad', 'hamstring'], relatedReason: 'Una contusione può indebolire temporaneamente i muscoli vicini: vale la pena monitorarli.',
     label: 'Contusione muscolare', subtitle: 'Trauma da contatto (es. calcio/ginocchiata)', icon: Shield, mechanismTags: ['contact'],
     severityData: {
       lieve: { dayThresholds: [3, 7], totalEstimateDays: 14 },
@@ -378,6 +389,7 @@ const injuriesData = {
     ],
   },
   calf: {
+    relatedInjuries: ['achilles', 'ankle'], relatedReason: 'Polpaccio, Achille e caviglia condividono lo stesso meccanismo di spinta nella corsa.',
     label: 'Stiramento del polpaccio', subtitle: 'Gastrocnemio/soleo', icon: Activity, mechanismTags: ['acute'],
     severityData: {
       lieve: { dayThresholds: [5, 10], totalEstimateDays: 21 },
@@ -408,6 +420,7 @@ const injuriesData = {
     ],
   },
   shinsplints: {
+    relatedInjuries: ['calf', 'plantarfasciitis'], relatedReason: 'Stress tibiale, polpaccio e fascia plantare spesso condividono la stessa causa: un carico di corsa aumentato troppo in fretta.',
     label: 'Sindrome da stress tibiale', subtitle: 'Dolore lungo la tibia, da sovraccarico', icon: Gauge, mechanismTags: ['overuse'],
     severityData: {
       lieve: { dayThresholds: [10, 21], totalEstimateDays: 42 },
@@ -438,6 +451,7 @@ const injuriesData = {
     ],
   },
   plantarfasciitis: {
+    relatedInjuries: ['calf', 'achilles'], relatedReason: 'La fascia plantare è collegata al tricipite surale: la tensione del polpaccio si trasmette fino alla pianta del piede.',
     label: 'Fascite plantare', subtitle: 'Dolore sotto il tallone, tipico al primo passo', icon: Waves, mechanismTags: ['overuse'],
     severityData: {
       lieve: { dayThresholds: [14, 28], totalEstimateDays: 56 },
@@ -468,6 +482,7 @@ const injuriesData = {
     ],
   },
   groin: {
+    relatedInjuries: ['hipflexor', 'piriformis'], relatedReason: 'Adduttori, flessori dell\'anca e piriforme lavorano insieme in ogni gesto di calcio e corsa.',
     label: 'Pubalgia / stiramento adduttori', subtitle: 'Inguine e adduttori', icon: ArrowLeftRight, mechanismTags: ['acute', 'overuse'],
     severityData: {
       lieve: { dayThresholds: [5, 10], totalEstimateDays: 21 },
@@ -498,6 +513,7 @@ const injuriesData = {
     ],
   },
   hipflexor: {
+    relatedInjuries: ['groin', 'quad'], relatedReason: 'Il flessore dell\'anca lavora a stretto contatto con adduttori e quadricipite nel gesto del calcio.',
     label: 'Stiramento flessore dell\'anca', subtitle: 'Ileopsoas, gesto del calcio', icon: Compass, mechanismTags: ['acute'],
     severityData: {
       lieve: { dayThresholds: [5, 10], totalEstimateDays: 21 },
@@ -528,36 +544,7 @@ const injuriesData = {
     ],
   },
   piriformis: {
-    label: 'Sindrome del piriforme', subtitle: 'Dolore al gluteo che può scendere lungo la gamba', icon: RotateCw, mechanismTags: ['acute', 'overuse'],
-    severityData: {
-      lieve: { dayThresholds: [7, 21], totalEstimateDays: 42 },
-      moderato: { dayThresholds: [14, 35], totalEstimateDays: 70 },
-      severo: { dayThresholds: [28, 63], totalEstimateDays: 150 },
-    },
-    phases: [
-      { name: 'Riduzione carico', why: 'Il piriforme è un muscolo profondo del gluteo che può irritare il nervo sciatico quando è in tensione, causando dolore che a volte scende lungo la gamba — per questo va distinto da un problema lombare, e spesso serve un occhio esperto per la diagnosi differenziale. Nei primi giorni si riduce ciò che scatena il dolore.',
-        exercises: [
-          { text: 'Evita di stare seduto a lungo senza pause, specialmente su superfici dure', cat: 'rest' },
-          { text: 'Riduci temporaneamente scatti e cambi di direzione se scatenano dolore', cat: 'rest' },
-          { text: 'Stretching dolce: da sdraiato, porta il ginocchio verso il petto e verso il lato opposto', cat: 'stretch' },
-        ] },
-      { name: 'Rinforzo progressivo', why: 'Il rinforzo dei glutei nel loro complesso aiuta a ridurre il sovraccarico specifico sul piriforme.',
-        criteriaToAdvance: ['Riesci a stare seduto per periodi normali senza dolore che peggiora', 'Lo stretching dolce non scatena dolore acuto lungo la gamba'],
-        exercises: [
-          { text: 'Rinforzo del gluteo medio: clamshell o ponte monopodalico (2-3 serie da 12-15)', cat: 'strength' },
-          { text: 'Stretching progressivo del piriforme e dei rotatori dell\'anca', cat: 'stretch' },
-          { text: 'Mobilità dell\'anca in tutte le direzioni', cat: 'stretch' },
-        ] },
-      { name: 'Rientro in campo', why: 'Scatti e cambi di direzione bruschi vanno reintrodotti per ultimi: sono i movimenti che sollecitano di più la rotazione dell\'anca.',
-        criteriaToAdvance: ['Riesci a fare scatti e cambi di direzione senza dolore lungo la gamba', 'Nessun dolore residuo dopo attività più intense'],
-        exercises: [
-          { text: 'Corsa progressiva', cat: 'run' },
-          { text: 'Cambi di direzione graduali', cat: 'run' },
-          { text: 'Scatti e accelerazioni prima del rientro in gruppo', cat: 'run' },
-        ] },
-    ],
-  },
-  piriformis: {
+    relatedInjuries: ['lowback', 'trochanteric'], relatedReason: 'Piriforme, lombare e anca esterna sono strettamente collegati nella stabilità del bacino.',
     label: 'Sindrome del piriforme', subtitle: 'Muscolo dei glutei, spesso confuso con la lombalgia', icon: CircleDashed, mechanismTags: ['overuse'],
     severityData: {
       lieve: { dayThresholds: [7, 14], totalEstimateDays: 28 },
@@ -588,6 +575,7 @@ const injuriesData = {
     ],
   },
   trochanteric: {
+    relatedInjuries: ['knee', 'itband'], relatedReason: 'Un gluteo medio debole non stabilizza solo l\'anca: si ripercuote fino al ginocchio.',
     label: 'Borsite trocanterica', subtitle: 'Fianco esterno, dolore da sdraiato su un lato', icon: Target, mechanismTags: ['overuse'],
     severityData: {
       lieve: { dayThresholds: [10, 21], totalEstimateDays: 42 },
@@ -618,6 +606,7 @@ const injuriesData = {
     ],
   },
   lcl: {
+    relatedInjuries: ['mcl', 'meniscus'], relatedReason: 'Come il collaterale mediale, lavora insieme al menisco per stabilizzare il ginocchio nei movimenti laterali.',
     label: 'Distorsione collaterale laterale', subtitle: 'Legamento esterno del ginocchio', icon: ShieldAlert, mechanismTags: ['acute'],
     severityData: {
       lieve: { dayThresholds: [7, 18], totalEstimateDays: 35 },
@@ -648,6 +637,7 @@ const injuriesData = {
     ],
   },
   lowback: {
+    relatedInjuries: ['hamstring', 'piriformis'], relatedReason: 'Zona lombare, glutei e hamstring si sostengono a vicenda nella stabilità del bacino.',
     label: 'Lombalgia muscolare', subtitle: 'Dolore lombare meccanico, senza sintomi alla gamba', icon: PersonStanding, mechanismTags: ['acute', 'overuse'],
     severityData: {
       lieve: { dayThresholds: [5, 14], totalEstimateDays: 28 },
@@ -1120,7 +1110,7 @@ export default function Offside() {
         </svg>
         <div className="relative px-6 sm:px-10 pt-12 pb-8 flex flex-col min-h-screen">
           <div className="flex items-center justify-between mb-5">
-            <div style={{ backgroundColor: '#17293D', border: `2px solid ${colors.accent}44` }} className="w-20 h-20 rounded-full flex items-center justify-center">
+            <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `2px solid ${colors.accent}44` }} className="w-20 h-20 rounded-full flex items-center justify-center">
               <LogoMark size={38} color={colors.accent} />
             </div>
             <span style={{ ...displayFont, backgroundColor: '#17293D', color: colors.accent, letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full">Beta</span>
@@ -1606,6 +1596,30 @@ export default function Offside() {
                         );
                       })}
                     </div>
+
+                    {injury.relatedInjuries && injury.relatedInjuries.length > 0 && (
+                      <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="mt-6 pt-5">
+                        <svg width="32" height="8" viewBox="0 0 32 8" className="mb-2">
+                          <line x1="0" y1="4" x2="32" y2="4" stroke={colors.accent} strokeWidth="1.5" strokeDasharray="1 4" />
+                          <circle cx="4" cy="4" r="2" fill={colors.accent} />
+                          <circle cx="28" cy="4" r="2" fill={colors.accent} />
+                        </svg>
+                        <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.08em' }} className="text-xs font-semibold uppercase mb-1">Collegato a</p>
+                        <p style={{ color: colors.mutedInk }} className="text-xs mb-3 leading-relaxed">{injury.relatedReason}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {injury.relatedInjuries.map((relKey) => {
+                            const rel = injuriesData[relKey];
+                            if (!rel) return null;
+                            const RelIcon = rel.icon;
+                            return (
+                              <button key={relKey} onClick={() => chooseInjury(relKey)} style={{ backgroundColor: colors.accentTint, color: colors.accentDark }} className="os-focus flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium hover:opacity-80 transition-opacity">
+                                <RelIcon size={13} />{rel.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
               </>
