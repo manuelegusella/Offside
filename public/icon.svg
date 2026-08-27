@@ -1,6 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#101B26"/>
-  <path d="M64 256 H192 L246 96 L296 416 L350 256 H448"
-        stroke="#1B6FC9" stroke-width="34" fill="none"
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0%" stop-color="#1D384F"/>
+      <stop offset="100%" stop-color="#080E14"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <circle cx="140" cy="256" r="32" fill="#22C55E"/>
+  <path d="M178 256 H222 L270 104 L322 408 L374 256 H428"
+        stroke="#22C55E" stroke-width="38" fill="none"
         stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

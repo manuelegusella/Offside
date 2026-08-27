@@ -19,6 +19,7 @@ const STORAGE_KEY = 'injury-recovery-progress-v3';
 
 const catIcons = { balance: Scale, strength: Dumbbell, stretch: Move, run: Wind, hold: Timer, rest: Pause };
 const catLabels = { balance: 'Equilibrio', strength: 'Rinforzo', stretch: 'Mobilità', run: 'Corsa/agilità', hold: 'Tenuta isometrica', rest: 'Scarico' };
+const mechanismLabels = { acute: 'Trauma improvviso', overuse: 'Da sovraccarico', contact: 'Da contatto' };
 const formCues = {
   balance: ['Sguardo fisso in avanti, non guardare giù', 'Ginocchio leggermente piegato, non bloccato', 'Se perdi l\'equilibrio, tocca terra e riparti — fa parte dell\'esercizio'],
   strength: ['Movimento lento e controllato, soprattutto in discesa', 'Respira normalmente, non trattenere il fiato', 'Fermati se senti dolore acuto, non il normale fastidio muscolare'],
@@ -771,8 +772,8 @@ const weightOptions = [
 function LogoMark({ size = 32, color = colors.accent, strokeWidth = 3 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
-      <circle cx="4.5" cy="20" r="2.5" fill={color} />
-      <path d="M7.5 20 H14 L18 6.5 L22 33.5 L26 20 H36" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="11" cy="20" r="2.5" fill={color} />
+      <path d="M13.5 20 H17.5 L21 8 L25 32 L29 20 H33.5" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -1287,7 +1288,10 @@ export default function Offside() {
           <ArrowLeft size={16} color={colors.accentDark} />
         </button>
         <div className="flex-1 min-w-0">
-          <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">Offside</p>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <LogoMark size={13} color={colors.accentDark} strokeWidth={2.5} />
+            <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">Offside</p>
+          </div>
           <h1 style={{ ...displayFont, color: colors.ink }} className="text-lg sm:text-xl font-semibold truncate">
             {screen === 'regions' ? 'Dove senti il problema?' : screen === 'triage' ? 'Non sai cosa hai?' : screen === 'firstaid' ? 'Primi soccorsi' : screen === 'injuries' ? (selectedRegion && regions[selectedRegion] ? regions[selectedRegion].label : 'Infortuni') : 'Il tuo percorso'}
           </h1>
@@ -1528,7 +1532,7 @@ export default function Offside() {
                       {matches && <span style={{ backgroundColor: colors.accentTint, color: colors.accentDark }} className="text-[10px] px-2 py-0.5 rounded-full font-medium">Probabilmente questo</span>}
                     </div>
                     <p style={{ color: colors.mutedInk }} className="text-sm">{data.subtitle}{hasProgress ? ' · in corso' : ''}</p>
-                    <p style={{ color: colors.accentDark }} className="text-xs font-medium mt-0.5">~{weeksEstimate} settimane, gravità media</p>
+                    <p style={{ color: colors.accentDark }} className="text-xs font-medium mt-0.5">~{weeksEstimate} settimane, gravità media · {data.mechanismTags.map((t) => mechanismLabels[t]).join(' o ')}</p>
                   </div>
                   <ChevronRight size={20} color={colors.mutedInk} className="flex-shrink-0" />
                 </button>
@@ -1756,6 +1760,11 @@ export default function Offside() {
                       <span>· tempistica per gravità {severityLabels[severity].toLowerCase()}</span>
                     </p>
 
+                    <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-4 shadow-sm">
+                      <p className="flex items-center gap-2 mb-2"><Info size={15} color={colors.accentDark} /><span style={{ ...displayFont, color: colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">Perché questa fase</span></p>
+                      <p style={{ color: colors.ink }} className="text-sm leading-relaxed">{phase.why}</p>
+                    </div>
+
                     {phase.criteriaToAdvance && (
                       <div style={{ backgroundColor: colors.accentTint, border: `1px solid ${colors.accent}33` }} className="rounded-xl p-4 mb-4 shadow-sm">
                         <p className="flex items-center gap-2 mb-2">
@@ -1772,7 +1781,7 @@ export default function Offside() {
                     )}
 
                     {activePhase === injury.phases.length - 1 && (
-                      <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-4 shadow-sm">
+                      <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
                         <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">Che ruolo giochi?</p>
                         <div className="flex flex-wrap gap-2 mb-3">
                           {playerPositions.map((pos) => (
@@ -1786,11 +1795,6 @@ export default function Offside() {
                         )}
                       </div>
                     )}
-
-                    <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
-                      <p className="flex items-center gap-2 mb-2"><Info size={15} color={colors.accentDark} /><span style={{ ...displayFont, color: colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">Perché questa fase</span></p>
-                      <p style={{ color: colors.ink }} className="text-sm leading-relaxed">{phase.why}</p>
-                    </div>
 
                     {completedCount === phase.exercises.length && phase.exercises.length > 0 && (
                       activePhase === injury.phases.length - 1 ? (
