@@ -19,6 +19,14 @@ const STORAGE_KEY = 'injury-recovery-progress-v3';
 
 const catIcons = { balance: Scale, strength: Dumbbell, stretch: Move, run: Wind, hold: Timer, rest: Pause };
 const catLabels = { balance: 'Equilibrio', strength: 'Rinforzo', stretch: 'Mobilità', run: 'Corsa/agilità', hold: 'Tenuta isometrica', rest: 'Scarico' };
+const formCues = {
+  balance: ['Sguardo fisso in avanti, non guardare giù', 'Ginocchio leggermente piegato, non bloccato', 'Se perdi l\'equilibrio, tocca terra e riparti — fa parte dell\'esercizio'],
+  strength: ['Movimento lento e controllato, soprattutto in discesa', 'Respira normalmente, non trattenere il fiato', 'Fermati se senti dolore acuto, non il normale fastidio muscolare'],
+  stretch: ['Allunga fino a sentire tensione, mai dolore', 'Mantieni la posizione ferma, senza rimbalzare', 'Respira lentamente durante l\'allungamento'],
+  run: ['Parti più piano di quanto pensi sia necessario', 'Fermati subito se il dolore cambia natura o intensità', 'Aumenta gradualmente, non tutto insieme'],
+  hold: ['Contrai senza muovere l\'articolazione', 'Mantieni una respirazione regolare', 'Rilascia lentamente, non di scatto'],
+  rest: ['Il movimento leggero spesso aiuta quanto il riposo assoluto', 'Ascolta il corpo: dolore acuto e fastidio normale sono segnali diversi'],
+};
 
 const severityLabels = { lieve: 'Lieve', moderato: 'Moderato', severo: 'Severo' };
 const severityInfo = {
@@ -833,19 +841,29 @@ function BodyDiagram({ onSelectRegion }) {
   );
 }
 
-function ExerciseMediaPlaceholder() {
+function ExerciseHelp({ ex }) {
+  const query = ex.text.replace(/\([^)]*\)/g, '').trim();
+  const videoUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query + ' esercizio tecnica corretta')}`;
+  const tips = formCues[ex.cat] || [];
   return (
-    <div style={{ backgroundColor: '#0A1118', border: `1px solid ${colors.hairline}` }} className="mt-2.5 rounded-xl overflow-hidden relative">
-      <div className="aspect-video w-full flex flex-col items-center justify-center p-4 relative">
-        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ background: 'radial-gradient(circle at center, #22C55E 0%, transparent 70%)' }}></div>
-        <Video size={28} color={colors.accent} className="mb-2 opacity-80" strokeWidth={1.5} />
-        <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#FFFFFF' }} className="text-xs font-semibold text-center z-10 tracking-wide uppercase">
-          Animazione / Video Esercizio
-        </p>
-        <p style={{ color: '#A9B7C4' }} className="text-[10px] text-center mt-1 z-10 max-w-[200px] leading-relaxed">
-          Spazio riservato per inserire la tua GIF (mp4/webp) dell'esecuzione corretta.
-        </p>
-      </div>
+    <div style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}` }} className="mt-2.5 rounded-xl p-3 space-y-2.5">
+      {tips.length > 0 && (
+        <ul className="space-y-1">
+          {tips.map((tip, ti) => (
+            <li key={ti} style={{ color: colors.mutedInk }} className="text-xs flex gap-1.5"><span style={{ color: colors.accent }}>—</span><span>{tip}</span></li>
+          ))}
+        </ul>
+      )}
+      <a
+        href={videoUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ backgroundColor: colors.accentTint, color: colors.accentDark }}
+        className="os-focus flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold w-full hover:opacity-80 transition-opacity"
+      >
+        <PlayCircle size={13} />Cerca dimostrazioni video
+      </a>
+      <p style={{ color: colors.mutedInk }} className="text-[10px] text-center leading-relaxed">Apre una ricerca su YouTube — scegli tu il video che ti sembra più chiaro</p>
     </div>
   );
 }
@@ -1855,7 +1873,7 @@ export default function Offside() {
 
                               {isVideoOpen && (
                                 <div className="os-fadein">
-                                  <ExerciseMediaPlaceholder />
+                                  <ExerciseHelp ex={ex} />
                                 </div>
                               )}
                             </div>
@@ -1898,6 +1916,9 @@ export default function Offside() {
       <div style={{ borderTop: `1px solid ${colors.hairline}`, color: colors.mutedInk }} className="px-5 sm:px-8 py-4 text-xs leading-relaxed text-center">
         Contenuto informativo generale. Non sostituisce una valutazione medica. In caso di dubbi rivolgiti a un professionista.
         {saveError && <div style={{ color: colors.red }} className="mt-2 flex items-center justify-center gap-1.5"><X size={13} /> Salvataggio dati non riuscito.</div>}
+        <a href="mailto:manuelegusella@icloud.com?subject=Feedback%20Offside" style={{ color: colors.accentDark }} className="os-focus flex items-center justify-center gap-1.5 mt-3 hover:underline">
+          <Share2 size={11} />Hai trovato un problema o hai un suggerimento? Scrivimelo
+        </a>
       </div>
     </div>
   );
