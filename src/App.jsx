@@ -6,7 +6,7 @@ import {
   Calendar, Scale, Dumbbell, Move, Wind, Timer, Pause, Pencil, Target,
   HelpCircle, PlayCircle, Flame, Share2, ClipboardCheck, Check, Gauge, Waves,
   Aperture, PersonStanding, Ruler, Sprout, RotateCw, CircleDashed, ShieldAlert,
-  Snowflake, Bandage, ArrowUp,
+  Snowflake, Bandage, ArrowUp, Trophy,
 } from 'lucide-react';
 
 const colors = {
@@ -712,6 +712,13 @@ const riceAvoid = [
   'Continuare ad allenarti "per vedere se passa"',
 ];
 
+const playerPositions = [
+  { key: 'portiere', label: 'Portiere', tip: 'Per un portiere contano più i tuffi e gli atterraggi che la corsa pura: prima di sentirti pronto, assicurati di tollerare bene cadute e atterraggi controllati sul lato infortunato, non solo la corsa in linea.' },
+  { key: 'difensore', label: 'Difensore', tip: 'Da difensore affronti molti contrasti e duelli aerei: oltre alla corsa, testa la tenuta durante contatti fisici controllati prima di sentirti davvero pronto.' },
+  { key: 'centrocampista', label: 'Centrocampista', tip: 'Un centrocampista copre più chilometri di chiunque altro in campo: la resistenza su sforzi ripetuti conta quanto la velocità pura — non fermarti al primo sprint riuscito.' },
+  { key: 'attaccante', label: 'Attaccante', tip: 'Da attaccante scatti brevi e accelerazioni improvvise sono il tuo pane quotidiano: assicurati di tollerare bene sprint ripetuti e cambi di ritmo esplosivi, non solo la corsa continua.' },
+];
+
 const dateChips = [
   { label: 'Oggi', days: 0 }, { label: 'Ieri', days: 1 }, { label: '2–3 giorni fa', days: 2 },
   { label: 'Una settimana fa', days: 7 }, { label: '2+ settimane fa', days: 14 },
@@ -865,6 +872,7 @@ export default function Offside() {
   const [shareCopied, setShareCopied] = useState(false);
   const [trackerTab, setTrackerTab] = useState('oggi');
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [playerPosition, setPlayerPosition] = useState(null);
 
   useEffect(() => {
     loadFontsOnce();
@@ -879,6 +887,7 @@ export default function Offside() {
           setInjuryDates(data.injuryDates || {});
           setInjurySeverities(data.injurySeverities || {});
           setDailyLog(data.dailyLog || {});
+          setPlayerPosition(data.playerPosition || null);
           if (data.selectedInjury) {
             setSelectedRegion(regionOfInjury(data.selectedInjury));
             setScreen('tracker');
@@ -901,7 +910,7 @@ export default function Offside() {
     }
   }, []);
 
-  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, ...overrides });
+  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, ...overrides });
 
   const goBack = () => {
     if (screen === 'tracker') setScreen('injuries');
@@ -927,7 +936,7 @@ export default function Offside() {
     setTrackerTab('oggi');
     setEditingSetup(false);
     setScreen('tracker');
-    persist({ selectedInjury: key, activePhase: suggested, progress, injuryDates, injurySeverities, dailyLog });
+    persist({ selectedInjury: key, activePhase: suggested, progress, injuryDates, injurySeverities, dailyLog, playerPosition });
   };
   const startTriage = () => { setTriageAnswers({ mechanism: null, pop: null, weight: null }); setTriageTag(null); setScreen('triage'); };
 
@@ -1083,7 +1092,7 @@ export default function Offside() {
 
   if (loading) {
     return (
-      <div style={{ backgroundColor: colors.paper, color: colors.mutedInk, fontFamily: "'Inter', sans-serif" }} className="w-full min-h-[400px] flex items-center justify-center rounded-2xl">
+      <div style={{ background: 'linear-gradient(160deg, #16283A 0%, #101B26 60%)', color: '#A9B7C4', fontFamily: "'Inter', sans-serif" }} className="w-full min-h-[100dvh] flex items-center justify-center">
         <p className="text-sm">Carico i tuoi dati…</p>
       </div>
     );
@@ -1101,7 +1110,7 @@ export default function Offside() {
 
   if (screen === 'cover') {
     return (
-      <div style={{ backgroundColor: colors.ink, ...bodyFont }} className="w-full min-h-screen relative">
+      <div style={{ backgroundColor: colors.ink, ...bodyFont }} className="w-full min-h-[100dvh] relative">
         <style>{sharedStyle}</style>
         <svg className="absolute inset-0 w-full h-full opacity-[0.06]" viewBox="0 0 400 560" fill="none" preserveAspectRatio="xMidYMid slice">
           <circle cx="200" cy="300" r="170" stroke={colors.accent} strokeWidth="1.5" />
@@ -1158,7 +1167,7 @@ export default function Offside() {
   const activeInjuryKeys = Object.keys(injuryDates).filter((k) => injuryDates[k]);
 
   return (
-    <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full min-h-screen relative">
+    <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full min-h-[100dvh] relative">
       <style>{sharedStyle}</style>
       <svg className="fixed inset-0 w-full h-full opacity-[0.035] pointer-events-none" viewBox="0 0 400 800" fill="none" preserveAspectRatio="xMidYMid slice">
         <circle cx="200" cy="160" r="150" stroke={colors.accent} strokeWidth="1.5" />
@@ -1563,10 +1572,40 @@ export default function Offside() {
                       </div>
                     )}
 
+                    {activePhase === injury.phases.length - 1 && (
+                      <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-4">
+                        <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">Che ruolo giochi?</p>
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {playerPositions.map((pos) => (
+                            <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.paper, color: playerPosition === pos.key ? '#FFFFFF' : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                              {pos.label}
+                            </button>
+                          ))}
+                        </div>
+                        {playerPosition && (
+                          <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{playerPositions.find((p) => p.key === playerPosition)?.tip}</p>
+                        )}
+                      </div>
+                    )}
+
                     <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5">
                       <p className="flex items-center gap-2 mb-2"><Info size={15} color={colors.accent} /><span style={{ ...displayFont, color: colors.accent }} className="text-xs font-semibold uppercase tracking-wide">Perché questa fase</span></p>
                       <p style={{ color: colors.ink }} className="text-sm leading-relaxed">{phase.why}</p>
                     </div>
+
+                    {completedCount === phase.exercises.length && phase.exercises.length > 0 && (
+                      <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-4 flex items-center gap-3 os-fadein">
+                        <div style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
+                          <Trophy size={19} color={colors.accent} strokeWidth={2} />
+                        </div>
+                        <div>
+                          <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-semibold">Fase completata</p>
+                          <p style={{ color: '#B9C4CF' }} className="text-xs leading-snug">
+                            {activePhase < injury.phases.length - 1 ? 'Quando ti senti pronto, passa alla fase successiva.' : 'Ultima fase: controlla bene i criteri prima di sentirti davvero pronto per il rientro.'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between mb-1">
                       <span style={{ ...displayFont, color: colors.ink, letterSpacing: '0.08em' }} className="text-xs font-semibold uppercase">Esercizi</span>
