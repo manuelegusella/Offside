@@ -747,6 +747,56 @@ function LogoMark({ size = 32, color = colors.accent, strokeWidth = 3 }) {
   );
 }
 
+const bodyZones = [
+  { region: 'lower_back', label: 'Schiena', shape: 'circle', props: { cx: 100, cy: 116, r: 15 } },
+  { region: 'hip_groin', label: 'Anca/inguine', shape: 'rect', props: { x: 72, y: 132, width: 56, height: 17, rx: 8.5 } },
+  { region: 'thigh', label: 'Coscia sx', shape: 'rect', props: { x: 76, y: 150, width: 20, height: 60, rx: 10 } },
+  { region: 'thigh', label: 'Coscia dx', shape: 'rect', props: { x: 104, y: 150, width: 20, height: 60, rx: 10 } },
+  { region: 'knee', label: 'Ginocchio sx', shape: 'circle', props: { cx: 86, cy: 216, r: 11 } },
+  { region: 'knee', label: 'Ginocchio dx', shape: 'circle', props: { cx: 114, cy: 216, r: 11 } },
+  { region: 'calf_region', label: 'Polpaccio sx', shape: 'rect', props: { x: 77, y: 228, width: 18, height: 54, rx: 9 } },
+  { region: 'calf_region', label: 'Polpaccio dx', shape: 'rect', props: { x: 105, y: 228, width: 18, height: 54, rx: 9 } },
+  { region: 'ankle_foot', label: 'Caviglia sx', shape: 'ellipse', props: { cx: 86, cy: 290, rx: 13, ry: 10 } },
+  { region: 'ankle_foot', label: 'Caviglia dx', shape: 'ellipse', props: { cx: 114, cy: 290, rx: 13, ry: 10 } },
+];
+
+function BodyDiagram({ onSelectRegion }) {
+  const [pressed, setPressed] = useState(null);
+  const Shape = { rect: 'rect', circle: 'circle', ellipse: 'ellipse' };
+  return (
+    <svg viewBox="0 0 200 312" className="w-full mx-auto" style={{ maxWidth: '220px', display: 'block' }} role="img" aria-label="Sagoma del corpo, tocca la zona dove senti dolore">
+      {/* Corpo decorativo, non interattivo */}
+      <circle cx="100" cy="26" r="19" fill={colors.hairline} />
+      <rect x="94" y="43" width="12" height="9" fill={colors.hairline} />
+      <rect x="68" y="51" width="64" height="72" rx="20" fill={colors.hairline} />
+      <rect x="48" y="55" width="16" height="64" rx="8" fill={colors.hairline} />
+      <rect x="136" y="55" width="16" height="64" rx="8" fill={colors.hairline} />
+
+      {bodyZones.map((zone, i) => {
+        const isPressed = pressed === i;
+        const commonProps = {
+          fill: isPressed ? colors.accent : colors.accentTint,
+          stroke: colors.accent,
+          strokeWidth: 1.3,
+          style: { cursor: 'pointer', transition: 'fill 0.12s ease' },
+          onClick: () => onSelectRegion(zone.region),
+          onMouseDown: () => setPressed(i),
+          onMouseUp: () => setPressed(null),
+          onMouseLeave: () => setPressed(null),
+          onTouchStart: () => setPressed(i),
+          onTouchEnd: () => setPressed(null),
+          role: 'button',
+          'aria-label': zone.label,
+          tabIndex: 0,
+          onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') onSelectRegion(zone.region); },
+        };
+        const ShapeTag = Shape[zone.shape];
+        return <ShapeTag key={i} {...zone.props} {...commonProps} />;
+      })}
+    </svg>
+  );
+}
+
 function loadFontsOnce() {
   if (typeof document === 'undefined') return;
   if (document.getElementById('os-fonts')) return;
@@ -1210,6 +1260,11 @@ export default function Offside() {
               </div>
               <ChevronRight size={18} color="#A9B7C4" />
             </button>
+
+            <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase text-center mb-3">Tocca dove senti il problema</p>
+            <div className="mb-6">
+              <BodyDiagram onSelectRegion={openRegion} />
+            </div>
 
             <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.1em' }} className="text-xs font-semibold uppercase mb-3">Oppure scegli il distretto</p>
             <div className="space-y-2.5">
