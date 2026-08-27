@@ -53,7 +53,6 @@ function dailyGuidance(feeling, stiffness) {
   return null;
 }
 
-// Tempistiche verificate su fonti ortopediche/fisioterapiche (ago 2026).
 const injuriesData = {
   ankle: {
     relatedInjuries: ['calf', 'knee'], relatedReason: 'La caviglia instabile fa lavorare di più polpaccio e ginocchio per compensare l\'equilibrio.',
@@ -498,6 +497,161 @@ const injuriesData = {
         ] },
     ],
   },
+  groin: {
+    relatedInjuries: ['hipflexor', 'piriformis'], relatedReason: 'Adduttori, flessori dell\'anca e piriforme lavorano insieme in ogni gesto di calcio e corsa.',
+    label: 'Pubalgia / stiramento adduttori', subtitle: 'Inguine e adduttori', icon: ArrowLeftRight, mechanismTags: ['acute', 'overuse'],
+    severityData: {
+      lieve: { dayThresholds: [5, 10], totalEstimateDays: 21 },
+      moderato: { dayThresholds: [10, 28], totalEstimateDays: 56 },
+      severo: { dayThresholds: [21, 56], totalEstimateDays: 168 },
+    },
+    phases: [
+      { name: 'Protezione', why: 'La zona inguinale è sollecitata in ogni calcio e cambio di direzione. Serve ridurre i movimenti che scatenano dolore prima di provare a rinforzare.',
+        exercises: [
+          { text: 'Riduci i movimenti che scatenano dolore (calci, cambi di direzione bruschi)', cat: 'rest' },
+          { text: 'Isometria leggera: da sdraiato, schiaccia dolcemente un cuscino tra le ginocchia (tenuta 15-20 secondi, 4-5 volte)', cat: 'hold' },
+          { text: 'Cammino nei limiti del dolore', cat: 'rest' },
+        ] },
+      { name: 'Recupero attivo', why: 'La pubalgia tende a cronicizzare se il rientro è affrettato — è tra gli infortuni dove la pazienza conta di più: qui il rinforzo va aumentato con calma, insieme alla stabilità del bacino.',
+        criteriaToAdvance: ['Riesci a camminare senza dolore evidente', 'L\'isometria leggera degli adduttori non scatena dolore acuto'],
+        exercises: [
+          { text: 'Rinforzo isometrico degli adduttori, intensità crescente (3-4 serie da 8-10 tenute)', cat: 'strength' },
+          { text: 'Stretching dolce degli adduttori', cat: 'stretch' },
+          { text: 'Esercizi di stabilità del bacino e del core (2-3 serie da 30-45 secondi)', cat: 'strength' },
+        ] },
+      { name: 'Rientro in campo', why: 'Calci, sprint e cambi di direzione laterali vanno reintrodotti per ultimi: sono i gesti che sollecitano di più questa zona.',
+        criteriaToAdvance: ['Riesci a fare rinforzo isometrico a intensità moderata senza dolore', 'Nessun peggioramento il giorno dopo — qui affrettarsi rischia di più'],
+        exercises: [
+          { text: 'Cambi di direzione progressivi', cat: 'run' },
+          { text: 'Calci a bassa intensità, poi progressivi', cat: 'strength' },
+          { text: 'Sprint e accelerazioni laterali prima del rientro in gruppo', cat: 'run' },
+        ] },
+    ],
+  },
+  hipflexor: {
+    relatedInjuries: ['groin', 'quad'], relatedReason: 'Il flessore dell\'anca lavora a stretto contatto con adduttori e quadricipite nel gesto del calcio.',
+    label: 'Stiramento flessore dell\'anca', subtitle: 'Ileopsoas, gesto del calcio', icon: Compass, mechanismTags: ['acute'],
+    severityData: {
+      lieve: { dayThresholds: [5, 10], totalEstimateDays: 21 },
+      moderato: { dayThresholds: [10, 24], totalEstimateDays: 42 },
+      severo: { dayThresholds: [18, 49], totalEstimateDays: 120 },
+    },
+    phases: [
+      { name: 'Protezione', why: 'Il flessore dell\'anca è il muscolo principale nel gesto del calcio al pallone: dopo uno stiramento serve ridurre quel movimento nei primi giorni.',
+        exercises: [
+          { text: 'Riduci calci e movimenti di flessione dell\'anca ripetuti', cat: 'rest' },
+          { text: 'Isometria leggera: solleva il ginocchio verso il petto contro una leggera resistenza (tenuta 15-20 secondi, 4-5 volte)', cat: 'hold' },
+          { text: 'Cammino nei limiti del dolore', cat: 'rest' },
+        ] },
+      { name: 'Recupero attivo', why: 'Si reintroduce gradualmente il movimento di flessione dell\'anca sotto carico controllato.',
+        criteriaToAdvance: ['Riesci a camminare senza dolore evidente', 'L\'isometria leggera non scatena dolore acuto'],
+        exercises: [
+          { text: 'Rinforzo progressivo del flessore dell\'anca con elastico (2-3 serie da 12-15)', cat: 'strength' },
+          { text: 'Stretching dolce, mai forzato', cat: 'stretch' },
+          { text: 'Esercizi di stabilità del bacino (2-3 serie da 30-45 secondi)', cat: 'strength' },
+        ] },
+      { name: 'Rientro in campo', why: 'Il calcio al pallone e lo sprint richiedono al flessore dell\'anca di lavorare velocemente: va riportato a tollerare quella velocità gradualmente.',
+        criteriaToAdvance: ['Riesci a fare il rinforzo con elastico senza dolore significativo', 'Nessun peggioramento il giorno dopo'],
+        exercises: [
+          { text: 'Calci a bassa intensità, poi progressivi', cat: 'strength' },
+          { text: 'Corsa progressiva con affondo del ginocchio', cat: 'run' },
+          { text: 'Sprint e cambi di ritmo prima del rientro in gruppo', cat: 'run' },
+        ] },
+    ],
+  },
+  piriformis: {
+    relatedInjuries: ['lowback', 'trochanteric'], relatedReason: 'Piriforme, lombare e anca esterna sono strettamente collegati nella stabilità del bacino.',
+    label: 'Sindrome del piriforme', subtitle: 'Muscolo dei glutei, spesso confuso con la lombalgia', icon: CircleDashed, mechanismTags: ['overuse'],
+    severityData: {
+      lieve: { dayThresholds: [7, 14], totalEstimateDays: 28 },
+      moderato: { dayThresholds: [14, 28], totalEstimateDays: 56 },
+      severo: { dayThresholds: [21, 56], totalEstimateDays: 150 },
+    },
+    phases: [
+      { name: 'Riduzione carico', why: 'Il muscolo piriforme, quando irritato, può comprimere il nervo sciatico e dare dolore che scende lungo la gamba — spesso viene scambiato per un problema lombare. Nei primi giorni si riduce quello che scatena il dolore, senza fermarsi del tutto.',
+        exercises: [
+          { text: 'Riduci temporaneamente stare seduto a lungo o correre se scatenano dolore', cat: 'rest' },
+          { text: 'Stretching dolce: da sdraiato, porta il ginocchio verso il petto e leggermente verso il lato opposto (tenuta 20-30 secondi, 3-4 volte)', cat: 'stretch' },
+          { text: 'Ghiaccio nei momenti più dolorosi', cat: 'rest' },
+        ] },
+      { name: 'Recupero attivo', why: 'Il rinforzo dei glutei e la mobilità dell\'anca aiutano a scaricare il piriforme dal lavoro eccessivo che spesso lo irrita.',
+        criteriaToAdvance: ['Il dolore che scende lungo la gamba è chiaramente diminuito', 'Riesci a stare seduto per periodi normali senza dolore che peggiora'],
+        exercises: [
+          { text: 'Rinforzo del gluteo medio con elastico (2-3 serie da 15 per lato)', cat: 'strength' },
+          { text: 'Stretching della muscolatura glutea e dell\'anca', cat: 'stretch' },
+          { text: 'Auto-massaggio con pallina o rullo sulla zona, se tollerato', cat: 'stretch' },
+        ] },
+      { name: 'Ritorno allo sport', why: 'Corsa e cambi di direzione vanno reintrodotti gradualmente, mantenendo il rinforzo dei glutei per evitare che il piriforme torni a sovraccaricarsi.',
+        criteriaToAdvance: ['Riesci a correre leggero senza dolore che scende lungo la gamba', 'Nessun peggioramento dopo attività quotidiane più intense'],
+        exercises: [
+          { text: 'Corsa progressiva', cat: 'run' },
+          { text: 'Cambi di direzione graduali', cat: 'run' },
+          { text: 'Mantieni il rinforzo dei glutei anche dopo la scomparsa del dolore, per prevenire ricadute', cat: 'strength' },
+        ] },
+    ],
+  },
+  trochanteric: {
+    relatedInjuries: ['knee', 'itband'], relatedReason: 'Un gluteo medio debole non stabilizza solo l\'anca: si ripercuote fino al ginocchio.',
+    label: 'Borsite trocanterica', subtitle: 'Fianco esterno, dolore da sdraiato su un lato', icon: Target, mechanismTags: ['overuse'],
+    severityData: {
+      lieve: { dayThresholds: [10, 21], totalEstimateDays: 42 },
+      moderato: { dayThresholds: [21, 42], totalEstimateDays: 84 },
+      severo: { dayThresholds: [35, 84], totalEstimateDays: 200 },
+    },
+    phases: [
+      { name: 'Riduzione carico', why: 'La borsa che protegge l\'anca esterna si infiamma per attrito ripetuto. Ridurre temporaneamente le posizioni che comprimono la zona (stare sdraiati su quel lato, stare a lungo in piedi) aiuta a calmarla.',
+        exercises: [
+          { text: 'Evita di dormire sul lato dolente per qualche notte', cat: 'rest' },
+          { text: 'Riduci temporaneamente corsa e scale se scatenano dolore', cat: 'rest' },
+          { text: 'Ghiaccio sulla zona esterna dell\'anca, a intervalli', cat: 'rest' },
+        ] },
+      { name: 'Rinforzo progressivo', why: 'Il rinforzo del gluteo medio è centrale: un\'anca debole in quella zona fa lavorare di più la borsa a ogni passo.',
+        criteriaToAdvance: ['Riesci a stare sdraiato sul fianco senza dolore acuto', 'Il dolore camminando è chiaramente diminuito'],
+        exercises: [
+          { text: 'Rinforzo del gluteo medio: sollevamento gamba laterale (2-3 serie da 15 per lato)', cat: 'strength' },
+          { text: 'Stretching della banda ileotibiale', cat: 'stretch' },
+          { text: 'Cammino su superficie piana, aumenta gradualmente la distanza', cat: 'rest' },
+        ] },
+      { name: 'Ritorno allo sport', why: 'Corsa e salti vanno reintrodotti con calma, mantenendo il rinforzo dell\'anca per evitare che il sovraccarico si ripresenti.',
+        criteriaToAdvance: ['Riesci a correre leggero senza dolore sul fianco', 'Nessun dolore dopo attività quotidiane più intense'],
+        exercises: [
+          { text: 'Corsa progressiva', cat: 'run' },
+          { text: 'Salti e cambi di direzione introdotti per ultimi', cat: 'run' },
+          { text: 'Mantieni il rinforzo del gluteo medio anche dopo la scomparsa del dolore', cat: 'strength' },
+        ] },
+    ],
+  },
+  lcl: {
+    relatedInjuries: ['mcl', 'meniscus'], relatedReason: 'Come il collaterale mediale, lavora insieme al menisco per stabilizzare il ginocchio nei movimenti laterali.',
+    label: 'Distorsione collaterale laterale', subtitle: 'Legamento esterno del ginocchio', icon: ShieldAlert, mechanismTags: ['acute'],
+    severityData: {
+      lieve: { dayThresholds: [7, 18], totalEstimateDays: 35 },
+      moderato: { dayThresholds: [14, 35], totalEstimateDays: 70 },
+      severo: { dayThresholds: [21, 49], totalEstimateDays: 150 },
+    },
+    phases: [
+      { name: 'Protezione', why: 'Il legamento collaterale laterale stabilizza il ginocchio contro le sollecitazioni verso l\'interno. Rispetto al collaterale mediale è meno comune ma tende a essere seguito più da vicino: se senti instabilità vera, non solo dolore, vale la pena farlo controllare presto.',
+        exercises: [
+          { text: 'Cammino nei limiti del dolore, evita torsioni', cat: 'rest' },
+          { text: 'Elevazione della gamba quando possibile', cat: 'rest' },
+          { text: 'Contrazioni isometriche leggere del quadricipite (tenuta 20-30 secondi, 3-4 volte)', cat: 'hold' },
+        ] },
+      { name: 'Recupero attivo', why: 'Si reintroduce movimento e carico controllato, senza ancora sollecitare il ginocchio con stress verso l\'interno.',
+        criteriaToAdvance: ['Riesci a camminare senza sensazione di cedimento del ginocchio', 'Il gonfiore è chiaramente diminuito'],
+        exercises: [
+          { text: 'Squat controllati in range limitato (2-3 serie da 10)', cat: 'strength' },
+          { text: 'Rinforzo di quadricipite e ischiocrurali (2-3 serie da 12)', cat: 'strength' },
+          { text: 'Equilibrio su una gamba sola, senza torsioni', cat: 'balance' },
+        ] },
+      { name: 'Rientro in campo', why: 'Prima di tornare ai contrasti e ai cambi di direzione, il ginocchio deve tollerare stress laterali senza cedere.',
+        criteriaToAdvance: ['Riesci a fare squat senza dolore sul lato esterno del ginocchio', 'Nessuna instabilità percepita nei movimenti quotidiani'],
+        exercises: [
+          { text: 'Cambi di direzione progressivi, partendo da angoli ampi', cat: 'run' },
+          { text: 'Corsa con curve controllate', cat: 'run' },
+          { text: 'Contatti leggeri e contrasti controllati prima del rientro in gruppo', cat: 'run' },
+        ] },
+    ],
+  },
   lowback: {
     relatedInjuries: ['hamstring', 'piriformis'], relatedReason: 'Zona lombare, glutei e hamstring si sostengono a vicenda nella stabilità del bacino.',
     label: 'Lombalgia muscolare', subtitle: 'Dolore lombare meccanico, senza sintomi alla gamba', icon: PersonStanding, mechanismTags: ['acute', 'overuse'],
@@ -548,6 +702,7 @@ const regions = {
 };
 
 function regionOfInjury(injuryKey) {
+  if (!injuryKey || !injuriesData[injuryKey]) return null;
   return Object.keys(regions).find((r) => regions[r].injuries.includes(injuryKey)) || null;
 }
 
@@ -678,7 +833,6 @@ function BodyDiagram({ onSelectRegion }) {
   );
 }
 
-// Componente Placeholder Elegante per le GIF
 function ExerciseMediaPlaceholder() {
   return (
     <div style={{ backgroundColor: '#0A1118', border: `1px solid ${colors.hairline}` }} className="mt-2.5 rounded-xl overflow-hidden relative">
@@ -749,7 +903,7 @@ function formatTodayLabel() {
 
 export default function Offside() {
   const [loading, setLoading] = useState(true);
-  const [screen, setScreen] = useState('cover'); // cover | regions | triage | injuries | tracker
+  const [screen, setScreen] = useState('cover');
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [triageTag, setTriageTag] = useState(null);
   const [triageAnswers, setTriageAnswers] = useState({ mechanism: null, pop: null, weight: null });
@@ -770,8 +924,6 @@ export default function Offside() {
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [deletingKey, setDeletingKey] = useState(null);
   const [playerPosition, setPlayerPosition] = useState(null);
-  
-  // Nuovo stato per l'esercizio attualmente aperto in visualizzazione video
   const [activeVideo, setActiveVideo] = useState(null);
 
   useEffect(() => {
@@ -781,16 +933,17 @@ export default function Offside() {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const data = JSON.parse(raw);
-          setSelectedInjury(data.selectedInjury || null);
+          const injuryKey = data.selectedInjury || null;
+          if (injuryKey && injuriesData[injuryKey]) {
+            setSelectedInjury(injuryKey);
+            setSelectedRegion(regionOfInjury(injuryKey));
+          }
           setActivePhase(data.activePhase || 0);
           setProgress(data.progress || {});
           setInjuryDates(data.injuryDates || {});
           setInjurySeverities(data.injurySeverities || {});
           setDailyLog(data.dailyLog || {});
           setPlayerPosition(data.playerPosition || null);
-          if (data.selectedInjury) {
-            setSelectedRegion(regionOfInjury(data.selectedInjury));
-          }
         }
       } catch (err) {} finally {
         setLoading(false);
@@ -820,6 +973,7 @@ export default function Offside() {
   const openRegion = (key) => { setSelectedRegion(key); setScreen('injuries'); };
 
   const resumeInjury = (key) => {
+    if (!injuriesData[key]) return;
     const sev = injurySeverities[key] || 'moderato';
     const date = injuryDates[key];
     let suggested = 0;
@@ -841,6 +995,7 @@ export default function Offside() {
   const handleScenario = (scenario) => { setTriageTag(scenario.tag); openRegion(scenario.region); };
 
   const chooseInjury = (key) => {
+    if (!injuriesData[key]) return;
     const severity = injurySeverities[key] || 'moderato';
     const nextSeverities = { ...injurySeverities, [key]: severity };
     setSelectedInjury(key);
@@ -854,6 +1009,7 @@ export default function Offside() {
   };
 
   const setSeverity = (sev) => {
+    if (!selectedInjury || !injuriesData[selectedInjury]) return;
     const nextSeverities = { ...injurySeverities, [selectedInjury]: sev };
     setInjurySeverities(nextSeverities);
     if (injuryDates[selectedInjury]) {
@@ -867,6 +1023,7 @@ export default function Offside() {
   };
 
   const commitDate = (isoDate) => {
+    if (!selectedInjury || !injuriesData[selectedInjury]) return;
     const nextDates = { ...injuryDates, [selectedInjury]: isoDate };
     const sev = injurySeverities[selectedInjury] || 'moderato';
     const { dayThresholds } = injuriesData[selectedInjury].severityData[sev];
@@ -882,6 +1039,7 @@ export default function Offside() {
   const changePhase = (idx) => { setActivePhase(idx); setActiveVideo(null); persist(snapshot({ activePhase: idx })); };
 
   const toggleExercise = (exIdx) => {
+    if (!selectedInjury) return;
     const pKey = `${selectedInjury}-${activePhase}`;
     const current = progress[pKey] || {};
     const nextForPhase = { ...current, [exIdx]: !current[exIdx] };
@@ -893,6 +1051,7 @@ export default function Offside() {
   const todayKey = () => toISODate(new Date());
 
   const toggleToday = () => {
+    if (!selectedInjury) return;
     const today = todayKey();
     const current = dailyLog[selectedInjury] || {};
     const todayEntry = current[today] || {};
@@ -904,6 +1063,7 @@ export default function Offside() {
   };
 
   const setTodayFeeling = (feeling) => {
+    if (!selectedInjury) return;
     const today = todayKey();
     const current = dailyLog[selectedInjury] || {};
     const todayEntry = current[today] || {};
@@ -915,6 +1075,7 @@ export default function Offside() {
   };
 
   const setTodayStiffness = (stiffness) => {
+    if (!selectedInjury) return;
     const today = todayKey();
     const current = dailyLog[selectedInjury] || {};
     const todayEntry = current[today] || {};
@@ -926,6 +1087,7 @@ export default function Offside() {
   };
 
   const resetInjury = () => {
+    if (!selectedInjury) return;
     const nextProgress = { ...progress };
     injuriesData[selectedInjury].phases.forEach((_, i) => delete nextProgress[`${selectedInjury}-${i}`]);
     const nextDates = { ...injuryDates };
@@ -944,6 +1106,7 @@ export default function Offside() {
   };
 
   const deleteInjuryData = (key) => {
+    if (!injuriesData[key]) return;
     const nextProgress = { ...progress };
     injuriesData[key].phases.forEach((_, i) => delete nextProgress[`${key}-${i}`]);
     const nextDates = { ...injuryDates };
@@ -971,14 +1134,14 @@ export default function Offside() {
   const displayFont = { fontFamily: "'Space Grotesk', sans-serif" };
   const bodyFont = { fontFamily: "'Inter', sans-serif" };
 
-  const injury = selectedInjury ? injuriesData[selectedInjury] : null;
-  const severity = selectedInjury ? (injurySeverities[selectedInjury] || 'moderato') : 'moderato';
+  const injury = selectedInjury && injuriesData[selectedInjury] ? injuriesData[selectedInjury] : null;
+  const severity = injury && selectedInjury ? (injurySeverities[selectedInjury] || 'moderato') : 'moderato';
   const { dayThresholds, totalEstimateDays } = injury ? injury.severityData[severity] : { dayThresholds: [0, 0], totalEstimateDays: 1 };
-  const phase = injury ? injury.phases[activePhase] : null;
-  const phaseKey = injury ? `${selectedInjury}-${activePhase}` : null;
+  const phase = injury && injury.phases[activePhase] ? injury.phases[activePhase] : null;
+  const phaseKey = injury && selectedInjury ? `${selectedInjury}-${activePhase}` : null;
   const phaseProgress = phaseKey ? (progress[phaseKey] || {}) : {};
-  const completedCount = phase ? phase.exercises.filter((_, i) => phaseProgress[i]).length : 0;
-  const currentDate = injury ? injuryDates[selectedInjury] : null;
+  const completedCount = phase && phase.exercises ? phase.exercises.filter((_, i) => phaseProgress[i]).length : 0;
+  const currentDate = injury && selectedInjury ? injuryDates[selectedInjury] : null;
   const dayCount = currentDate ? daysSince(currentDate) : null;
   const injuryLog = selectedInjury ? (dailyLog[selectedInjury] || {}) : {};
   const todayEntry = injuryLog[todayKey()] || {};
@@ -991,7 +1154,7 @@ export default function Offside() {
   }, [injury, dayThresholds, totalEstimateDays, dayCount]);
 
   const shareProgress = async () => {
-    if (!injury) return;
+    if (!injury || !phase) return;
     const doneDays = Object.values(injuryLog).filter((e) => e.done).length;
     const lines = [
       'OFFSIDE — Riepilogo recupero',
@@ -1091,7 +1254,7 @@ export default function Offside() {
     );
   }
 
-  const activeInjuryKeys = Object.keys(injuryDates).filter((k) => injuryDates[k]);
+  const activeInjuryKeys = Object.keys(injuryDates).filter((k) => injuryDates[k] && injuriesData[k]);
 
   return (
     <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full min-h-[100dvh] relative">
@@ -1108,7 +1271,7 @@ export default function Offside() {
         <div className="flex-1 min-w-0">
           <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">Offside</p>
           <h1 style={{ ...displayFont, color: colors.ink }} className="text-lg sm:text-xl font-semibold truncate">
-            {screen === 'regions' ? 'Dove senti il problema?' : screen === 'triage' ? 'Non sai cosa hai?' : screen === 'firstaid' ? 'Primi soccorsi' : screen === 'injuries' ? regions[selectedRegion].label : 'Il tuo percorso'}
+            {screen === 'regions' ? 'Dove senti il problema?' : screen === 'triage' ? 'Non sai cosa hai?' : screen === 'firstaid' ? 'Primi soccorsi' : screen === 'injuries' ? (selectedRegion && regions[selectedRegion] ? regions[selectedRegion].label : 'Infortuni') : 'Il tuo percorso'}
           </h1>
         </div>
         {screen === 'tracker' && injury && (
@@ -1308,10 +1471,11 @@ export default function Offside() {
           </div>
         )}
 
-        {screen === 'injuries' && (
+        {screen === 'injuries' && selectedRegion && regions[selectedRegion] && (
           <div className="space-y-2.5">
             {regions[selectedRegion].injuries.map((key) => {
               const data = injuriesData[key];
+              if (!data) return null;
               const Icon = data.icon;
               const hasProgress = injuryDates[key];
               const matches = triageTag && data.mechanismTags.includes(triageTag);
@@ -1332,7 +1496,7 @@ export default function Offside() {
           </div>
         )}
 
-        {screen === 'tracker' && injury && (
+        {screen === 'tracker' && injury && phase && (
           <>
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -1631,7 +1795,7 @@ export default function Offside() {
                               </div>
                               
                               <button 
-                                onClick={() => setActiveVideo(isVideoOpen ? null : exKey)}
+                                onClick={() => setActiveVideo(isVideoOpen ? null : exKey)} 
                                 style={{ color: colors.accentDark, backgroundColor: colors.accentTint }} 
                                 className="os-focus flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium mt-2 hover:opacity-80 transition-opacity"
                               >
