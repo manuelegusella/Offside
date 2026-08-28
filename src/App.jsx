@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { track } from '@vercel/analytics';
 import {
   Footprints, Zap, CircleDot, Activity, ArrowLeftRight, Shield, Anchor,
   ShieldCheck, Disc, TrendingUp, Compass, AlertTriangle, CheckCircle2,
@@ -989,7 +990,7 @@ export default function Offside() {
     else if (screen === 'regions') setScreen('cover');
   };
 
-  const openRegion = (key) => { setSelectedRegion(key); setScreen('injuries'); };
+  const openRegion = (key) => { track('region_selected', { region: key }); setSelectedRegion(key); setScreen('injuries'); };
 
   const resumeInjury = (key) => {
     if (!injuriesData[key]) return;
@@ -1015,6 +1016,7 @@ export default function Offside() {
 
   const chooseInjury = (key) => {
     if (!injuriesData[key]) return;
+    track('injury_selected', { injury: key });
     const severity = injurySeverities[key] || 'moderato';
     const nextSeverities = { ...injurySeverities, [key]: severity };
     setSelectedInjury(key);
@@ -1074,7 +1076,9 @@ export default function Offside() {
     const today = todayKey();
     const current = dailyLog[selectedInjury] || {};
     const todayEntry = current[today] || {};
-    const nextEntry = { ...todayEntry, done: !todayEntry.done };
+    const willBeDone = !todayEntry.done;
+    if (willBeDone) track('session_logged', { injury: selectedInjury });
+    const nextEntry = { ...todayEntry, done: willBeDone };
     const nextForInjury = { ...current, [today]: nextEntry };
     const nextLog = { ...dailyLog, [selectedInjury]: nextForInjury };
     setDailyLog(nextLog);
@@ -1261,7 +1265,7 @@ export default function Offside() {
           </button>
 
           <button
-            onClick={() => disclaimerAccepted && setScreen('regions')}
+            onClick={() => { if (disclaimerAccepted) { track('disclaimer_accepted'); setScreen('regions'); } }}
             disabled={!disclaimerAccepted}
             style={{ backgroundColor: disclaimerAccepted ? colors.accent : '#2A3A48', color: disclaimerAccepted ? '#FFFFFF' : '#6E7E8C' }}
             className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium transition-colors"
