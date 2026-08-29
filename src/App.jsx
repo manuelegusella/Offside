@@ -19,6 +19,7 @@ const colors = {
   paper: '#EEF3F8', card: '#FFFFFF', hairline: '#D7E1EA', ink: '#101B26',
   mutedInk: '#57697A', accent: '#22C55E', accentTint: '#DCFCE7', accentDark: '#15803D',
   red: '#AE3830', redTint: '#F6DEDB', laneBg: '#DFE7EF', orange: '#C96A22',
+  prevention: '#14B8A6', preventionTint: '#CCFBF1', preventionDark: '#0F766E', preventionPaper: '#EDFCFA',
 };
 
 const STORAGE_KEY = 'injury-recovery-progress-v3';
@@ -752,6 +753,8 @@ const preventionData = {
       { text: 'Equilibrio su una gamba sola, 30 secondi per lato (2-3 volte)', cat: 'balance' },
       { text: 'Calf raises a corpo libero (3 serie da 15)', cat: 'strength' },
       { text: 'Mobilità della caviglia in tutte le direzioni', cat: 'stretch' },
+      { text: 'Rinforzo con elastico in tutte le direzioni (2-3 serie da 12-15 per direzione)', cat: 'strength' },
+      { text: 'Equilibrio su superficie instabile, se disponibile (2-3 volte da 20-30 secondi)', cat: 'balance' },
     ],
   },
   knee: {
@@ -761,6 +764,8 @@ const preventionData = {
       { text: 'Squat controllati (2-3 serie da 12)', cat: 'strength' },
       { text: 'Rinforzo del gluteo medio con elastico (2-3 serie da 15)', cat: 'strength' },
       { text: 'Stretching di quadricipite e ischiocrurali', cat: 'stretch' },
+      { text: 'Step-up controllati (2-3 serie da 10 per gamba)', cat: 'strength' },
+      { text: 'Ponte glutei su una gamba (2-3 serie da 10-12 per lato)', cat: 'strength' },
     ],
   },
   thigh: {
@@ -770,6 +775,8 @@ const preventionData = {
       { text: 'Nordic curl assistito (2-3 serie da 5-6)', cat: 'strength' },
       { text: 'Affondi controllati (2-3 serie da 10 per gamba)', cat: 'strength' },
       { text: 'Stretching dinamico prima dell\'allenamento', cat: 'stretch' },
+      { text: 'Ponte glutei/hamstring, bridge (3 serie da 12-15)', cat: 'strength' },
+      { text: 'Rinforzo eccentrico del quadricipite, discesa lenta (2-3 serie da 8-10)', cat: 'strength' },
     ],
   },
   calf_region: {
@@ -779,15 +786,19 @@ const preventionData = {
       { text: 'Calf raises progressivi (3 serie da 15)', cat: 'strength' },
       { text: 'Stretching del polpaccio', cat: 'stretch' },
       { text: 'Salti leggeri controllati (2-3 serie da 10)', cat: 'strength' },
+      { text: 'Calf raises eccentrici, scendi lentamente su una gamba (3 serie da 10-12)', cat: 'strength' },
+      { text: 'Mobilità della caviglia prima e dopo l\'allenamento', cat: 'stretch' },
     ],
   },
   hip_groin: {
     label: 'Anca e inguine',
-    why: 'Adduttori e flessori dell\'anca sono sollecitati in ogni calcio e cambio di direzione — tra le zone più soggette a infortuni da sovraccarico nel calcio amatoriale.',
+    why: 'Adduttori e flessori dell\'anca sono sollecitati in ogni calcio e cambio di direzione — tra le zone più soggette a infortuni da sovraccarico nel calcio amatoriale. Il rinforzo degli adduttori in particolare ha prove scientifiche solide alle spalle.',
     exercises: [
       { text: 'Rinforzo isometrico degli adduttori (3-4 serie da 8-10 tenute)', cat: 'strength' },
       { text: 'Mobilità dell\'anca in tutte le direzioni', cat: 'stretch' },
       { text: 'Rinforzo dei flessori dell\'anca con elastico (2-3 serie da 12-15)', cat: 'strength' },
+      { text: 'Plank laterale con schiacciata dell\'adduttore, tipo Copenhagen (2-3 serie da 6-8 per lato)', cat: 'strength' },
+      { text: 'Cammino laterale con elastico (2-3 serie da 12-15 passi per lato)', cat: 'strength' },
     ],
   },
   lower_back: {
@@ -797,6 +808,8 @@ const preventionData = {
       { text: 'Plank (2-3 serie da 20-30 secondi)', cat: 'strength' },
       { text: 'Bird-dog: da carponi, estendi braccio e gamba opposti (2-3 serie da 8-10 per lato)', cat: 'strength' },
       { text: 'Mobilità lombare dolce da sdraiato', cat: 'stretch' },
+      { text: 'Plank laterale (2-3 serie da 15-20 secondi per lato)', cat: 'strength' },
+      { text: 'Ponte glutei a due gambe (3 serie da 12-15)', cat: 'strength' },
     ],
   },
 };
@@ -1009,14 +1022,15 @@ export default function Offside() {
   const [activeVideo, setActiveVideo] = useState(null);
   const [expandedPrevention, setExpandedPrevention] = useState(null);
   const [preventionProgress, setPreventionProgress] = useState({});
+  const [expandedPreventionTip, setExpandedPreventionTip] = useState(null);
 
   useEffect(() => {
     loadFontsOnce();
     (async () => {
       try {
-        const result = await window.storage.get(STORAGE_KEY, false);
-        if (result && result.value) {
-          const data = JSON.parse(result.value);
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const data = JSON.parse(raw);
           const injuryKey = data.selectedInjury || null;
           if (injuryKey && injuriesData[injuryKey]) {
             setSelectedInjury(injuryKey);
@@ -1036,10 +1050,10 @@ export default function Offside() {
     })();
   }, []);
 
-  const persist = useCallback(async (next) => {
+  const persist = useCallback((next) => {
     try {
-      const result = await window.storage.set(STORAGE_KEY, JSON.stringify(next), false);
-      setSaveError(!result);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      setSaveError(false);
     } catch (err) {
       setSaveError(true);
     }
@@ -1452,13 +1466,13 @@ export default function Offside() {
               <ChevronRight size={18} color={colors.ink} className="opacity-60" />
             </button>
 
-            <button onClick={() => setScreen('prevention')} style={{ backgroundColor: colors.ink }} className="os-focus w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-6 hover:opacity-90 transition-opacity shadow-sm">
-              <div style={{ backgroundColor: 'rgba(34,197,94,0.2)' }} className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"><ShieldCheck size={20} color={colors.accent} /></div>
+            <button onClick={() => setScreen('prevention')} style={{ backgroundColor: colors.ink, border: `1.5px solid ${colors.prevention}55` }} className="os-focus w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-6 hover:opacity-90 transition-opacity shadow-sm">
+              <div style={{ backgroundColor: `${colors.prevention}30` }} className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"><ShieldCheck size={20} color={colors.prevention} /></div>
               <div className="flex-1">
-                <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-medium">Stai bene? Restaci.</p>
-                <p style={{ color: '#A9B7C4' }} className="text-xs">Esercizi di prevenzione, quando vuoi</p>
+                <p style={{ ...displayFont, color: colors.prevention, letterSpacing: '0.14em' }} className="text-[10px] font-bold uppercase mb-0.5">Prevenzione</p>
+                <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-semibold">Stai bene? Restaci.</p>
               </div>
-              <ChevronRight size={18} color="#A9B7C4" />
+              <ChevronRight size={18} color={colors.prevention} />
             </button>
 
             <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase text-center mb-3">Tocca dove senti il problema</p>
@@ -1473,7 +1487,7 @@ export default function Offside() {
                 return (
                   <button key={key} onClick={() => openRegion(key)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-4 px-4 py-4 rounded-xl text-left hover:shadow-sm hover:border-gray-300 transition-all">
                     <div style={{ backgroundColor: colors.accentTint, border: `1px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><Icon size={19} color={colors.accentDark} strokeWidth={2} /></div>
-                    <div className="flex-1 min-w-0"><p style={{ ...displayFont, color: colors.ink }} className="text-base font-medium">{data.label}</p></div>
+                    <div className="flex-1 min-w-0"><p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.02em' }} className="text-base font-semibold uppercase">{data.label}</p></div>
                     <ChevronRight size={20} color={colors.mutedInk} className="flex-shrink-0" />
                   </button>
                 );
@@ -1496,7 +1510,7 @@ export default function Offside() {
         )}
 
         {screen === 'prevention' && (
-          <div>
+          <div style={{ background: `linear-gradient(180deg, ${colors.preventionPaper} 0%, ${colors.paper} 220px)`, margin: '-24px -20px 0', padding: '24px 20px 0' }}>
             <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">
               Il momento migliore per lavorare su un infortunio è prima che succeda. Scegli una zona — non serve avere nulla che fa male.
             </p>
@@ -1507,12 +1521,12 @@ export default function Offside() {
                 const doneCount = data.exercises.filter((_, i) => regionProgress[i]).length;
                 const RegionIcon = regions[key]?.icon || ShieldCheck;
                 return (
-                  <div key={key} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl overflow-hidden shadow-sm">
+                  <div key={key} style={{ backgroundColor: colors.card, border: `1px solid ${isExpanded ? colors.prevention + '55' : colors.hairline}` }} className="rounded-xl overflow-hidden shadow-sm">
                     <button onClick={() => setExpandedPrevention(isExpanded ? null : key)} className="os-focus w-full flex items-center gap-4 px-4 py-4 text-left">
-                      <div style={{ backgroundColor: colors.accentTint, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><RegionIcon size={19} color={colors.accentDark} strokeWidth={2} /></div>
+                      <div style={{ backgroundColor: colors.preventionTint, border: `1.5px solid ${colors.prevention}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><RegionIcon size={19} color={colors.preventionDark} strokeWidth={2} /></div>
                       <div className="flex-1 min-w-0">
-                        <p style={{ ...displayFont, color: colors.ink }} className="text-base font-medium">{data.label}</p>
-                        {doneCount > 0 && <p style={{ color: colors.accentDark }} className="text-xs font-medium">{doneCount}/{data.exercises.length} fatti</p>}
+                        <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.02em' }} className="text-base font-semibold uppercase">{data.label}</p>
+                        {doneCount > 0 && <p style={{ color: colors.preventionDark }} className="text-xs font-medium">{doneCount}/{data.exercises.length} fatti</p>}
                       </div>
                       <ChevronDown size={20} color={colors.mutedInk} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
                     </button>
@@ -1523,14 +1537,27 @@ export default function Offside() {
                           {data.exercises.map((ex, i) => {
                             const done = !!regionProgress[i];
                             const CatIcon = catIcons[ex.cat] || Circle;
+                            const tipKey = `${key}-${i}`;
+                            const tipOpen = expandedPreventionTip === tipKey;
                             return (
-                              <button key={i} onClick={() => togglePreventionExercise(key, i)} style={{ backgroundColor: done ? colors.accentTint : colors.paper, border: `1px solid ${done ? colors.accent + '55' : colors.hairline}` }} className="os-focus w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors">
-                                {done ? <CheckCircle2 size={18} color={colors.accent} className="flex-shrink-0 mt-0.5" strokeWidth={2.25} /> : <Circle size={18} color={colors.mutedInk} className="flex-shrink-0 mt-0.5" strokeWidth={1.75} />}
-                                <span className="flex-1">
-                                  <span style={{ color: done ? colors.accentDark : colors.ink, textDecoration: done ? 'line-through' : 'none' }} className="text-sm leading-snug block">{ex.text}</span>
-                                  <span style={{ color: colors.mutedInk }} className="text-[11px] flex items-center gap-1 mt-0.5"><CatIcon size={11} />{catLabels[ex.cat]}</span>
-                                </span>
-                              </button>
+                              <div key={i} style={{ backgroundColor: done ? colors.preventionTint : colors.paper, border: `1px solid ${done ? colors.prevention + '55' : colors.hairline}` }} className="rounded-lg overflow-hidden">
+                                <button onClick={() => togglePreventionExercise(key, i)} className="os-focus w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors">
+                                  {done ? <CheckCircle2 size={18} color={colors.prevention} className="flex-shrink-0 mt-0.5" strokeWidth={2.25} /> : <Circle size={18} color={colors.mutedInk} className="flex-shrink-0 mt-0.5" strokeWidth={1.75} />}
+                                  <span className="flex-1">
+                                    <span style={{ color: done ? colors.preventionDark : colors.ink, textDecoration: done ? 'line-through' : 'none' }} className="text-sm leading-snug block">{ex.text}</span>
+                                    <span style={{ color: colors.mutedInk }} className="text-[11px] flex items-center gap-1 mt-0.5"><CatIcon size={11} />{catLabels[ex.cat]}</span>
+                                  </span>
+                                </button>
+                                <button onClick={() => setExpandedPreventionTip(tipOpen ? null : tipKey)} style={{ color: colors.preventionDark }} className="os-focus flex items-center gap-1 text-[11px] font-medium px-3 pb-2.5 hover:opacity-70">
+                                  <ChevronDown size={11} style={{ transform: tipOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                                  Come si fa?
+                                </button>
+                                {tipOpen && (
+                                  <div className="px-3 pb-3 os-fadein">
+                                    <ExerciseHelp ex={ex} />
+                                  </div>
+                                )}
+                              </div>
                             );
                           })}
                         </div>
@@ -1663,7 +1690,7 @@ export default function Offside() {
                   <div style={{ backgroundColor: colors.card, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><Icon size={19} color={colors.accentDark} strokeWidth={2} /></div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p style={{ ...displayFont, color: colors.ink }} className="text-base font-medium">{data.label}</p>
+                      <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.01em' }} className="text-base font-semibold uppercase">{data.label}</p>
                       {matches && <span style={{ backgroundColor: colors.accentTint, color: colors.accentDark }} className="text-[10px] px-2 py-0.5 rounded-full font-medium">Probabilmente questo</span>}
                     </div>
                     <p style={{ color: colors.mutedInk }} className="text-sm">{data.subtitle}{hasProgress ? ' · in corso' : ''}</p>
@@ -1680,7 +1707,7 @@ export default function Offside() {
           <>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <span style={{ ...displayFont, color: colors.ink }} className="text-lg font-semibold">{injury.label}</span>
+                <span style={{ ...displayFont, color: colors.ink, letterSpacing: '0.01em' }} className="text-lg font-semibold uppercase">{injury.label}</span>
                 <span style={{ color: colors.mutedInk }} className="text-sm ml-2 block sm:inline">{injury.subtitle}</span>
               </div>
               <button
