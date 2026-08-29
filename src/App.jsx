@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { track } from '@vercel/analytics';
+
+function trackEvent(name, params = {}) {
+  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+    window.gtag('event', name, params);
+  }
+}
 import {
   Footprints, Zap, CircleDot, Activity, ArrowLeftRight, Shield, Anchor,
   ShieldCheck, Disc, TrendingUp, Compass, AlertTriangle, CheckCircle2,
@@ -739,6 +744,63 @@ const riceAvoid = [
   'Continuare ad allenarti "per vedere se passa"',
 ];
 
+const preventionData = {
+  ankle_foot: {
+    label: 'Caviglia e piede',
+    why: 'La caviglia è tra le articolazioni più soggette a infortuni nel calcio, specialmente se te la sei già fatta in passato. Lavorare su equilibrio e forza riduce concretamente il rischio di una nuova distorsione.',
+    exercises: [
+      { text: 'Equilibrio su una gamba sola, 30 secondi per lato (2-3 volte)', cat: 'balance' },
+      { text: 'Calf raises a corpo libero (3 serie da 15)', cat: 'strength' },
+      { text: 'Mobilità della caviglia in tutte le direzioni', cat: 'stretch' },
+    ],
+  },
+  knee: {
+    label: 'Ginocchio',
+    why: 'Il ginocchio lavora meglio quando i muscoli intorno — quadricipite, ischiocrurali, glutei — sono forti ed equilibrati tra loro: riduce lo stress sull\'articolazione nei cambi di direzione.',
+    exercises: [
+      { text: 'Squat controllati (2-3 serie da 12)', cat: 'strength' },
+      { text: 'Rinforzo del gluteo medio con elastico (2-3 serie da 15)', cat: 'strength' },
+      { text: 'Stretching di quadricipite e ischiocrurali', cat: 'stretch' },
+    ],
+  },
+  thigh: {
+    label: 'Coscia',
+    why: 'Hamstring e quadricipite sono i muscoli più soggetti a stiramenti nello sprint. Il lavoro eccentrico, cioè sotto allungamento controllato, è quello con più prove scientifiche alle spalle per prevenire gli strappi.',
+    exercises: [
+      { text: 'Nordic curl assistito (2-3 serie da 5-6)', cat: 'strength' },
+      { text: 'Affondi controllati (2-3 serie da 10 per gamba)', cat: 'strength' },
+      { text: 'Stretching dinamico prima dell\'allenamento', cat: 'stretch' },
+    ],
+  },
+  calf_region: {
+    label: 'Gamba e polpaccio',
+    why: 'Il polpaccio lavora a ogni scatto e ogni salto. Tenerlo forte ed elastico riduce il rischio di stiramenti, soprattutto quando aumenti i carichi di allenamento dopo una pausa.',
+    exercises: [
+      { text: 'Calf raises progressivi (3 serie da 15)', cat: 'strength' },
+      { text: 'Stretching del polpaccio', cat: 'stretch' },
+      { text: 'Salti leggeri controllati (2-3 serie da 10)', cat: 'strength' },
+    ],
+  },
+  hip_groin: {
+    label: 'Anca e inguine',
+    why: 'Adduttori e flessori dell\'anca sono sollecitati in ogni calcio e cambio di direzione — tra le zone più soggette a infortuni da sovraccarico nel calcio amatoriale.',
+    exercises: [
+      { text: 'Rinforzo isometrico degli adduttori (3-4 serie da 8-10 tenute)', cat: 'strength' },
+      { text: 'Mobilità dell\'anca in tutte le direzioni', cat: 'stretch' },
+      { text: 'Rinforzo dei flessori dell\'anca con elastico (2-3 serie da 12-15)', cat: 'strength' },
+    ],
+  },
+  lower_back: {
+    label: 'Zona lombare',
+    why: 'Una zona lombare e un core forti stabilizzano tutto il resto del corpo — molti problemi alle gambe nascono da una base instabile più in alto, non dalla gamba stessa.',
+    exercises: [
+      { text: 'Plank (2-3 serie da 20-30 secondi)', cat: 'strength' },
+      { text: 'Bird-dog: da carponi, estendi braccio e gamba opposti (2-3 serie da 8-10 per lato)', cat: 'strength' },
+      { text: 'Mobilità lombare dolce da sdraiato', cat: 'stretch' },
+    ],
+  },
+};
+
 const injuryScenarios = [
   { icon: Zap, label: 'Fitta improvvisa durante uno scatto', region: 'thigh', tag: 'acute' },
   { icon: Shield, label: 'Contrasto o colpo diretto', region: 'thigh', tag: 'contact' },
@@ -945,14 +1007,16 @@ export default function Offside() {
   const [deletingKey, setDeletingKey] = useState(null);
   const [playerPosition, setPlayerPosition] = useState(null);
   const [activeVideo, setActiveVideo] = useState(null);
+  const [expandedPrevention, setExpandedPrevention] = useState(null);
+  const [preventionProgress, setPreventionProgress] = useState({});
 
   useEffect(() => {
     loadFontsOnce();
     (async () => {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const data = JSON.parse(raw);
+        const result = await window.storage.get(STORAGE_KEY, false);
+        if (result && result.value) {
+          const data = JSON.parse(result.value);
           const injuryKey = data.selectedInjury || null;
           if (injuryKey && injuriesData[injuryKey]) {
             setSelectedInjury(injuryKey);
@@ -964,6 +1028,7 @@ export default function Offside() {
           setInjurySeverities(data.injurySeverities || {});
           setDailyLog(data.dailyLog || {});
           setPlayerPosition(data.playerPosition || null);
+          setPreventionProgress(data.preventionProgress || {});
         }
       } catch (err) {} finally {
         setLoading(false);
@@ -971,26 +1036,27 @@ export default function Offside() {
     })();
   }, []);
 
-  const persist = useCallback((next) => {
+  const persist = useCallback(async (next) => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      setSaveError(false);
+      const result = await window.storage.set(STORAGE_KEY, JSON.stringify(next), false);
+      setSaveError(!result);
     } catch (err) {
       setSaveError(true);
     }
   }, []);
 
-  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, ...overrides });
+  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, ...overrides });
 
   const goBack = () => {
     if (screen === 'tracker') setScreen('injuries');
     else if (screen === 'injuries') { setScreen('regions'); setSelectedRegion(null); setTriageTag(null); }
     else if (screen === 'triage') setScreen('regions');
     else if (screen === 'firstaid') setScreen('regions');
+    else if (screen === 'prevention') setScreen('regions');
     else if (screen === 'regions') setScreen('cover');
   };
 
-  const openRegion = (key) => { track('region_selected', { region: key }); setSelectedRegion(key); setScreen('injuries'); };
+  const openRegion = (key) => { trackEvent('region_selected', { region: key }); setSelectedRegion(key); setScreen('injuries'); };
 
   const resumeInjury = (key) => {
     if (!injuriesData[key]) return;
@@ -1016,7 +1082,7 @@ export default function Offside() {
 
   const chooseInjury = (key) => {
     if (!injuriesData[key]) return;
-    track('injury_selected', { injury: key });
+    trackEvent('injury_selected', { injury: key });
     const severity = injurySeverities[key] || 'moderato';
     const nextSeverities = { ...injurySeverities, [key]: severity };
     setSelectedInjury(key);
@@ -1069,6 +1135,14 @@ export default function Offside() {
     persist(snapshot({ progress: nextProgress }));
   };
 
+  const togglePreventionExercise = (regionKey, exIdx) => {
+    const current = preventionProgress[regionKey] || {};
+    const nextForRegion = { ...current, [exIdx]: !current[exIdx] };
+    const next = { ...preventionProgress, [regionKey]: nextForRegion };
+    setPreventionProgress(next);
+    persist(snapshot({ preventionProgress: next }));
+  };
+
   const todayKey = () => toISODate(new Date());
 
   const toggleToday = () => {
@@ -1077,7 +1151,7 @@ export default function Offside() {
     const current = dailyLog[selectedInjury] || {};
     const todayEntry = current[today] || {};
     const willBeDone = !todayEntry.done;
-    if (willBeDone) track('session_logged', { injury: selectedInjury });
+    if (willBeDone) trackEvent('session_logged', { injury: selectedInjury });
     const nextEntry = { ...todayEntry, done: willBeDone };
     const nextForInjury = { ...current, [today]: nextEntry };
     const nextLog = { ...dailyLog, [selectedInjury]: nextForInjury };
@@ -1265,7 +1339,7 @@ export default function Offside() {
           </button>
 
           <button
-            onClick={() => { if (disclaimerAccepted) { track('disclaimer_accepted'); setScreen('regions'); } }}
+            onClick={() => { if (disclaimerAccepted) { trackEvent('disclaimer_accepted'); setScreen('regions'); } }}
             disabled={!disclaimerAccepted}
             style={{ backgroundColor: disclaimerAccepted ? colors.accent : '#2A3A48', color: disclaimerAccepted ? '#FFFFFF' : '#6E7E8C' }}
             className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium transition-colors"
@@ -1297,7 +1371,7 @@ export default function Offside() {
             <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">Offside</p>
           </div>
           <h1 style={{ ...displayFont, color: colors.ink }} className="text-lg sm:text-xl font-semibold truncate">
-            {screen === 'regions' ? 'Dove senti il problema?' : screen === 'triage' ? 'Non sai cosa hai?' : screen === 'firstaid' ? 'Primi soccorsi' : screen === 'injuries' ? (selectedRegion && regions[selectedRegion] ? regions[selectedRegion].label : 'Infortuni') : 'Il tuo percorso'}
+            {screen === 'regions' ? 'Dove senti il problema?' : screen === 'triage' ? 'Non sai cosa hai?' : screen === 'firstaid' ? 'Primi soccorsi' : screen === 'prevention' ? 'Prevenzione' : screen === 'injuries' ? (selectedRegion && regions[selectedRegion] ? regions[selectedRegion].label : 'Infortuni') : 'Il tuo percorso'}
           </h1>
         </div>
         {screen === 'tracker' && injury && (
@@ -1378,6 +1452,15 @@ export default function Offside() {
               <ChevronRight size={18} color={colors.ink} className="opacity-60" />
             </button>
 
+            <button onClick={() => setScreen('prevention')} style={{ backgroundColor: colors.ink }} className="os-focus w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-6 hover:opacity-90 transition-opacity shadow-sm">
+              <div style={{ backgroundColor: 'rgba(34,197,94,0.2)' }} className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"><ShieldCheck size={20} color={colors.accent} /></div>
+              <div className="flex-1">
+                <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-medium">Stai bene? Restaci.</p>
+                <p style={{ color: '#A9B7C4' }} className="text-xs">Esercizi di prevenzione, quando vuoi</p>
+              </div>
+              <ChevronRight size={18} color="#A9B7C4" />
+            </button>
+
             <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase text-center mb-3">Tocca dove senti il problema</p>
             <div className="mb-6">
               <BodyDiagram onSelectRegion={openRegion} />
@@ -1410,6 +1493,54 @@ export default function Offside() {
 
             <button onClick={() => setScreen('cover')} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-5 block mx-auto">Torna alla copertina</button>
           </>
+        )}
+
+        {screen === 'prevention' && (
+          <div>
+            <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">
+              Il momento migliore per lavorare su un infortunio è prima che succeda. Scegli una zona — non serve avere nulla che fa male.
+            </p>
+            <div className="space-y-2.5">
+              {Object.entries(preventionData).map(([key, data]) => {
+                const isExpanded = expandedPrevention === key;
+                const regionProgress = preventionProgress[key] || {};
+                const doneCount = data.exercises.filter((_, i) => regionProgress[i]).length;
+                const RegionIcon = regions[key]?.icon || ShieldCheck;
+                return (
+                  <div key={key} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl overflow-hidden shadow-sm">
+                    <button onClick={() => setExpandedPrevention(isExpanded ? null : key)} className="os-focus w-full flex items-center gap-4 px-4 py-4 text-left">
+                      <div style={{ backgroundColor: colors.accentTint, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><RegionIcon size={19} color={colors.accentDark} strokeWidth={2} /></div>
+                      <div className="flex-1 min-w-0">
+                        <p style={{ ...displayFont, color: colors.ink }} className="text-base font-medium">{data.label}</p>
+                        {doneCount > 0 && <p style={{ color: colors.accentDark }} className="text-xs font-medium">{doneCount}/{data.exercises.length} fatti</p>}
+                      </div>
+                      <ChevronDown size={20} color={colors.mutedInk} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                    </button>
+                    {isExpanded && (
+                      <div className="px-4 pb-4 os-fadein">
+                        <p style={{ color: colors.mutedInk, borderBottom: `1px solid ${colors.hairline}` }} className="text-xs leading-relaxed mb-3 pb-3">{data.why}</p>
+                        <div className="space-y-2">
+                          {data.exercises.map((ex, i) => {
+                            const done = !!regionProgress[i];
+                            const CatIcon = catIcons[ex.cat] || Circle;
+                            return (
+                              <button key={i} onClick={() => togglePreventionExercise(key, i)} style={{ backgroundColor: done ? colors.accentTint : colors.paper, border: `1px solid ${done ? colors.accent + '55' : colors.hairline}` }} className="os-focus w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors">
+                                {done ? <CheckCircle2 size={18} color={colors.accent} className="flex-shrink-0 mt-0.5" strokeWidth={2.25} /> : <Circle size={18} color={colors.mutedInk} className="flex-shrink-0 mt-0.5" strokeWidth={1.75} />}
+                                <span className="flex-1">
+                                  <span style={{ color: done ? colors.accentDark : colors.ink, textDecoration: done ? 'line-through' : 'none' }} className="text-sm leading-snug block">{ex.text}</span>
+                                  <span style={{ color: colors.mutedInk }} className="text-[11px] flex items-center gap-1 mt-0.5"><CatIcon size={11} />{catLabels[ex.cat]}</span>
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
 
         {screen === 'firstaid' && (
