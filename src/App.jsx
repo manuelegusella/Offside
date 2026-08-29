@@ -668,6 +668,78 @@ const injuriesData = {
         ] },
     ],
   },
+  cramps: {
+    label: 'Crampi muscolari', subtitle: 'Contrazione improvvisa e dolorosa, spesso a fine partita', icon: RotateCw, mechanismTags: ['overuse'],
+    symptoms: [
+      'Contrazione improvvisa e involontaria del muscolo, spesso dolorosa',
+      'Il muscolo si sente "duro" al tatto durante l\'episodio',
+      'Capita più spesso verso la fine della partita o con caldo intenso',
+      'Passa nel giro di minuti, a differenza di uno strappo vero',
+    ],
+    severityData: {
+      lieve: { dayThresholds: [1, 2], totalEstimateDays: 3 },
+      moderato: { dayThresholds: [1, 3], totalEstimateDays: 5 },
+      severo: { dayThresholds: [2, 5], totalEstimateDays: 10 },
+    },
+    phases: [
+      { name: 'Gestione immediata', why: 'Un crampo è una contrazione muscolare involontaria, spesso legata a fatica, disidratazione o squilibrio di sali minerali — non è un danno strutturale come uno strappo, ma va gestito subito senza forzare il muscolo mentre è contratto.',
+        exercises: [
+          { text: 'Stretching dolce e prolungato del muscolo colpito', cat: 'stretch' },
+          { text: 'Massaggio leggero della zona', cat: 'stretch' },
+          { text: 'Idratazione, possibilmente con acqua e sali minerali', cat: 'rest' },
+        ] },
+      { name: 'Nelle ore successive', why: 'Dopo un crampo il muscolo può restare leggermente indolenzito — è normale, ma vale la pena andarci piano prima di tornare a sforzi intensi.',
+        criteriaToAdvance: ['Il muscolo non è più dolente al tocco', 'Riesci a muoverti normalmente senza tensione residua'],
+        exercises: [
+          { text: 'Stretching leggero, senza forzare', cat: 'stretch' },
+          { text: 'Cammino normale, attività leggera', cat: 'rest' },
+          { text: 'Reintegra liquidi e sali minerali nelle ore successive', cat: 'rest' },
+        ] },
+      { name: 'Prevenzione per la prossima volta', why: 'I crampi spesso si ripetono se non si affronta la causa — quasi sempre una combinazione di fatica, caldo, e idratazione insufficiente nei giorni prima della partita, non solo durante.',
+        criteriaToAdvance: ['Ti senti completamente normale, nessuna tensione residua'],
+        exercises: [
+          { text: 'Idratati regolarmente nei giorni prima della partita, non solo durante', cat: 'rest' },
+          { text: 'Rinforzo e stretching regolare dei muscoli più soggetti', cat: 'strength' },
+          { text: 'Attenzione al carico di allenamento nei giorni caldi', cat: 'rest' },
+        ] },
+    ],
+  },
+  blisters: {
+    label: 'Vesciche', subtitle: 'Lesione da attrito sulla pelle, comune con scarpe nuove', icon: Circle, mechanismTags: ['overuse'],
+    symptoms: [
+      'Zona arrossata e dolorante, spesso su tallone o dita',
+      'Può formarsi una bolla piena di liquido chiaro',
+      'Capita più spesso con scarpe nuove o non allacciate bene',
+      'Il dolore è localizzato alla pelle, non all\'articolazione o al muscolo',
+    ],
+    severityData: {
+      lieve: { dayThresholds: [1, 2], totalEstimateDays: 3 },
+      moderato: { dayThresholds: [2, 4], totalEstimateDays: 7 },
+      severo: { dayThresholds: [3, 7], totalEstimateDays: 14 },
+    },
+    phases: [
+      { name: 'Protezione immediata', why: 'Una vescica è una lesione superficiale della pelle causata da attrito ripetuto — l\'importante è proteggerla ed evitare che si rompa in modo scoperto, per non rischiare infezioni.',
+        exercises: [
+          { text: 'Copri con un cerotto specifico o una benda, senza stringere troppo', cat: 'rest' },
+          { text: 'Evita di forare la vescica se non necessario', cat: 'rest' },
+          { text: 'Cambia le calzature se sono la causa, quando possibile', cat: 'rest' },
+        ] },
+      { name: 'Nei giorni successivi', why: 'La pelle guarisce da sola in pochi giorni se protetta bene — il rischio vero è l\'infezione, non il dolore in sé.',
+        criteriaToAdvance: ['La zona non è più arrossata o infiammata', 'Nessun segno di infezione: pus, calore, rossore che si allarga'],
+        exercises: [
+          { text: 'Mantieni la zona pulita e coperta', cat: 'rest' },
+          { text: 'Osserva segni di infezione: rossore che si allarga, calore, pus', cat: 'rest' },
+          { text: 'Usa calzature comode finché non guarisce', cat: 'rest' },
+        ] },
+      { name: 'Prevenzione', why: 'Le vesciche si ripetono facilmente se non si cambia qualcosa — scarpe, calze, o la zona di attrito.',
+        criteriaToAdvance: ['La pelle è guarita completamente'],
+        exercises: [
+          { text: 'Prova calze tecniche senza cuciture spesse', cat: 'rest' },
+          { text: 'Rodaggio graduale delle scarpe nuove, non usarle subito per una partita intera', cat: 'rest' },
+          { text: 'Cerotti preventivi sulle zone più soggette, se sai già dove', cat: 'rest' },
+        ] },
+    ],
+  },
   lowback: {
     relatedInjuries: ['hamstring', 'piriformis'], relatedReason: 'Zona lombare, glutei e hamstring si sostengono a vicenda nella stabilità del bacino.',
     label: 'Lombalgia muscolare', subtitle: 'Dolore lombare meccanico, senza sintomi alla gamba', icon: PersonStanding, mechanismTags: ['acute', 'overuse'],
@@ -709,10 +781,10 @@ const injuriesData = {
 };
 
 const regions = {
-  ankle_foot: { label: 'Caviglia e piede', icon: Footprints, injuries: ['ankle', 'achilles', 'plantarfasciitis'] },
+  ankle_foot: { label: 'Caviglia e piede', icon: Footprints, injuries: ['ankle', 'achilles', 'plantarfasciitis', 'blisters'] },
   knee: { label: 'Ginocchio', icon: CircleDot, injuries: ['knee', 'mcl', 'lcl', 'patellar', 'meniscus', 'itband', 'osgood'] },
   thigh: { label: 'Coscia', icon: Zap, injuries: ['hamstring', 'quad', 'contusion'] },
-  calf_region: { label: 'Gamba e polpaccio', icon: Activity, injuries: ['calf', 'shinsplints'] },
+  calf_region: { label: 'Gamba e polpaccio', icon: Activity, injuries: ['calf', 'shinsplints', 'cramps'] },
   hip_groin: { label: 'Anca e inguine', icon: ArrowLeftRight, injuries: ['groin', 'hipflexor', 'piriformis', 'trochanteric'] },
   lower_back: { label: 'Zona lombare', icon: PersonStanding, injuries: ['lowback'] },
 };
@@ -955,6 +1027,12 @@ function loadFontsOnce() {
   document.head.appendChild(link);
 }
 
+function scrollToId(id) {
+  if (typeof document === 'undefined') return;
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function toISODate(d) { return d.toISOString().slice(0, 10); }
 function daysSince(isoDate) {
   const then = new Date(isoDate + 'T00:00:00');
@@ -1024,6 +1102,7 @@ export default function Offside() {
   const [expandedPrevention, setExpandedPrevention] = useState(null);
   const [preventionProgress, setPreventionProgress] = useState({});
   const [expandedPreventionTip, setExpandedPreventionTip] = useState(null);
+  const [expandedSymptoms, setExpandedSymptoms] = useState(null);
 
   useEffect(() => {
     loadFontsOnce();
@@ -1514,7 +1593,7 @@ export default function Offside() {
                 </p>
 
                 <div className="mb-6">
-                  <BodyDiagram onSelectRegion={(key) => setExpandedPrevention(key)} accentColor={colors.prevention} tintColor={colors.preventionTint} />
+                  <BodyDiagram onSelectRegion={(key) => { setExpandedPrevention(key); setTimeout(() => scrollToId(`prevention-${key}`), 120); }} accentColor={colors.prevention} tintColor={colors.preventionTint} />
                 </div>
 
                 <div className="space-y-2.5">
@@ -1524,7 +1603,7 @@ export default function Offside() {
                     const doneCount = data.exercises.filter((_, i) => regionProgress[i]).length;
                     const RegionIcon = regions[key]?.icon || ShieldCheck;
                     return (
-                      <div key={key} style={{ backgroundColor: colors.card, border: `1px solid ${isExpanded ? colors.prevention + '55' : colors.hairline}` }} className="rounded-xl overflow-hidden shadow-sm">
+                      <div key={key} id={`prevention-${key}`} style={{ backgroundColor: colors.card, border: `1px solid ${isExpanded ? colors.prevention + '55' : colors.hairline}` }} className="rounded-xl overflow-hidden shadow-sm scroll-mt-4">
                         <button onClick={() => setExpandedPrevention(isExpanded ? null : key)} className="os-focus w-full flex items-center gap-4 px-4 py-4 text-left">
                           <div style={{ backgroundColor: colors.preventionTint, border: `1.5px solid ${colors.prevention}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><RegionIcon size={19} color={colors.preventionDark} strokeWidth={2} /></div>
                           <div className="flex-1 min-w-0">
@@ -1691,19 +1770,40 @@ export default function Offside() {
               const Icon = data.icon;
               const hasProgress = injuryDates[key];
               const matches = triageTag && data.mechanismTags.includes(triageTag);
+              const symptomsOpen = expandedSymptoms === key;
               return (
-                <button key={key} onClick={() => chooseInjury(key)} style={{ backgroundColor: colors.card, border: `1px solid ${matches ? colors.accent : colors.hairline}` }} className="os-focus w-full flex items-center gap-4 px-4 py-4 rounded-xl text-left hover:shadow-sm transition-shadow">
-                  <div style={{ backgroundColor: colors.card, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><Icon size={19} color={colors.accentDark} strokeWidth={2} /></div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.01em' }} className="text-base font-semibold uppercase">{data.label}</p>
-                      {matches && <span style={{ backgroundColor: colors.accentTint, color: colors.accentDark }} className="text-[10px] px-2 py-0.5 rounded-full font-medium">Probabilmente questo</span>}
+                <div key={key} style={{ backgroundColor: colors.card, border: `1px solid ${matches ? colors.accent : colors.hairline}` }} className="rounded-xl overflow-hidden hover:shadow-sm transition-shadow">
+                  <button onClick={() => chooseInjury(key)} className="os-focus w-full flex items-center gap-4 px-4 py-4 text-left">
+                    <div style={{ backgroundColor: colors.card, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><Icon size={19} color={colors.accentDark} strokeWidth={2} /></div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.01em' }} className="text-base font-semibold uppercase">{data.label}</p>
+                        {matches && <span style={{ backgroundColor: colors.accentTint, color: colors.accentDark }} className="text-[10px] px-2 py-0.5 rounded-full font-medium">Probabilmente questo</span>}
+                      </div>
+                      <p style={{ color: colors.mutedInk }} className="text-sm">{data.subtitle}{hasProgress ? ' · in corso' : ''}</p>
+                      <p style={{ color: colors.accentDark }} className="text-xs font-medium mt-0.5">{data.mechanismTags.map((t) => mechanismLabels[t]).join(' o ')}</p>
                     </div>
-                    <p style={{ color: colors.mutedInk }} className="text-sm">{data.subtitle}{hasProgress ? ' · in corso' : ''}</p>
-                    <p style={{ color: colors.accentDark }} className="text-xs font-medium mt-0.5">{data.mechanismTags.map((t) => mechanismLabels[t]).join(' o ')}</p>
-                  </div>
-                  <ChevronRight size={20} color={colors.mutedInk} className="flex-shrink-0" />
-                </button>
+                    <ChevronRight size={20} color={colors.mutedInk} className="flex-shrink-0" />
+                  </button>
+                  {data.symptoms && (
+                    <>
+                      <button onClick={() => setExpandedSymptoms(symptomsOpen ? null : key)} style={{ color: colors.accentDark, borderTop: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold">
+                        <ChevronDown size={12} style={{ transform: symptomsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                        Sintomi tipici
+                      </button>
+                      {symptomsOpen && (
+                        <div style={{ backgroundColor: colors.paper }} className="px-4 py-3 os-fadein">
+                          <ul className="space-y-1 mb-2">
+                            {data.symptoms.map((s, i) => (
+                              <li key={i} style={{ color: colors.ink }} className="text-sm flex gap-2"><span style={{ color: colors.accentDark }}>—</span><span>{s}</span></li>
+                            ))}
+                          </ul>
+                          <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">A titolo informativo, non una diagnosi. Se pensi possa essere questo, parlane con un fisioterapista o un medico per una valutazione vera.</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -1908,25 +2008,25 @@ export default function Offside() {
                   )
                 ) : (
                   <>
-                    <div className="flex items-stretch gap-1 mb-4">
+                    <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-3 shadow-sm">
+                      <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.12em' }} className="text-[10px] font-bold uppercase mb-1">Fase {activePhase + 1} di {injury.phases.length}</p>
+                      <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-xl font-bold uppercase mb-1.5">{phase.name}</p>
+                      <p style={{ color: '#A9B7C4' }} className="text-sm">{phaseRangeLabel(activePhase, dayThresholds)} · gravità {severityLabels[severity].toLowerCase()}</p>
+                    </div>
+
+                    <div className="flex items-stretch gap-1.5 mb-5">
                       {injury.phases.map((p, i) => {
                         const isActive = i === activePhase;
                         const pKey = `${selectedInjury}-${i}`;
                         const pProgress = progress[pKey] || {};
                         const pDone = p.exercises.length > 0 && p.exercises.filter((_, ei) => pProgress[ei]).length === p.exercises.length;
                         return (
-                          <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isActive ? colors.accent : colors.card, border: `1px solid ${isActive ? colors.accent : colors.hairline}`, color: isActive ? '#FFFFFF' : colors.ink }} className="os-focus flex-1 rounded-lg px-2 py-2.5 text-center transition-colors shadow-sm">
-                            <div style={displayFont} className="text-[11px] font-semibold uppercase tracking-wide flex items-center justify-center gap-1">Fase {i + 1}{pDone && <CheckCircle2 size={12} strokeWidth={2.5} />}</div>
-                            <div className="text-[13px] mt-0.5" style={bodyFont}>{p.name}</div>
+                          <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isActive ? colors.accent : colors.card, border: `1px solid ${isActive ? colors.accent : colors.hairline}`, color: isActive ? '#FFFFFF' : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wide transition-colors shadow-sm">
+                            F{i + 1}{pDone && <CheckCircle2 size={12} strokeWidth={2.5} />}
                           </button>
                         );
                       })}
                     </div>
-
-                    <p style={{ color: colors.mutedInk }} className="text-xs mb-4 flex items-center gap-1.5 flex-wrap">
-                      <span style={displayFont} className="uppercase tracking-wide font-medium">{phaseRangeLabel(activePhase, dayThresholds)}</span>
-                      <span>· tempistica per gravità {severityLabels[severity].toLowerCase()}</span>
-                    </p>
 
                     <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-4 shadow-sm">
                       <p className="flex items-center gap-2 mb-2"><Info size={15} color={colors.accentDark} /><span style={{ ...displayFont, color: colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">Perché questa fase</span></p>
@@ -1944,7 +2044,7 @@ export default function Offside() {
                             <li key={i} style={{ color: colors.ink }} className="text-sm flex gap-2"><span style={{ color: colors.accentDark }}>—</span><span>{c}</span></li>
                           ))}
                         </ul>
-                        <p style={{ color: colors.accentDark }} className="text-[11px] mt-2 opacity-80">Un autocontrollo, non un test clinico.</p>
+                        <p style={{ color: colors.accentDark, fontWeight: 500 }} className="text-xs mt-2">Un autocontrollo, non un test clinico.</p>
                       </div>
                     )}
 
@@ -2031,7 +2131,7 @@ export default function Offside() {
                                 <button onClick={() => toggleExercise(i)} className="os-focus text-left flex-1">
                                   <span style={{ color: done ? colors.accentDark : colors.ink, textDecoration: done ? 'line-through' : 'none', textDecorationColor: colors.accent + '99' }} className="text-sm leading-snug block">{ex.text}</span>
                                 </button>
-                                <span style={{ backgroundColor: colors.paper, color: colors.mutedInk }} className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap mt-0.5">{catLabels[ex.cat]}</span>
+                                <span style={{ backgroundColor: colors.paper, color: colors.ink, fontWeight: 600 }} className="text-[11px] px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap mt-0.5">{catLabels[ex.cat]}</span>
                               </div>
                               
                               <button 
