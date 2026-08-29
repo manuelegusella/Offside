@@ -855,19 +855,19 @@ function LogoMark({ size = 32, color = colors.accent, strokeWidth = 3 }) {
 }
 
 const bodyZones = [
-  { region: 'lower_back', label: 'Schiena', shape: 'rect', center: { cx: 100, cy: 109 }, props: { x: 70, y: 95, width: 60, height: 28, rx: 13 } },
-  { region: 'hip_groin', label: 'Anca/inguine', shape: 'rect', center: { cx: 100, cy: 140.5 }, props: { x: 72, y: 132, width: 56, height: 17, rx: 8.5 } },
-  { region: 'thigh', label: 'Coscia sx', shape: 'rect', center: { cx: 86, cy: 180 }, props: { x: 76, y: 150, width: 20, height: 60, rx: 10 } },
-  { region: 'thigh', label: 'Coscia dx', shape: 'rect', center: { cx: 114, cy: 180 }, props: { x: 104, y: 150, width: 20, height: 60, rx: 10 } },
-  { region: 'knee', label: 'Ginocchio sx', shape: 'circle', center: { cx: 86, cy: 216 }, props: { cx: 86, cy: 216, r: 11 } },
-  { region: 'knee', label: 'Ginocchio dx', shape: 'circle', center: { cx: 114, cy: 216 }, props: { cx: 114, cy: 216, r: 11 } },
-  { region: 'calf_region', label: 'Polpaccio sx', shape: 'rect', center: { cx: 86, cy: 255 }, props: { x: 77, y: 228, width: 18, height: 54, rx: 9 } },
-  { region: 'calf_region', label: 'Polpaccio dx', shape: 'rect', center: { cx: 114, cy: 255 }, props: { x: 105, y: 228, width: 18, height: 54, rx: 9 } },
-  { region: 'ankle_foot', label: 'Caviglia sx', shape: 'ellipse', center: { cx: 86, cy: 290 }, props: { cx: 86, cy: 290, rx: 13, ry: 10 } },
-  { region: 'ankle_foot', label: 'Caviglia dx', shape: 'ellipse', center: { cx: 114, cy: 290 }, props: { cx: 114, cy: 290, rx: 13, ry: 10 } },
+  { region: 'lower_back', label: 'Schiena', shape: 'rect', center: { cx: 100, cy: 108 }, props: { x: 72, y: 96, width: 56, height: 24, rx: 12 } },
+  { region: 'hip_groin', label: 'Anca/inguine', shape: 'rect', center: { cx: 100, cy: 138 }, props: { x: 74, y: 130, width: 52, height: 16, rx: 8 } },
+  { region: 'thigh', label: 'Coscia sx', shape: 'rect', center: { cx: 87, cy: 176 }, props: { x: 78, y: 153, width: 18, height: 46, rx: 9 } },
+  { region: 'thigh', label: 'Coscia dx', shape: 'rect', center: { cx: 113, cy: 176 }, props: { x: 104, y: 153, width: 18, height: 46, rx: 9 } },
+  { region: 'knee', label: 'Ginocchio sx', shape: 'circle', center: { cx: 87, cy: 216 }, props: { cx: 87, cy: 216, r: 9 } },
+  { region: 'knee', label: 'Ginocchio dx', shape: 'circle', center: { cx: 113, cy: 216 }, props: { cx: 113, cy: 216, r: 9 } },
+  { region: 'calf_region', label: 'Polpaccio sx', shape: 'rect', center: { cx: 87, cy: 254.5 }, props: { x: 80, y: 233, width: 14, height: 43, rx: 7 } },
+  { region: 'calf_region', label: 'Polpaccio dx', shape: 'rect', center: { cx: 113, cy: 254.5 }, props: { x: 106, y: 233, width: 14, height: 43, rx: 7 } },
+  { region: 'ankle_foot', label: 'Caviglia sx', shape: 'ellipse', center: { cx: 87, cy: 292 }, props: { cx: 87, cy: 292, rx: 10, ry: 9 } },
+  { region: 'ankle_foot', label: 'Caviglia dx', shape: 'ellipse', center: { cx: 113, cy: 292 }, props: { cx: 113, cy: 292, rx: 10, ry: 9 } },
 ];
 
-function BodyDiagram({ onSelectRegion }) {
+function BodyDiagram({ onSelectRegion, accentColor = colors.accent, tintColor = colors.accentTint }) {
   const [pressed, setPressed] = useState(null);
   const [pinging, setPinging] = useState(null);
   const Shape = { rect: 'rect', circle: 'circle', ellipse: 'ellipse' };
@@ -883,17 +883,17 @@ function BodyDiagram({ onSelectRegion }) {
         @keyframes os-radar { 0% { r: 4; opacity: 0.9; } 100% { r: 30; opacity: 0; } }
         .os-radar-ring { animation: os-radar 0.55s ease-out; transform-origin: center; }
       `}</style>
-      <circle cx="100" cy="26" r="19" fill={colors.hairline} />
-      <rect x="94" y="43" width="12" height="9" fill={colors.hairline} />
-      <rect x="68" y="51" width="64" height="72" rx="20" fill={colors.hairline} />
-      <rect x="48" y="55" width="16" height="64" rx="8" fill={colors.hairline} />
-      <rect x="136" y="55" width="16" height="64" rx="8" fill={colors.hairline} />
+      <ellipse cx="100" cy="26" rx="16" ry="17" fill={colors.hairline} />
+      <rect x="94" y="40" width="12" height="12" rx="4" fill={colors.hairline} />
+      <rect x="70" y="50" width="60" height="70" rx="24" fill={colors.hairline} />
+      <rect x="51" y="56" width="15" height="54" rx="8" fill={colors.hairline} />
+      <rect x="134" y="56" width="15" height="54" rx="8" fill={colors.hairline} />
 
       {bodyZones.map((zone, i) => {
         const isPressed = pressed === i;
         const commonProps = {
-          fill: isPressed ? colors.accent : colors.accentTint,
-          stroke: colors.accent,
+          fill: isPressed ? accentColor : tintColor,
+          stroke: accentColor,
           strokeWidth: 1.3,
           style: { cursor: 'pointer', transition: 'fill 0.12s ease' },
           onClick: () => handleSelect(i, zone.region),
@@ -912,7 +912,7 @@ function BodyDiagram({ onSelectRegion }) {
       })}
 
       {pinging !== null && (
-        <circle className="os-radar-ring" cx={bodyZones[pinging].center.cx} cy={bodyZones[pinging].center.cy} r="4" fill="none" stroke={colors.accent} strokeWidth="2" />
+        <circle className="os-radar-ring" cx={bodyZones[pinging].center.cx} cy={bodyZones[pinging].center.cy} r="4" fill="none" stroke={accentColor} strokeWidth="2" />
       )}
     </svg>
   );
@@ -1020,6 +1020,7 @@ export default function Offside() {
   const [deletingKey, setDeletingKey] = useState(null);
   const [playerPosition, setPlayerPosition] = useState(null);
   const [activeVideo, setActiveVideo] = useState(null);
+  const [regionsTab, setRegionsTab] = useState('injury');
   const [expandedPrevention, setExpandedPrevention] = useState(null);
   const [preventionProgress, setPreventionProgress] = useState({});
   const [expandedPreventionTip, setExpandedPreventionTip] = useState(null);
@@ -1066,7 +1067,6 @@ export default function Offside() {
     else if (screen === 'injuries') { setScreen('regions'); setSelectedRegion(null); setTriageTag(null); }
     else if (screen === 'triage') setScreen('regions');
     else if (screen === 'firstaid') setScreen('regions');
-    else if (screen === 'prevention') setScreen('regions');
     else if (screen === 'regions') setScreen('cover');
   };
 
@@ -1333,9 +1333,9 @@ export default function Offside() {
           </div>
           
           <div className="mb-6">
-            {['Ogni giorno una sessione. Costruisci la serie.',
-              'Avanzi in base a come stai, non al calendario.',
-              'Sai sempre quando è il momento di fermarti.'].map((text, i, arr) => (
+            {['Previeni gli infortuni più comuni, prima che succedano.',
+              'Sai cosa fare nei primi minuti, se ti fai male.',
+              'Segui un percorso di recupero fatto su misura, passo dopo passo.'].map((text, i, arr) => (
               <div key={i} className="flex items-baseline gap-3.5" style={{ borderBottom: i < arr.length - 1 ? `1px solid ${colors.accent}1A` : 'none', paddingBottom: '11px', marginBottom: i < arr.length - 1 ? '11px' : 0 }}>
                 <span style={{ ...displayFont, color: colors.accent }} className="os-tabular text-xl font-bold flex-shrink-0 w-7">{String(i + 1).padStart(2, '0')}</span>
                 <p style={{ color: '#D7E1EA' }} className="text-[15px] leading-snug font-medium">{text}</p>
@@ -1385,7 +1385,7 @@ export default function Offside() {
             <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">Offside</p>
           </div>
           <h1 style={{ ...displayFont, color: colors.ink }} className="text-lg sm:text-xl font-semibold truncate">
-            {screen === 'regions' ? 'Dove senti il problema?' : screen === 'triage' ? 'Non sai cosa hai?' : screen === 'firstaid' ? 'Primi soccorsi' : screen === 'prevention' ? 'Prevenzione' : screen === 'injuries' ? (selectedRegion && regions[selectedRegion] ? regions[selectedRegion].label : 'Infortuni') : 'Il tuo percorso'}
+            {screen === 'regions' ? (regionsTab === 'prevention' ? 'Prevenzione' : 'Dove senti il problema?') : screen === 'triage' ? 'Non sai cosa hai?' : screen === 'firstaid' ? 'Primi soccorsi' : screen === 'injuries' ? (selectedRegion && regions[selectedRegion] ? regions[selectedRegion].label : 'Infortuni') : 'Il tuo percorso'}
           </h1>
         </div>
         {screen === 'tracker' && injury && (
@@ -1425,149 +1425,156 @@ export default function Offside() {
       <div key={screen} className="px-5 sm:px-8 py-6 os-fadein">
         {screen === 'regions' && (
           <>
-            {activeInjuryKeys.length > 0 && (
-              <div className="mb-4">
-                <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase mb-2">
-                  {activeInjuryKeys.length === 1 ? 'Il tuo percorso' : `I tuoi percorsi (${activeInjuryKeys.length})`}
-                </p>
-                <div className="space-y-2">
-                  {activeInjuryKeys.map((key) => (
-                    <div key={key} style={{ backgroundColor: colors.ink }} className="flex items-stretch rounded-xl overflow-hidden shadow-sm">
-                      <button onClick={() => resumeInjury(key)} className="os-focus flex-1 flex items-center gap-3 px-4 py-3.5 text-left hover:opacity-90 transition-opacity min-w-0">
-                        <PlayCircle size={20} color={colors.accent} className="flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p style={{ color: '#FFFFFF' }} className="text-sm font-medium truncate">{injuriesData[key].label}</p>
-                          <p style={{ color: '#A9B7C4' }} className="text-xs">Giorno {daysSince(injuryDates[key])}</p>
+            <div style={{ backgroundColor: colors.laneBg }} className="flex gap-1 p-1 rounded-full mb-5">
+              <button onClick={() => setRegionsTab('injury')} style={{ backgroundColor: regionsTab === 'injury' ? colors.card : 'transparent', color: regionsTab === 'injury' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
+                <Snowflake size={14} />Infortunio
+              </button>
+              <button onClick={() => setRegionsTab('prevention')} style={{ backgroundColor: regionsTab === 'prevention' ? colors.card : 'transparent', color: regionsTab === 'prevention' ? colors.preventionDark : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
+                <ShieldCheck size={14} />Prevenzione
+              </button>
+            </div>
+
+            {regionsTab === 'injury' ? (
+              <>
+                {activeInjuryKeys.length > 0 && (
+                  <div className="mb-4">
+                    <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase mb-2">
+                      {activeInjuryKeys.length === 1 ? 'Il tuo percorso' : `I tuoi percorsi (${activeInjuryKeys.length})`}
+                    </p>
+                    <div className="space-y-2">
+                      {activeInjuryKeys.map((key) => (
+                        <div key={key} style={{ backgroundColor: colors.ink }} className="flex items-stretch rounded-xl overflow-hidden shadow-sm">
+                          <button onClick={() => resumeInjury(key)} className="os-focus flex-1 flex items-center gap-3 px-4 py-3.5 text-left hover:opacity-90 transition-opacity min-w-0">
+                            <PlayCircle size={20} color={colors.accent} className="flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p style={{ color: '#FFFFFF' }} className="text-sm font-medium truncate">{injuriesData[key].label}</p>
+                              <p style={{ color: '#A9B7C4' }} className="text-xs">Giorno {daysSince(injuryDates[key])}</p>
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (deletingKey === key) deleteInjuryData(key);
+                              else { setDeletingKey(key); setTimeout(() => setDeletingKey((k) => (k === key ? null : k)), 3000); }
+                            }}
+                            style={{ backgroundColor: deletingKey === key ? colors.red : 'rgba(255,255,255,0.05)' }}
+                            className="os-focus flex-shrink-0 w-12 flex items-center justify-center transition-colors"
+                            aria-label={deletingKey === key ? 'Conferma eliminazione' : 'Elimina questo percorso'}
+                          >
+                            <X size={16} color={deletingKey === key ? "#FFFFFF" : colors.mutedInk} />
+                          </button>
                         </div>
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (deletingKey === key) deleteInjuryData(key);
-                          else { setDeletingKey(key); setTimeout(() => setDeletingKey((k) => (k === key ? null : k)), 3000); }
-                        }}
-                        style={{ backgroundColor: deletingKey === key ? colors.red : 'rgba(255,255,255,0.05)' }}
-                        className="os-focus flex-shrink-0 w-12 flex items-center justify-center transition-colors"
-                        aria-label={deletingKey === key ? 'Conferma eliminazione' : 'Elimina questo percorso'}
-                      >
-                        <X size={16} color={deletingKey === key ? "#FFFFFF" : colors.mutedInk} />
-                      </button>
+                      ))}
                     </div>
+                  </div>
+                )}
+
+                <button onClick={() => setScreen('firstaid')} style={{ backgroundColor: colors.accent }} className="os-focus w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-6 hover:opacity-90 transition-opacity shadow-sm">
+                  <div style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"><Snowflake size={20} color="#FFFFFF" /></div>
+                  <div className="flex-1">
+                    <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-medium">Ti sei appena fatto male?</p>
+                    <p style={{ color: colors.ink, fontWeight: 500 }} className="text-xs opacity-80">Cosa fare nei primi minuti</p>
+                  </div>
+                  <ChevronRight size={18} color={colors.ink} className="opacity-60" />
+                </button>
+
+                <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase text-center mb-3">Tocca dove senti il problema</p>
+                <div className="mb-6">
+                  <BodyDiagram onSelectRegion={openRegion} />
+                </div>
+
+                <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.1em' }} className="text-xs font-semibold uppercase mb-3">Oppure scegli il distretto</p>
+                <div className="space-y-2.5 mb-6">
+                  {Object.entries(regions).map(([key, data]) => {
+                    const Icon = data.icon;
+                    return (
+                      <button key={key} onClick={() => openRegion(key)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-4 px-4 py-4 rounded-xl text-left hover:shadow-sm hover:border-gray-300 transition-all">
+                        <div style={{ backgroundColor: colors.accentTint, border: `1px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><Icon size={19} color={colors.accentDark} strokeWidth={2} /></div>
+                        <div className="flex-1 min-w-0"><p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.02em' }} className="text-base font-semibold uppercase">{data.label}</p></div>
+                        <ChevronRight size={20} color={colors.mutedInk} className="flex-shrink-0" />
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase mb-2.5">Oppure, cos'è successo?</p>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  {injuryScenarios.map((sc, i) => (
+                    <button key={i} onClick={() => handleScenario(sc)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus flex flex-col items-start gap-2 p-3 rounded-xl text-left hover:border-green-400 transition-colors shadow-sm">
+                      <sc.icon size={18} color={colors.accentDark} strokeWidth={2} />
+                      <span style={{ color: colors.ink }} className="text-xs leading-snug font-medium">{sc.label}</span>
+                    </button>
                   ))}
                 </div>
-              </div>
+                <button onClick={startTriage} style={{ color: colors.accentDark }} className="os-focus text-xs underline hover:opacity-70 mb-2 block">Nessuno di questi — rispondi a 3 domande</button>
+              </>
+            ) : (
+              <>
+                <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">
+                  Il momento migliore per lavorare su un infortunio è prima che succeda. Scegli una zona — non serve avere nulla che fa male.
+                </p>
+
+                <div className="mb-6">
+                  <BodyDiagram onSelectRegion={(key) => setExpandedPrevention(key)} accentColor={colors.prevention} tintColor={colors.preventionTint} />
+                </div>
+
+                <div className="space-y-2.5">
+                  {Object.entries(preventionData).map(([key, data]) => {
+                    const isExpanded = expandedPrevention === key;
+                    const regionProgress = preventionProgress[key] || {};
+                    const doneCount = data.exercises.filter((_, i) => regionProgress[i]).length;
+                    const RegionIcon = regions[key]?.icon || ShieldCheck;
+                    return (
+                      <div key={key} style={{ backgroundColor: colors.card, border: `1px solid ${isExpanded ? colors.prevention + '55' : colors.hairline}` }} className="rounded-xl overflow-hidden shadow-sm">
+                        <button onClick={() => setExpandedPrevention(isExpanded ? null : key)} className="os-focus w-full flex items-center gap-4 px-4 py-4 text-left">
+                          <div style={{ backgroundColor: colors.preventionTint, border: `1.5px solid ${colors.prevention}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><RegionIcon size={19} color={colors.preventionDark} strokeWidth={2} /></div>
+                          <div className="flex-1 min-w-0">
+                            <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.02em' }} className="text-base font-semibold uppercase">{data.label}</p>
+                            {doneCount > 0 && <p style={{ color: colors.preventionDark }} className="text-xs font-medium">{doneCount}/{data.exercises.length} fatti</p>}
+                          </div>
+                          <ChevronDown size={20} color={colors.mutedInk} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                        </button>
+                        {isExpanded && (
+                          <div className="px-4 pb-4 os-fadein">
+                            <p style={{ color: colors.mutedInk, borderBottom: `1px solid ${colors.hairline}` }} className="text-xs leading-relaxed mb-3 pb-3">{data.why}</p>
+                            <div className="space-y-2">
+                              {data.exercises.map((ex, i) => {
+                                const done = !!regionProgress[i];
+                                const CatIcon = catIcons[ex.cat] || Circle;
+                                const tipKey = `${key}-${i}`;
+                                const tipOpen = expandedPreventionTip === tipKey;
+                                return (
+                                  <div key={i} style={{ backgroundColor: done ? colors.preventionTint : colors.paper, border: `1px solid ${done ? colors.prevention + '55' : colors.hairline}` }} className="rounded-lg overflow-hidden">
+                                    <button onClick={() => togglePreventionExercise(key, i)} className="os-focus w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors">
+                                      {done ? <CheckCircle2 size={18} color={colors.prevention} className="flex-shrink-0 mt-0.5" strokeWidth={2.25} /> : <Circle size={18} color={colors.mutedInk} className="flex-shrink-0 mt-0.5" strokeWidth={1.75} />}
+                                      <span className="flex-1">
+                                        <span style={{ color: done ? colors.preventionDark : colors.ink, textDecoration: done ? 'line-through' : 'none' }} className="text-sm leading-snug block">{ex.text}</span>
+                                        <span style={{ color: colors.mutedInk }} className="text-[11px] flex items-center gap-1 mt-0.5"><CatIcon size={11} />{catLabels[ex.cat]}</span>
+                                      </span>
+                                    </button>
+                                    <button onClick={() => setExpandedPreventionTip(tipOpen ? null : tipKey)} style={{ color: colors.preventionDark }} className="os-focus flex items-center gap-1 text-[11px] font-medium px-3 pb-2.5 hover:opacity-70">
+                                      <ChevronDown size={11} style={{ transform: tipOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                                      Come si fa?
+                                    </button>
+                                    {tipOpen && (
+                                      <div className="px-3 pb-3 os-fadein">
+                                        <ExerciseHelp ex={ex} />
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
-
-            <button onClick={() => setScreen('firstaid')} style={{ backgroundColor: colors.accent }} className="os-focus w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-3 hover:opacity-90 transition-opacity shadow-sm">
-              <div style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"><Snowflake size={20} color="#FFFFFF" /></div>
-              <div className="flex-1">
-                <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-medium">Ti sei appena fatto male?</p>
-                <p style={{ color: colors.ink, fontWeight: 500 }} className="text-xs opacity-80">Cosa fare nei primi minuti</p>
-              </div>
-              <ChevronRight size={18} color={colors.ink} className="opacity-60" />
-            </button>
-
-            <button onClick={() => setScreen('prevention')} style={{ backgroundColor: colors.ink, border: `1.5px solid ${colors.prevention}55` }} className="os-focus w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-6 hover:opacity-90 transition-opacity shadow-sm">
-              <div style={{ backgroundColor: `${colors.prevention}30` }} className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"><ShieldCheck size={20} color={colors.prevention} /></div>
-              <div className="flex-1">
-                <p style={{ ...displayFont, color: colors.prevention, letterSpacing: '0.14em' }} className="text-[10px] font-bold uppercase mb-0.5">Prevenzione</p>
-                <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-semibold">Stai bene? Restaci.</p>
-              </div>
-              <ChevronRight size={18} color={colors.prevention} />
-            </button>
-
-            <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase text-center mb-3">Tocca dove senti il problema</p>
-            <div className="mb-6">
-              <BodyDiagram onSelectRegion={openRegion} />
-            </div>
-
-            <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.1em' }} className="text-xs font-semibold uppercase mb-3">Oppure scegli il distretto</p>
-            <div className="space-y-2.5 mb-6">
-              {Object.entries(regions).map(([key, data]) => {
-                const Icon = data.icon;
-                return (
-                  <button key={key} onClick={() => openRegion(key)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-4 px-4 py-4 rounded-xl text-left hover:shadow-sm hover:border-gray-300 transition-all">
-                    <div style={{ backgroundColor: colors.accentTint, border: `1px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><Icon size={19} color={colors.accentDark} strokeWidth={2} /></div>
-                    <div className="flex-1 min-w-0"><p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.02em' }} className="text-base font-semibold uppercase">{data.label}</p></div>
-                    <ChevronRight size={20} color={colors.mutedInk} className="flex-shrink-0" />
-                  </button>
-                );
-              })}
-            </div>
-
-            <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase mb-2.5">Oppure, cos'è successo?</p>
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              {injuryScenarios.map((sc, i) => (
-                <button key={i} onClick={() => handleScenario(sc)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus flex flex-col items-start gap-2 p-3 rounded-xl text-left hover:border-green-400 transition-colors shadow-sm">
-                  <sc.icon size={18} color={colors.accentDark} strokeWidth={2} />
-                  <span style={{ color: colors.ink }} className="text-xs leading-snug font-medium">{sc.label}</span>
-                </button>
-              ))}
-            </div>
-            <button onClick={startTriage} style={{ color: colors.accentDark }} className="os-focus text-xs underline hover:opacity-70 mb-2 block">Nessuno di questi — rispondi a 3 domande</button>
 
             <button onClick={() => setScreen('cover')} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-5 block mx-auto">Torna alla copertina</button>
           </>
-        )}
-
-        {screen === 'prevention' && (
-          <div style={{ background: `linear-gradient(180deg, ${colors.preventionPaper} 0%, ${colors.paper} 220px)`, margin: '-24px -20px 0', padding: '24px 20px 0' }}>
-            <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">
-              Il momento migliore per lavorare su un infortunio è prima che succeda. Scegli una zona — non serve avere nulla che fa male.
-            </p>
-            <div className="space-y-2.5">
-              {Object.entries(preventionData).map(([key, data]) => {
-                const isExpanded = expandedPrevention === key;
-                const regionProgress = preventionProgress[key] || {};
-                const doneCount = data.exercises.filter((_, i) => regionProgress[i]).length;
-                const RegionIcon = regions[key]?.icon || ShieldCheck;
-                return (
-                  <div key={key} style={{ backgroundColor: colors.card, border: `1px solid ${isExpanded ? colors.prevention + '55' : colors.hairline}` }} className="rounded-xl overflow-hidden shadow-sm">
-                    <button onClick={() => setExpandedPrevention(isExpanded ? null : key)} className="os-focus w-full flex items-center gap-4 px-4 py-4 text-left">
-                      <div style={{ backgroundColor: colors.preventionTint, border: `1.5px solid ${colors.prevention}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><RegionIcon size={19} color={colors.preventionDark} strokeWidth={2} /></div>
-                      <div className="flex-1 min-w-0">
-                        <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.02em' }} className="text-base font-semibold uppercase">{data.label}</p>
-                        {doneCount > 0 && <p style={{ color: colors.preventionDark }} className="text-xs font-medium">{doneCount}/{data.exercises.length} fatti</p>}
-                      </div>
-                      <ChevronDown size={20} color={colors.mutedInk} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
-                    </button>
-                    {isExpanded && (
-                      <div className="px-4 pb-4 os-fadein">
-                        <p style={{ color: colors.mutedInk, borderBottom: `1px solid ${colors.hairline}` }} className="text-xs leading-relaxed mb-3 pb-3">{data.why}</p>
-                        <div className="space-y-2">
-                          {data.exercises.map((ex, i) => {
-                            const done = !!regionProgress[i];
-                            const CatIcon = catIcons[ex.cat] || Circle;
-                            const tipKey = `${key}-${i}`;
-                            const tipOpen = expandedPreventionTip === tipKey;
-                            return (
-                              <div key={i} style={{ backgroundColor: done ? colors.preventionTint : colors.paper, border: `1px solid ${done ? colors.prevention + '55' : colors.hairline}` }} className="rounded-lg overflow-hidden">
-                                <button onClick={() => togglePreventionExercise(key, i)} className="os-focus w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors">
-                                  {done ? <CheckCircle2 size={18} color={colors.prevention} className="flex-shrink-0 mt-0.5" strokeWidth={2.25} /> : <Circle size={18} color={colors.mutedInk} className="flex-shrink-0 mt-0.5" strokeWidth={1.75} />}
-                                  <span className="flex-1">
-                                    <span style={{ color: done ? colors.preventionDark : colors.ink, textDecoration: done ? 'line-through' : 'none' }} className="text-sm leading-snug block">{ex.text}</span>
-                                    <span style={{ color: colors.mutedInk }} className="text-[11px] flex items-center gap-1 mt-0.5"><CatIcon size={11} />{catLabels[ex.cat]}</span>
-                                  </span>
-                                </button>
-                                <button onClick={() => setExpandedPreventionTip(tipOpen ? null : tipKey)} style={{ color: colors.preventionDark }} className="os-focus flex items-center gap-1 text-[11px] font-medium px-3 pb-2.5 hover:opacity-70">
-                                  <ChevronDown size={11} style={{ transform: tipOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
-                                  Come si fa?
-                                </button>
-                                {tipOpen && (
-                                  <div className="px-3 pb-3 os-fadein">
-                                    <ExerciseHelp ex={ex} />
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         )}
 
         {screen === 'firstaid' && (
@@ -1684,7 +1691,6 @@ export default function Offside() {
               const Icon = data.icon;
               const hasProgress = injuryDates[key];
               const matches = triageTag && data.mechanismTags.includes(triageTag);
-              const weeksEstimate = Math.round(data.severityData.moderato.totalEstimateDays / 7);
               return (
                 <button key={key} onClick={() => chooseInjury(key)} style={{ backgroundColor: colors.card, border: `1px solid ${matches ? colors.accent : colors.hairline}` }} className="os-focus w-full flex items-center gap-4 px-4 py-4 rounded-xl text-left hover:shadow-sm transition-shadow">
                   <div style={{ backgroundColor: colors.card, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><Icon size={19} color={colors.accentDark} strokeWidth={2} /></div>
@@ -1694,7 +1700,7 @@ export default function Offside() {
                       {matches && <span style={{ backgroundColor: colors.accentTint, color: colors.accentDark }} className="text-[10px] px-2 py-0.5 rounded-full font-medium">Probabilmente questo</span>}
                     </div>
                     <p style={{ color: colors.mutedInk }} className="text-sm">{data.subtitle}{hasProgress ? ' · in corso' : ''}</p>
-                    <p style={{ color: colors.accentDark }} className="text-xs font-medium mt-0.5">~{weeksEstimate} settimane, gravità media · {data.mechanismTags.map((t) => mechanismLabels[t]).join(' o ')}</p>
+                    <p style={{ color: colors.accentDark }} className="text-xs font-medium mt-0.5">{data.mechanismTags.map((t) => mechanismLabels[t]).join(' o ')}</p>
                   </div>
                   <ChevronRight size={20} color={colors.mutedInk} className="flex-shrink-0" />
                 </button>
