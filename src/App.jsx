@@ -16,7 +16,7 @@ import {
   Calendar, Scale, Dumbbell, Move, Wind, Timer, Pause, Pencil, Target,
   HelpCircle, PlayCircle, Flame, Share2, ClipboardCheck, Check, Gauge, Waves,
   Aperture, PersonStanding, Ruler, Sprout, RotateCw, CircleDashed, ShieldAlert,
-  Snowflake, Bandage, ArrowUp, Trophy, Video
+  Snowflake, Bandage, ArrowUp, Trophy, Video, Lock
 } from 'lucide-react';
 
 const colors = {
@@ -1890,6 +1890,58 @@ const regionRoleExercisesIT = {
     ]},
   },
 };
+const techniqueDataIT = {
+  portiere: { why: 'Il primo tocco di un portiere spesso è già l\'inizio dell\'azione — precisione e rapidità contano quanto le parate.', exercises: [
+    { text: 'Distribuzione con i piedi su bersagli a diverse distanze (15-20 palloni, corto/medio/lungo)', cat: 'strength' },
+    { text: 'Controllo orientato sotto pressione simulata, poi rinvio rapido (10-12 ripetizioni)', cat: 'balance' },
+    { text: 'Rinvio di precisione su corridoi stretti (10 tentativi per lato)', cat: 'strength' },
+    { text: 'Uscite basse con controllo del rimbalzo (8-10 ripetizioni)', cat: 'balance' },
+  ]},
+  difensore: { why: 'Il primo tocco dopo un recupero palla decide se la squadra riparte bene o perde di nuovo possesso.', exercises: [
+    { text: 'Primo tocco orientato in avanti, subito dopo un contrasto simulato (10-12 ripetizioni)', cat: 'balance' },
+    { text: 'Controllo sotto pressione avversaria diretta (8-10 ripetizioni per lato)', cat: 'balance' },
+    { text: 'Passaggio lungo di precisione su bersaglio (15 tentativi)', cat: 'strength' },
+    { text: 'Conduzione palla in spazio stretto sotto pressing (5-6 serie brevi)', cat: 'run' },
+  ]},
+  centrocampista: { why: 'Il centrocampista tocca il pallone più di chiunque altro — la qualità del primo controllo in spazi stretti fa la differenza.', exercises: [
+    { text: 'Controllo orientato in spazio stretto, un tocco per liberarsi (12-15 ripetizioni)', cat: 'balance' },
+    { text: 'Cambio di gioco su lunga distanza, precisione (12 tentativi)', cat: 'strength' },
+    { text: 'Passaggio e movimento (dai e vai), ritmo sostenuto (8-10 sequenze)', cat: 'run' },
+    { text: 'Ricezione spalle alla porta e giro in un tocco (10-12 ripetizioni)', cat: 'balance' },
+  ]},
+  attaccante: { why: 'In area il tempo per pensare è quasi zero — il primo tocco verso la porta spesso vale più del tiro stesso.', exercises: [
+    { text: 'Controllo orientato in area sotto pressione, subito verso la porta (10-12 ripetizioni)', cat: 'balance' },
+    { text: 'Primo tocco su cross da diverse angolazioni (15 palloni)', cat: 'balance' },
+    { text: 'Finalizzazione dopo conduzione rapida (8-10 ripetizioni)', cat: 'run' },
+    { text: 'Tiro di prima intenzione su assist (12-15 tentativi)', cat: 'strength' },
+  ]},
+};
+const techniqueDataEN = {
+  portiere: { why: 'A goalkeeper\'s first touch is often already the start of the attack — precision and speed matter as much as saves.', exercises: [
+    { text: 'Distribution with the feet to targets at different distances (15-20 balls, short/medium/long)', cat: 'strength' },
+    { text: 'Oriented control under simulated pressure, then quick clearance (10-12 reps)', cat: 'balance' },
+    { text: 'Precision clearance through narrow lanes (10 attempts per side)', cat: 'strength' },
+    { text: 'Low saves with rebound control (8-10 reps)', cat: 'balance' },
+  ]},
+  difensore: { why: 'The first touch after winning the ball decides whether the team breaks out well or loses possession again.', exercises: [
+    { text: 'Forward-oriented first touch, right after a simulated tackle (10-12 reps)', cat: 'balance' },
+    { text: 'Control under direct opponent pressure (8-10 reps per side)', cat: 'balance' },
+    { text: 'Long precision pass to a target (15 attempts)', cat: 'strength' },
+    { text: 'Ball carrying in tight space under pressing (5-6 short sets)', cat: 'run' },
+  ]},
+  centrocampista: { why: 'A midfielder touches the ball more than anyone else — the quality of the first touch in tight spaces makes the difference.', exercises: [
+    { text: 'Oriented control in tight space, one touch to get free (12-15 reps)', cat: 'balance' },
+    { text: 'Long-distance switch of play, precision (12 attempts)', cat: 'strength' },
+    { text: 'Pass and move, sustained rhythm (8-10 sequences)', cat: 'run' },
+    { text: 'Receiving back to goal and turning in one touch (10-12 reps)', cat: 'balance' },
+  ]},
+  attaccante: { why: 'In the box there\'s almost no time to think — the first touch toward goal is often worth more than the shot itself.', exercises: [
+    { text: 'Oriented control in the box under pressure, straight toward goal (10-12 reps)', cat: 'balance' },
+    { text: 'First touch on crosses from different angles (15 balls)', cat: 'balance' },
+    { text: 'Finishing after a quick carry (8-10 reps)', cat: 'run' },
+    { text: 'First-time shot on an assist (12-15 attempts)', cat: 'strength' },
+  ]},
+};
 const regionRoleExercisesEN = {
   ankle_foot: {
     portiere: { why: 'On dives, the ankle absorbs load on unstable footing — landing technique matters as much as raw strength.', exercises: [
@@ -2287,6 +2339,7 @@ export default function Offside() {
   const injuryScenarios = isEN ? injuryScenariosEN : injuryScenariosIT;
   const playerPositions = isEN ? playerPositionsEN : playerPositionsIT;
   const regionRoleExercises = isEN ? regionRoleExercisesEN : regionRoleExercisesIT;
+  const techniqueData = isEN ? techniqueDataEN : techniqueDataIT;
   const dateChips = isEN ? dateChipsEN : dateChipsIT;
   const mechanismOptions = isEN ? mechanismOptionsEN : mechanismOptionsIT;
   const popOptions = isEN ? popOptionsEN : popOptionsIT;
@@ -2377,7 +2430,6 @@ export default function Offside() {
     setSelectedInjury(key);
     setActivePhase(suggested);
     setSelectedRegion(regionOfInjury(key, injuriesData));
-    setTrackerTab('oggi');
     setEditingSetup(false);
     setActiveVideo(null);
     setScreen('tracker');
@@ -2396,7 +2448,6 @@ export default function Offside() {
     setActivePhase(0);
     setInjurySeverities(nextSeverities);
     setEditingSetup(!injuryDates[key]);
-    setTrackerTab('oggi');
     setActiveVideo(null);
     setScreen('tracker');
     persist(snapshot({ selectedInjury: key, activePhase: 0, injurySeverities: nextSeverities }));
@@ -2625,35 +2676,34 @@ export default function Offside() {
 
   if (screen === 'cover') {
     return (
-      <div style={{ background: 'radial-gradient(ellipse 120% 80% at 50% 0%, #16283A 0%, #0A1118 65%)', ...bodyFont }} className="w-full min-h-[100dvh] relative flex flex-col">
+      <div style={{ background: `linear-gradient(165deg, ${colors.preventionPaper} 0%, ${colors.paper} 55%, #FFFFFF 100%)`, ...bodyFont }} className="w-full min-h-[100dvh] relative flex flex-col overflow-hidden">
         <style>{sharedStyle}</style>
-        <svg className="absolute inset-0 w-full h-full opacity-[0.07] pointer-events-none" viewBox="0 0 400 560" fill="none" preserveAspectRatio="xMidYMid slice">
-          <circle cx="200" cy="300" r="170" stroke={colors.accent} strokeWidth="1.5" />
-          <circle cx="200" cy="300" r="230" stroke={colors.accent} strokeWidth="1" />
-          <line x1="-20" y1="300" x2="420" y2="300" stroke={colors.accent} strokeWidth="1.5" />
-          <circle cx="200" cy="300" r="3" fill={colors.accent} />
+        <svg className="absolute pointer-events-none" style={{ top: '8%', right: '-22%', width: '150%', height: 'auto', opacity: 0.05, transform: 'rotate(-8deg)' }} viewBox="0 0 512 512" fill="none">
+          <circle cx="140" cy="256" r="32" fill={colors.ink} />
+          <path d="M178 256 H222 L270 104 L322 408 L374 256 H428" stroke={colors.ink} strokeWidth="30" fill="none" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <div className="relative px-6 sm:px-10 pt-12 pb-8 flex flex-col flex-1">
           <div className="flex items-center justify-between mb-5">
-            <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `2px solid ${colors.accent}44` }} className="w-20 h-20 rounded-full flex items-center justify-center">
-              <LogoMark size={38} color={colors.accent} />
+            <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `2px solid ${colors.accent}44` }} className="w-16 h-16 rounded-full flex items-center justify-center shadow-sm">
+              <LogoMark size={30} color={colors.accent} />
             </div>
             <div className="flex items-center gap-2">
-              <div style={{ backgroundColor: '#17293D', border: `1px solid ${colors.accent}33` }} className="flex items-center rounded-full p-0.5">
-                <button onClick={() => { setLanguage('it'); persist(snapshot({ language: 'it' })); }} style={{ backgroundColor: !isEN ? colors.accent : 'transparent', opacity: !isEN ? 1 : 0.5 }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center text-base transition-colors" aria-label="Italiano">🇮🇹</button>
-                <button onClick={() => { setLanguage('en'); persist(snapshot({ language: 'en' })); }} style={{ backgroundColor: isEN ? colors.accent : 'transparent', opacity: isEN ? 1 : 0.5 }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center text-base transition-colors" aria-label="English">🇬🇧</button>
+              <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="flex items-center rounded-full p-0.5 shadow-sm">
+                <button onClick={() => { setLanguage('it'); persist(snapshot({ language: 'it' })); }} style={{ backgroundColor: !isEN ? colors.accentTint : 'transparent', opacity: !isEN ? 1 : 0.45 }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center text-base transition-colors" aria-label="Italiano">🇮🇹</button>
+                <button onClick={() => { setLanguage('en'); persist(snapshot({ language: 'en' })); }} style={{ backgroundColor: isEN ? colors.accentTint : 'transparent', opacity: isEN ? 1 : 0.45 }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center text-base transition-colors" aria-label="English">🇬🇧</button>
               </div>
-              <span style={{ ...displayFont, backgroundColor: '#17293D', color: colors.accent, letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full">Beta</span>
+              <span style={{ ...displayFont, backgroundColor: colors.ink, color: colors.accent, letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full shadow-sm">Beta</span>
             </div>
           </div>
-          
+
           <div className="flex-1 flex flex-col justify-center mb-8">
-            <h1 style={{ ...displayFont, letterSpacing: '0.02em' }} className="text-[72px] sm:text-[84px] font-bold leading-none mb-1">
-              <span style={{ color: '#FFFFFF' }}>OFF</span><span style={{ color: colors.accent }}>SIDE</span>
+            <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.16em' }} className="text-[11px] font-bold uppercase mb-2">{isEN ? 'For amateur footballers' : 'Per il calcio amatoriale'}</p>
+            <h1 style={{ ...displayFont, letterSpacing: '0.01em' }} className="text-[64px] sm:text-[80px] font-bold leading-[0.95] mb-1">
+              <span style={{ color: colors.ink }}>OFF</span><span style={{ color: colors.accent }}>SIDE</span>
             </h1>
           </div>
-          
-          <div className="mb-6">
+
+          <div className="mb-6 space-y-3">
             {(isEN ? [
               'Prevent the most common injuries, before they happen.',
               'Know what to do in the first few minutes, if you get hurt.',
@@ -2662,19 +2712,19 @@ export default function Offside() {
               'Previeni gli infortuni più comuni, prima che succedano.',
               'Sai cosa fare nei primi minuti, se ti fai male.',
               'Segui un percorso di recupero fatto su misura, passo dopo passo.'
-            ]).map((text, i, arr) => (
-              <div key={i} className="flex items-baseline gap-3.5" style={{ borderBottom: i < arr.length - 1 ? `1px solid ${colors.accent}1A` : 'none', paddingBottom: '11px', marginBottom: i < arr.length - 1 ? '11px' : 0 }}>
-                <span style={{ ...displayFont, color: colors.accent }} className="os-tabular text-xl font-bold flex-shrink-0 w-7">{String(i + 1).padStart(2, '0')}</span>
-                <p style={{ color: '#D7E1EA' }} className="text-[15px] leading-snug font-medium">{text}</p>
+            ]).map((text, i) => (
+              <div key={i} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="flex items-center gap-3 rounded-xl px-3.5 py-3 shadow-sm">
+                <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="os-tabular text-sm font-bold flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center">{String(i + 1).padStart(2, '0')}</span>
+                <p style={{ color: colors.ink }} className="text-[14px] leading-snug font-medium">{text}</p>
               </div>
             ))}
           </div>
 
           <button onClick={() => setDisclaimerAccepted(!disclaimerAccepted)} role="checkbox" aria-checked={disclaimerAccepted} className="os-focus w-full flex items-start gap-2.5 mb-4 text-left">
-            <div style={{ backgroundColor: disclaimerAccepted ? colors.accent : 'transparent', border: `1.5px solid ${disclaimerAccepted ? colors.accent : '#4A5D6E'}` }} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5">
+            <div style={{ backgroundColor: disclaimerAccepted ? colors.accent : colors.card, border: `1.5px solid ${disclaimerAccepted ? colors.accent : colors.hairline}` }} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5">
               {disclaimerAccepted && <Check size={13} color="#FFFFFF" strokeWidth={3} />}
             </div>
-            <p style={{ color: '#94A3B3' }} className="text-xs leading-relaxed">
+            <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">
               {isEN
                 ? 'I understand that Offside provides general information about common injuries, not a diagnosis or a personalized treatment plan, and that it does not replace an assessment by a healthcare professional.'
                 : 'Ho capito che Offside fornisce informazioni generali su infortuni comuni, non una diagnosi o un piano di trattamento personalizzato, e non sostituisce una valutazione da un professionista sanitario.'}
@@ -2684,8 +2734,8 @@ export default function Offside() {
           <button
             onClick={() => { if (disclaimerAccepted) { trackEvent('disclaimer_accepted'); setScreen('regions'); } }}
             disabled={!disclaimerAccepted}
-            style={{ backgroundColor: disclaimerAccepted ? colors.accent : '#2A3A48', color: disclaimerAccepted ? '#FFFFFF' : '#6E7E8C' }}
-            className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium transition-colors"
+            style={{ backgroundColor: disclaimerAccepted ? colors.accent : colors.hairline, color: disclaimerAccepted ? '#FFFFFF' : colors.mutedInk }}
+            className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium transition-colors shadow-sm"
           >
             <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Start your recovery' : 'Inizia il tuo percorso'}</span><ArrowRight size={16} />
           </button>
@@ -2761,9 +2811,14 @@ export default function Offside() {
               <button onClick={() => setRegionsTab('prevention')} style={{ backgroundColor: regionsTab === 'prevention' ? colors.card : 'transparent', color: regionsTab === 'prevention' ? colors.preventionDark : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
                 <ShieldCheck size={14} />{isEN ? 'Prevention' : 'Prevenzione'}
               </button>
+              <button onClick={() => setRegionsTab('technique')} style={{ backgroundColor: regionsTab === 'technique' ? colors.card : 'transparent', color: regionsTab === 'technique' ? colors.premiumGold : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
+                {!premiumUnlocked && <Lock size={11} />}<CircleDot size={14} />{isEN ? 'Technique' : 'Tecnica'}
+              </button>
             </div>
 
-            <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: exercises for your role AND this area' : 'Premium: esercizi per il tuo ruolo E questa zona'} />
+            {regionsTab !== 'technique' && (
+              <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: exercises for your role AND this area' : 'Premium: esercizi per il tuo ruolo E questa zona'} />
+            )}
 
             {regionsTab === 'injury' ? (
               <>
@@ -2839,7 +2894,7 @@ export default function Offside() {
                 </div>
                 <button onClick={startTriage} style={{ color: colors.accentDark }} className="os-focus text-xs underline hover:opacity-70 mb-2 block">{isEN ? 'None of these — answer 3 questions' : 'Nessuno di questi — rispondi a 3 domande'}</button>
               </>
-            ) : (
+            ) : regionsTab === 'prevention' ? (
               <>
                 <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">
                   {isEN ? 'The best time to work on an injury is before it happens. Choose an area — you don\'t need anything to actually hurt.' : 'Il momento migliore per lavorare su un infortunio è prima che succeda. Scegli una zona — non serve avere nulla che fa male.'}
@@ -2902,6 +2957,66 @@ export default function Offside() {
                     );
                   })}
                 </div>
+
+              </>
+            ) : (
+              <>
+                {!premiumUnlocked ? (
+                  <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}40` }} className="rounded-2xl p-6 text-center shadow-sm">
+                    <Lock size={28} color={colors.premiumGold} className="mx-auto mb-3" />
+                    <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-bold mb-2">{isEN ? 'Technical training, by role' : 'Allenamento tecnico, per ruolo'}</p>
+                    <p style={{ color: '#A9B7C4' }} className="text-sm leading-relaxed mb-4">{isEN ? 'Ball control, passing, finishing — exercises built for your position on the pitch.' : 'Controllo palla, passaggio, finalizzazione — esercizi pensati per il tuo ruolo in campo.'}</p>
+                    <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="os-focus px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wide">
+                      {isEN ? 'Unlock Premium' : 'Sblocca Premium'}
+                    </button>
+                  </div>
+                ) : !playerPosition ? (
+                  <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-2xl p-4 shadow-sm">
+                    <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold mb-3">{isEN ? 'Pick your position to see the right drills' : 'Scegli il tuo ruolo per vedere gli esercizi giusti'}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {playerPositions.map((pos) => (
+                        <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: colors.premiumGoldTint, color: colors.ink, border: `1px solid ${colors.premiumGold}60` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium hover:opacity-80 transition-colors">
+                          {pos.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <p style={{ ...displayFont, color: colors.ink }} className="text-base font-bold">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>
+                      <button onClick={() => setPlayerPosition(null)} style={{ color: colors.mutedInk }} className="os-focus text-[11px] underline hover:opacity-70">{isEN ? 'Change' : 'Cambia'}</button>
+                    </div>
+                    <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-4">{techniqueData[playerPosition].why}</p>
+                    <div className="space-y-2.5">
+                      {techniqueData[playerPosition].exercises.map((ex, i) => {
+                        const CatIcon = catIcons[ex.cat] || Circle;
+                        const techKey = `tech-${i}`;
+                        const tipOpen = activeVideo === techKey;
+                        return (
+                          <div key={i} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl overflow-hidden shadow-sm">
+                            <div className="flex items-start gap-3 p-3">
+                              <div style={{ backgroundColor: colors.premiumGoldTint, color: colors.ink }} className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">{i + 1}</div>
+                              <div className="flex-1 min-w-0">
+                                <p style={{ color: colors.ink }} className="text-sm leading-snug mb-1">{ex.text}</p>
+                                <span style={{ backgroundColor: colors.paper, color: colors.ink, fontWeight: 600 }} className="text-[11px] px-1.5 py-0.5 rounded inline-flex items-center gap-1"><CatIcon size={10} />{catLabels[ex.cat]}</span>
+                              </div>
+                            </div>
+                            <button onClick={() => setActiveVideo(tipOpen ? null : techKey)} style={{ color: '#B8860B', borderTop: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-1.5 px-3 py-2 text-xs font-semibold hover:opacity-70">
+                              <ChevronDown size={11} style={{ transform: tipOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                              {isEN ? 'How do I do this?' : 'Come si fa?'}
+                            </button>
+                            {tipOpen && (
+                              <div className="px-3 pb-3 os-fadein">
+                                <ExerciseHelp ex={ex} isEN={isEN} />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -3098,6 +3213,8 @@ export default function Offside() {
             <button onClick={() => setScreen('regions')} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium shadow-sm hover:opacity-90 transition-opacity">
               <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Now choose where it hurts' : 'Ora scegli dove hai male'}</span><ArrowRight size={16} />
             </button>
+
+            <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'When you\'re ready to return, Premium has the right training for your role' : 'Quando sarai pronto a tornare in campo, Premium ha l\'allenamento giusto per il tuo ruolo'} />
           </div>
         )}
 
@@ -3216,8 +3333,10 @@ export default function Offside() {
                 </div>
               );
             })}
+            <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: training designed for each injury, matched to your role' : 'Premium: allenamento pensato per ogni infortunio, in base al tuo ruolo'} />
           </div>
         )}
+
 
         {screen === 'tracker' && injury && phase && (
           <>
