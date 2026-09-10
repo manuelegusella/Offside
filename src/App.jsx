@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+// SOSTITUISCI questo con il tuo vero Payment Link di Stripe una volta creato
+const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/SOSTITUISCI_QUESTO';
 
 function trackEvent(name, params = {}) {
   if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
@@ -20,6 +24,7 @@ const colors = {
   mutedInk: '#57697A', accent: '#22C55E', accentTint: '#DCFCE7', accentDark: '#15803D',
   red: '#AE3830', redTint: '#F6DEDB', laneBg: '#DFE7EF', orange: '#C96A22',
   prevention: '#14B8A6', preventionTint: '#CCFBF1', preventionDark: '#0F766E', preventionPaper: '#EDFCFA',
+  premiumGold: '#F0B429', premiumGoldTint: 'rgba(240,180,41,0.18)',
 };
 
 const STORAGE_KEY = 'injury-recovery-progress-v3';
@@ -1751,6 +1756,275 @@ const playerPositionsEN = [
   { key: 'attaccante', label: 'Forward', tip: 'As a forward, short bursts and sudden accelerations are your daily bread: make sure you tolerate repeated sprints and explosive changes of pace well, not just continuous running.' },
 ];
 
+const regionRoleExercisesIT = {
+  ankle_foot: {
+    portiere: { why: 'Nei tuffi la caviglia assorbe il carico in appoggio instabile — la tecnica di atterraggio conta quanto la forza.', exercises: [
+      'Tecnica di atterraggio da un tuffo laterale, caviglia stabile all\'impatto (3 serie da 5 per lato)',
+      'Spinta esplosiva laterale da fermo (3 serie da 5 per lato)',
+      'Equilibrio monopodalico su superficie instabile (3 volte da 20-30 secondi)',
+    ]},
+    difensore: { why: 'Nei duelli aerei l\'atterraggio spesso avviene su un solo piede, magari in contatto — la caviglia deve reggere il carico anche fuori equilibrio.', exercises: [
+      'Tecnica di atterraggio da un colpo di testa, un piede solo (3 serie da 6 per lato)',
+      'Affondi laterali con controllo della caviglia (3 serie da 10 per lato)',
+      'Stabilità della caviglia sotto leggera spinta esterna (3 serie da 8)',
+    ]},
+    centrocampista: { why: 'Frenate e ripartenze ripetute per novanta minuti mettono la caviglia sotto stress cumulativo, non solo un singolo picco di carico.', exercises: [
+      'Tecnica di frenata e ripartenza ripetuta (6-8 ripetizioni)',
+      'Equilibrio monopodalico con leggero affaticamento pregresso (3 serie da 20 secondi)',
+      'Mobilità della caviglia in tutte le direzioni, a fine sessione (2 minuti)',
+    ]},
+    attaccante: { why: 'Il cambio di direzione esplosivo per superare un avversario carica la caviglia lateralmente in modo brusco.', exercises: [
+      'Tecnica di cambio di direzione esplosivo, taglio a 45° (3 serie da 6 per lato)',
+      'Reattività: parti in scatto dopo un segnale imprevisto (5-6 ripetizioni)',
+      'Rinforzo con elastico in tutte le direzioni (2-3 serie da 12 per direzione)',
+    ]},
+  },
+  knee: {
+    portiere: { why: 'La spinta laterale per il tuffo carica il ginocchio d\'appoggio in modo asimmetrico e improvviso.', exercises: [
+      'Tecnica di spinta laterale per il tuffo, ginocchio allineato (3 serie da 5 per lato)',
+      'Squat monopodalico controllato (3 serie da 8 per lato)',
+      'Rinforzo del gluteo medio con elastico (2-3 serie da 15)',
+    ]},
+    difensore: { why: 'Nel contrasto il ginocchio spesso lavora in posizione flessa e ruotata contemporaneamente — la tecnica riduce il rischio più della sola forza.', exercises: [
+      'Tecnica di affondo nel contrasto, ginocchio mai oltre la punta del piede (3 serie da 8 per lato)',
+      'Step-up controllati (3 serie da 10 per lato)',
+      'Stabilità in appoggio singolo con perturbazione (3 serie da 8)',
+    ]},
+    centrocampista: { why: 'Decine di decelerazioni ripetute in una partita sollecitano il ginocchio più del numero di sprint in sé.', exercises: [
+      'Tecnica di decelerazione ripetuta in tre appoggi (6-8 ripetizioni)',
+      'Squat controllati ad alto volume (3 serie da 15)',
+      'Resistenza in appoggio monopodalico (3 serie da 30 secondi)',
+    ]},
+    attaccante: { why: 'Il perno su un piede solo per proteggere palla o saltare l\'avversario mette il ginocchio sotto torsione.', exercises: [
+      'Tecnica di perno su un piede solo, controllato (3 serie da 6 per lato)',
+      'Salti con atterraggio stabile su una gamba (3 serie da 6 per lato)',
+      'Rinforzo eccentrico del quadricipite (2-3 serie da 8-10)',
+    ]},
+  },
+  thigh: {
+    portiere: { why: 'La spinta esplosiva da fermo per il tuffo richiede potenza immediata, senza una vera fase di preparazione.', exercises: [
+      'Tecnica di spinta esplosiva da fermo (5-6 ripetizioni)',
+      'Affondi con enfasi sulla fase di spinta (3 serie da 8 per lato)',
+      'Nordic curl assistito (2-3 serie da 5-6)',
+    ]},
+    difensore: { why: 'Lo stacco per il duello aereo è un gesto esplosivo che carica la coscia in modo simile a un salto verticale puro.', exercises: [
+      'Tecnica di stacco per il duello aereo, spinta bilanciata (5-6 ripetizioni)',
+      'Squat con salto controllato (3 serie da 6)',
+      'Ponte glutei/hamstring (3 serie da 12-15)',
+    ]},
+    centrocampista: { why: 'Correre a intensità sostenuta per gran parte della partita è più una questione di resistenza muscolare che di velocità pura.', exercises: [
+      'Tecnica di corsa a intensità sostenuta, passo efficiente (8-10 minuti a ritmo costante)',
+      'Affondi in circuito, alto volume (3 serie da 12 per lato)',
+      'Rinforzo eccentrico del quadricipite, discesa lenta (2-3 serie da 8-10)',
+    ]},
+    attaccante: { why: 'Decelerare subito dopo uno scatto massimale è spesso il momento più a rischio per la coscia, non lo scatto in sé.', exercises: [
+      'Tecnica di decelerazione dopo lo scatto, tre appoggi controllati (5-6 ripetizioni)',
+      'Accelerazione esplosiva da fermo (5-6 ripetizioni da 10 metri)',
+      'Nordic curl assistito (2-3 serie da 5-6)',
+    ]},
+  },
+  calf_region: {
+    portiere: { why: 'Il polpaccio genera la spinta laterale esplosiva per coprire distanza nel tuffo in pochissimo tempo.', exercises: [
+      'Tecnica di spinta esplosiva laterale dal polpaccio (3 serie da 5 per lato)',
+      'Calf raises esplosivi (3 serie da 10)',
+      'Equilibrio su una gamba con piccoli rimbalzi (3 serie da 15 secondi)',
+    ]},
+    difensore: { why: 'Lo stacco verticale per il colpo di testa dipende in gran parte dalla potenza del polpaccio nell\'ultimo istante prima del salto.', exercises: [
+      'Tecnica di stacco verticale, spinta rapida dal polpaccio (5-6 ripetizioni)',
+      'Calf raises progressivi (3 serie da 15)',
+      'Salti verticali ripetuti, atterraggio controllato (3 serie da 6)',
+    ]},
+    centrocampista: { why: 'Correre a lungo in modo efficiente richiede un polpaccio che lavora bene anche quando è già affaticato.', exercises: [
+      'Tecnica di corsa prolungata, contatto rapido col terreno (8-10 minuti)',
+      'Calf raises ad alto volume (3 serie da 20)',
+      'Salti su corda o simili, ritmo costante (2 minuti)',
+    ]},
+    attaccante: { why: 'La prima falcata dopo il fermo è quella che decide se stacchi davvero dall\'avversario — dipende dalla potenza esplosiva del polpaccio.', exercises: [
+      'Tecnica di prima falcata esplosiva da fermo (5-6 ripetizioni)',
+      'Calf raises eccentrici su una gamba (3 serie da 10-12)',
+      'Balzi orizzontali brevi, massima esplosività (3 serie da 5)',
+    ]},
+  },
+  hip_groin: {
+    portiere: { why: 'Il tuffo laterale richiede un\'apertura dell\'anca ampia e improvvisa, spesso oltre il range di movimento usato normalmente.', exercises: [
+      'Tecnica di apertura dell\'anca nel tuffo, controllata (3 serie da 6 per lato)',
+      'Mobilità dell\'anca in tutte le direzioni (2-3 minuti)',
+      'Rinforzo isometrico degli adduttori (3-4 serie da 8-10 secondi)',
+    ]},
+    difensore: { why: 'Il posizionamento nel contrasto richiede stabilità dell\'anca sotto pressione laterale diretta.', exercises: [
+      'Tecnica di posizionamento nel contrasto, bacino stabile (3 serie da 8 per lato)',
+      'Plank laterale con schiacciata dell\'adduttore, tipo Copenhagen (2-3 serie da 6-8 per lato)',
+      'Cammino laterale con elastico (2-3 serie da 12-15 passi per lato)',
+    ]},
+    centrocampista: { why: 'Cambiare direzione decine di volte per partita richiede che anca e adduttori reggano il carico ripetuto, non solo un singolo sforzo.', exercises: [
+      'Tecnica di cambio di direzione ripetuto, passo corto e controllato (6-8 ripetizioni)',
+      'Rinforzo dei flessori dell\'anca con elastico (2-3 serie da 12-15)',
+      'Mobilità dinamica dell\'anca prima dello sforzo (2 minuti)',
+    ]},
+    attaccante: { why: 'Il tiro potente nasce in gran parte dall\'apertura e chiusura rapida dell\'anca, non solo dalla gamba.', exercises: [
+      'Tecnica di apertura dell\'anca nel gesto del tiro, a vuoto (3 serie da 8 per lato)',
+      'Rinforzo isometrico degli adduttori (3-4 serie da 8-10 secondi)',
+      'Cammino laterale con elastico (2-3 serie da 12-15 passi per lato)',
+    ]},
+  },
+  lower_back: {
+    portiere: { why: 'Il tuffo spesso combina torsione del busto e allungamento nello stesso istante — il core deve reggere entrambe le cose insieme.', exercises: [
+      'Tecnica di torsione controllata nel tuffo, core attivo (3 serie da 6 per lato)',
+      'Plank con rotazione (3 serie da 8-10 per lato)',
+      'Bird-dog (2-3 serie da 8-10 per lato)',
+    ]},
+    difensore: { why: 'Il salto per il colpo di testa richiede che il core resti stabile mentre il resto del corpo si estende verso l\'alto.', exercises: [
+      'Tecnica di tenuta del core nel salto per il duello aereo (5-6 ripetizioni)',
+      'Plank (3 serie da 30 secondi)',
+      'Ponte glutei a due gambe (3 serie da 12-15)',
+    ]},
+    centrocampista: { why: 'Mantenere una postura efficiente per novanta minuti, anche affaticati, è ciò che protegge la zona lombare a lungo termine.', exercises: [
+      'Tecnica di postura sotto affaticamento, autocontrollo a metà sforzo (durante la sessione)',
+      'Plank ad alto volume (3 serie da 30-40 secondi)',
+      'Bird-dog con leggero affaticamento pregresso (2-3 serie da 8-10 per lato)',
+    ]},
+    attaccante: { why: 'La rotazione del busto nel tiro potente scarica forza importante sulla zona lombare in un solo gesto esplosivo.', exercises: [
+      'Tecnica di rotazione del busto nel tiro, a vuoto e controllata (3 serie da 8 per lato)',
+      'Plank con rotazione (3 serie da 8-10 per lato)',
+      'Rinforzo rotazionale del core con resistenza leggera (2-3 serie da 10 per lato)',
+    ]},
+  },
+};
+const regionRoleExercisesEN = {
+  ankle_foot: {
+    portiere: { why: 'On dives, the ankle absorbs load on unstable footing — landing technique matters as much as raw strength.', exercises: [
+      'Landing technique from a lateral dive, stable ankle on impact (3 sets of 5 per side)',
+      'Explosive lateral push-off from standing (3 sets of 5 per side)',
+      'Single-leg balance on an unstable surface (3 sets of 20-30 seconds)',
+    ]},
+    difensore: { why: 'In aerial duels the landing often happens on one foot, sometimes in contact — the ankle needs to hold up even off-balance.', exercises: [
+      'Landing technique from a header duel, single leg (3 sets of 6 per side)',
+      'Lateral lunges with ankle control (3 sets of 10 per side)',
+      'Ankle stability under light external push (3 sets of 8)',
+    ]},
+    centrocampista: { why: 'Repeated braking and restarting over ninety minutes puts the ankle under cumulative stress, not just a single load spike.', exercises: [
+      'Braking and restarting technique, repeated (6-8 reps)',
+      'Single-leg balance with pre-existing light fatigue (3 sets of 20 seconds)',
+      'Ankle mobility in all directions, end of session (2 minutes)',
+    ]},
+    attaccante: { why: 'The explosive change of direction to beat a defender loads the ankle sharply and sideways.', exercises: [
+      'Explosive change of direction technique, 45° cut (3 sets of 6 per side)',
+      'Reactivity: sprint off on an unpredictable cue (5-6 reps)',
+      'Resistance band work in all directions (2-3 sets of 12 per direction)',
+    ]},
+  },
+  knee: {
+    portiere: { why: 'The lateral push for a dive loads the standing knee asymmetrically and suddenly.', exercises: [
+      'Lateral push-off technique for diving, knee aligned (3 sets of 5 per side)',
+      'Controlled single-leg squat (3 sets of 8 per side)',
+      'Glute medius strengthening with a band (2-3 sets of 15)',
+    ]},
+    difensore: { why: 'In a tackle the knee often works flexed and rotated at the same time — technique reduces risk more than strength alone.', exercises: [
+      'Tackling lunge technique, knee never past the toes (3 sets of 8 per side)',
+      'Controlled step-ups (3 sets of 10 per side)',
+      'Single-leg stability with perturbation (3 sets of 8)',
+    ]},
+    centrocampista: { why: 'Dozens of repeated decelerations in a match stress the knee more than the number of sprints itself.', exercises: [
+      'Repeated deceleration technique in three steps (6-8 reps)',
+      'High-volume controlled squats (3 sets of 15)',
+      'Single-leg standing endurance (3 sets of 30 seconds)',
+    ]},
+    attaccante: { why: 'Pivoting on one leg to shield the ball or beat a defender puts the knee under rotational load.', exercises: [
+      'Controlled single-leg pivot technique (3 sets of 6 per side)',
+      'Jumps with stable single-leg landing (3 sets of 6 per side)',
+      'Eccentric quadriceps strengthening (2-3 sets of 8-10)',
+    ]},
+  },
+  thigh: {
+    portiere: { why: 'The explosive push-off from standing for a dive needs immediate power, with no real run-up.', exercises: [
+      'Explosive push-off technique from standing (5-6 reps)',
+      'Lunges emphasizing the push phase (3 sets of 8 per side)',
+      'Assisted Nordic curls (2-3 sets of 5-6)',
+    ]},
+    difensore: { why: 'The jump for an aerial duel is an explosive action that loads the thigh similarly to a pure vertical jump.', exercises: [
+      'Aerial duel take-off technique, balanced push (5-6 reps)',
+      'Controlled jump squats (3 sets of 6)',
+      'Glute/hamstring bridge (3 sets of 12-15)',
+    ]},
+    centrocampista: { why: 'Running at sustained intensity for most of the match is more about muscular endurance than pure speed.', exercises: [
+      'Sustained-intensity running technique, efficient stride (8-10 minutes at a steady pace)',
+      'Circuit lunges, high volume (3 sets of 12 per side)',
+      'Eccentric quadriceps work, slow lowering (2-3 sets of 8-10)',
+    ]},
+    attaccante: { why: 'Decelerating right after a maximal sprint is often the riskiest moment for the thigh, not the sprint itself.', exercises: [
+      'Post-sprint deceleration technique, three controlled steps (5-6 reps)',
+      'Explosive acceleration from standing (5-6 reps of 10 meters)',
+      'Assisted Nordic curls (2-3 sets of 5-6)',
+    ]},
+  },
+  calf_region: {
+    portiere: { why: 'The calf generates the explosive lateral push to cover distance on a dive in a split second.', exercises: [
+      'Explosive lateral push-off technique from the calf (3 sets of 5 per side)',
+      'Explosive calf raises (3 sets of 10)',
+      'Single-leg balance with small bounces (3 sets of 15 seconds)',
+    ]},
+    difensore: { why: 'The vertical take-off for a header depends largely on calf power in the instant before the jump.', exercises: [
+      'Vertical take-off technique, quick calf drive (5-6 reps)',
+      'Progressive calf raises (3 sets of 15)',
+      'Repeated vertical jumps, controlled landing (3 sets of 6)',
+    ]},
+    centrocampista: { why: 'Running efficiently for a long time requires a calf that still works well even when already fatigued.', exercises: [
+      'Sustained running technique, quick ground contact (8-10 minutes)',
+      'High-volume calf raises (3 sets of 20)',
+      'Rope-style jumps, steady rhythm (2 minutes)',
+    ]},
+    attaccante: { why: 'The first stride after standing still is what decides whether you actually get ahead of the defender — it depends on calf explosiveness.', exercises: [
+      'Explosive first-stride technique from standing (5-6 reps)',
+      'Single-leg eccentric calf raises (3 sets of 10-12)',
+      'Short horizontal bounds, maximum explosiveness (3 sets of 5)',
+    ]},
+  },
+  hip_groin: {
+    portiere: { why: 'The lateral dive requires a wide, sudden hip opening, often beyond the range used in normal movement.', exercises: [
+      'Controlled hip-opening technique for diving (3 sets of 6 per side)',
+      'Hip mobility in all directions (2-3 minutes)',
+      'Isometric adductor strengthening (3-4 sets of 8-10 second holds)',
+    ]},
+    difensore: { why: 'Tackling positioning requires hip stability under direct lateral pressure.', exercises: [
+      'Tackling positioning technique, stable pelvis (3 sets of 8 per side)',
+      'Side plank with adductor squeeze, Copenhagen-style (2-3 sets of 6-8 per side)',
+      'Lateral band walks (2-3 sets of 12-15 steps per side)',
+    ]},
+    centrocampista: { why: 'Changing direction dozens of times per match requires the hip and adductors to handle repeated load, not just a single effort.', exercises: [
+      'Repeated change of direction technique, short controlled steps (6-8 reps)',
+      'Hip flexor strengthening with a band (2-3 sets of 12-15)',
+      'Dynamic hip mobility before effort (2 minutes)',
+    ]},
+    attaccante: { why: 'A powerful shot largely comes from rapid hip opening and closing, not just the leg.', exercises: [
+      'Hip-opening technique for the shooting motion, no ball (3 sets of 8 per side)',
+      'Isometric adductor strengthening (3-4 sets of 8-10 second holds)',
+      'Lateral band walks (2-3 sets of 12-15 steps per side)',
+    ]},
+  },
+  lower_back: {
+    portiere: { why: 'A dive often combines trunk rotation and extension at the same instant — the core has to handle both together.', exercises: [
+      'Controlled rotation technique for diving, core engaged (3 sets of 6 per side)',
+      'Rotational plank (3 sets of 8-10 per side)',
+      'Bird-dog (2-3 sets of 8-10 per side)',
+    ]},
+    difensore: { why: 'Jumping for a header requires the core to stay stable while the rest of the body extends upward.', exercises: [
+      'Core bracing technique for aerial duel jumps (5-6 reps)',
+      'Plank (3 sets of 30 seconds)',
+      'Two-leg glute bridge (3 sets of 12-15)',
+    ]},
+    centrocampista: { why: 'Maintaining an efficient posture for ninety minutes, even fatigued, is what protects the lower back long-term.', exercises: [
+      'Posture-under-fatigue technique, self-check mid-effort (during the session)',
+      'High-volume plank (3 sets of 30-40 seconds)',
+      'Bird-dog with pre-existing light fatigue (2-3 sets of 8-10 per side)',
+    ]},
+    attaccante: { why: 'Trunk rotation in a powerful shot puts significant force through the lower back in one explosive motion.', exercises: [
+      'Trunk rotation technique for shooting, controlled and unloaded (3 sets of 8 per side)',
+      'Rotational plank (3 sets of 8-10 per side)',
+      'Rotational core strengthening with light resistance (2-3 sets of 10 per side)',
+    ]},
+  },
+};
+
 const dateChipsIT = [
   { label: 'Oggi', days: 0 }, { label: 'Ieri', days: 1 }, { label: '2–3 giorni fa', days: 2 },
   { label: 'Una settimana fa', days: 7 }, { label: '2+ settimane fa', days: 14 },
@@ -1856,6 +2130,20 @@ function BodyDiagram({ onSelectRegion, accentColor = colors.accent, tintColor = 
   );
 }
 
+function PremiumBanner({ text, onClick }) {
+  return (
+    <button onClick={onClick} style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}50` }} className="os-focus w-full flex items-center gap-3 rounded-2xl p-3.5 mb-5 text-left hover:opacity-90 transition-opacity shadow-sm">
+      <div style={{ backgroundColor: colors.premiumGoldTint }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
+        <TrendingUp size={18} color={colors.premiumGold} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#FFFFFF' }} className="text-xs font-semibold leading-snug">{text}</p>
+      </div>
+      <ChevronRight size={16} color={colors.premiumGold} className="flex-shrink-0" />
+    </button>
+  );
+}
+
 function ExerciseHelp({ ex, isEN }) {
   const query = ex.text.replace(/\([^)]*\)/g, '').trim();
   const searchSuffix = isEN ? ' exercise correct technique' : ' esercizio tecnica corretta';
@@ -1905,6 +2193,23 @@ function daysSince(isoDate) {
   const then = new Date(isoDate + 'T00:00:00');
   const now = new Date();
   return Math.floor((new Date(now.toDateString()) - new Date(then.toDateString())) / 86400000) + 1;
+}
+function buildChartData(injuryLog, isEN) {
+  const feelingMap = { male: 1, cosi: 2, bene: 3 };
+  const stiffnessMap = { si: 1, poca: 2, no: 3 };
+  const dates = Object.keys(injuryLog).sort();
+  return dates
+    .filter((d) => injuryLog[d].feeling || injuryLog[d].stiffness)
+    .map((d) => {
+      const entry = injuryLog[d];
+      const dateObj = new Date(d + 'T00:00:00');
+      const label = dateObj.toLocaleDateString(isEN ? 'en-GB' : 'it-IT', { day: 'numeric', month: 'short' });
+      return {
+        date: label,
+        feeling: entry.feeling ? feelingMap[entry.feeling] : null,
+        stiffness: entry.stiffness ? stiffnessMap[entry.stiffness] : null,
+      };
+    });
 }
 function suggestPhase(dayCount, thresholds) {
   if (dayCount <= thresholds[0]) return 0;
@@ -1964,6 +2269,7 @@ export default function Offside() {
   const [pendingDate, setPendingDate] = useState('');
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
   const [language, setLanguage] = useState('it');
+  const [premiumUnlocked, setPremiumUnlocked] = useState(false);
   const isEN = language === 'en';
   const injuriesData = isEN ? injuriesDataEN : injuriesDataIT;
   const preventionData = isEN ? preventionDataEN : preventionDataIT;
@@ -1980,13 +2286,13 @@ export default function Offside() {
   const riceAvoid = isEN ? riceAvoidEN : riceAvoidIT;
   const injuryScenarios = isEN ? injuryScenariosEN : injuryScenariosIT;
   const playerPositions = isEN ? playerPositionsEN : playerPositionsIT;
+  const regionRoleExercises = isEN ? regionRoleExercisesEN : regionRoleExercisesIT;
   const dateChips = isEN ? dateChipsEN : dateChipsIT;
   const mechanismOptions = isEN ? mechanismOptionsEN : mechanismOptionsIT;
   const popOptions = isEN ? popOptionsEN : popOptionsIT;
   const weightOptions = isEN ? weightOptionsEN : weightOptionsIT;
   const regionLabels = isEN ? regionLabelsEN : regionLabelsIT;
   const [shareCopied, setShareCopied] = useState(false);
-  const [trackerTab, setTrackerTab] = useState('oggi');
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [deletingKey, setDeletingKey] = useState(null);
   const [playerPosition, setPlayerPosition] = useState(null);
@@ -2000,31 +2306,44 @@ export default function Offside() {
   useEffect(() => {
     loadFontsOnce();
     (async () => {
+      let loaded = {};
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
-          const data = JSON.parse(raw);
-          const injuryKey = data.selectedInjury || null;
+          loaded = JSON.parse(raw);
+          const injuryKey = loaded.selectedInjury || null;
           if (injuryKey && injuriesData[injuryKey]) {
             setSelectedInjury(injuryKey);
             setSelectedRegion(regionOfInjury(injuryKey, injuriesData));
           }
-          setActivePhase(data.activePhase || 0);
-          setProgress(data.progress || {});
-          setInjuryDates(data.injuryDates || {});
-          setInjurySeverities(data.injurySeverities || {});
-          setDailyLog(data.dailyLog || {});
-          setPlayerPosition(data.playerPosition || null);
-          setPreventionProgress(data.preventionProgress || {});
-          setLanguage(data.language || 'it');
+          setActivePhase(loaded.activePhase || 0);
+          setProgress(loaded.progress || {});
+          setInjuryDates(loaded.injuryDates || {});
+          setInjurySeverities(loaded.injurySeverities || {});
+          setDailyLog(loaded.dailyLog || {});
+          setPlayerPosition(loaded.playerPosition || null);
+          setPreventionProgress(loaded.preventionProgress || {});
+          setLanguage(loaded.language || 'it');
+          setPremiumUnlocked(!!loaded.premiumUnlocked);
         }
       } catch (err) {} finally {
         setLoading(false);
       }
+
+      // Ritorno da un pagamento Stripe riuscito: sblocca e salva, poi pulisci l'URL
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('premium') === 'unlocked') {
+        setPremiumUnlocked(true);
+        const next = { ...loaded, premiumUnlocked: true };
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch (err) {}
+        window.history.replaceState({}, '', window.location.pathname);
+      }
     })();
   }, []);
 
-  const persist = useCallback((next) => {
+  const persist = useCallback(async (next) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       setSaveError(false);
@@ -2033,13 +2352,14 @@ export default function Offside() {
     }
   }, []);
 
-  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, ...overrides });
+  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, premiumUnlocked, ...overrides });
 
   const goBack = () => {
     if (screen === 'tracker') setScreen('injuries');
     else if (screen === 'injuries') { setScreen('regions'); setSelectedRegion(null); setTriageTag(null); }
     else if (screen === 'triage') setScreen('regions');
     else if (screen === 'firstaid') setScreen('regions');
+    else if (screen === 'premium') setScreen('tracker');
     else if (screen === 'regions') setScreen('cover');
   };
 
@@ -2290,6 +2610,17 @@ export default function Offside() {
     input[type="date"].os-date { font-family: 'Inter', sans-serif; color-scheme: light; }
     @keyframes os-fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     .os-fadein { animation: os-fadein 0.25s ease-out; }
+    .os-print-only { display: none; }
+    @media print {
+      body * { visibility: hidden; }
+      .os-print-only, .os-print-only * { visibility: visible; }
+      .os-print-only { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 24px; font-family: 'Inter', sans-serif; color: #101B26; }
+      .os-print-only h1 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin-bottom: 16px; }
+      .os-print-only p { font-size: 13px; line-height: 1.5; margin-bottom: 8px; }
+      .os-print-only ul { margin: 4px 0 12px 20px; font-size: 13px; }
+      .os-print-only table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+      .os-print-only th, .os-print-only td { border: 1px solid #D7E1EA; padding: 6px 8px; text-align: left; }
+    }
   `;
 
   if (screen === 'cover') {
@@ -2383,7 +2714,7 @@ export default function Offside() {
             <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">Offside</p>
           </div>
           <h1 style={{ ...displayFont, color: colors.ink }} className="text-lg sm:text-xl font-semibold truncate">
-            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Where does it hurt?' : 'Dove senti il problema?')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
+            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Where does it hurt?' : 'Dove senti il problema?')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
           </h1>
         </div>
         {screen === 'tracker' && injury && (
@@ -2432,6 +2763,8 @@ export default function Offside() {
               </button>
             </div>
 
+            <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: exercises for your role AND this area' : 'Premium: esercizi per il tuo ruolo E questa zona'} />
+
             {regionsTab === 'injury' ? (
               <>
                 {activeInjuryKeys.length > 0 && (
@@ -2443,7 +2776,7 @@ export default function Offside() {
                     </p>
                     <div className="space-y-2">
                       {activeInjuryKeys.map((key) => (
-                        <div key={key} style={{ backgroundColor: colors.ink }} className="flex items-stretch rounded-xl overflow-hidden shadow-sm">
+                        <div key={key} style={{ backgroundColor: colors.ink }} className="flex items-stretch rounded-2xl overflow-hidden shadow-sm">
                           <button onClick={() => resumeInjury(key)} className="os-focus flex-1 flex items-center gap-3 px-4 py-3.5 text-left hover:opacity-90 transition-opacity min-w-0">
                             <PlayCircle size={20} color={colors.accent} className="flex-shrink-0" />
                             <div className="flex-1 min-w-0">
@@ -2483,14 +2816,13 @@ export default function Offside() {
                 </div>
 
                 <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.1em' }} className="text-xs font-semibold uppercase mb-3">{isEN ? 'Or choose the area' : 'Oppure scegli il distretto'}</p>
-                <div className="space-y-2.5 mb-6">
+                <div className="grid grid-cols-2 gap-3 mb-6">
                   {Object.entries(regions).map(([key, data]) => {
                     const Icon = data.icon;
                     return (
-                      <button key={key} onClick={() => openRegion(key)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-4 px-4 py-4 rounded-xl text-left hover:shadow-sm hover:border-gray-300 transition-all">
-                        <div style={{ backgroundColor: colors.accentTint, border: `1px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><Icon size={19} color={colors.accentDark} strokeWidth={2} /></div>
-                        <div className="flex-1 min-w-0"><p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.02em' }} className="text-base font-semibold uppercase">{regionLabels[key]}</p></div>
-                        <ChevronRight size={20} color={colors.mutedInk} className="flex-shrink-0" />
+                      <button key={key} onClick={() => openRegion(key)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus flex flex-col items-center gap-2.5 px-3 py-5 rounded-2xl text-center hover:shadow-md hover:border-green-300 transition-all">
+                        <div style={{ backgroundColor: colors.accentTint, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center"><Icon size={24} color={colors.accentDark} strokeWidth={2} /></div>
+                        <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.01em' }} className="text-sm font-semibold uppercase leading-tight">{regionLabels[key]}</p>
                       </button>
                     );
                   })}
@@ -2524,9 +2856,9 @@ export default function Offside() {
                     const doneCount = data.exercises.filter((_, i) => regionProgress[i]).length;
                     const RegionIcon = regions[key]?.icon || ShieldCheck;
                     return (
-                      <div key={key} id={`prevention-${key}`} style={{ backgroundColor: colors.card, border: `1px solid ${isExpanded ? colors.prevention + '55' : colors.hairline}` }} className="rounded-xl overflow-hidden shadow-sm scroll-mt-4">
-                        <button onClick={() => setExpandedPrevention(isExpanded ? null : key)} className="os-focus w-full flex items-center gap-4 px-4 py-4 text-left">
-                          <div style={{ backgroundColor: colors.preventionTint, border: `1.5px solid ${colors.prevention}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><RegionIcon size={19} color={colors.preventionDark} strokeWidth={2} /></div>
+                      <div key={key} id={`prevention-${key}`} style={{ backgroundColor: colors.card, border: `1.5px solid ${isExpanded ? colors.prevention + '55' : colors.hairline}` }} className="rounded-2xl overflow-hidden shadow-sm scroll-mt-4">
+                        <button onClick={() => setExpandedPrevention(isExpanded ? null : key)} className="os-focus w-full flex items-center gap-4 px-4 py-4.5 text-left">
+                          <div style={{ backgroundColor: colors.preventionTint, border: `1.5px solid ${colors.prevention}40` }} className="flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center"><RegionIcon size={24} color={colors.preventionDark} strokeWidth={2} /></div>
                           <div className="flex-1 min-w-0">
                             <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.02em' }} className="text-base font-semibold uppercase">{data.label}</p>
                             {doneCount > 0 && <p style={{ color: colors.preventionDark }} className="text-xs font-medium">{doneCount}/{data.exercises.length} fatti</p>}
@@ -2575,6 +2907,163 @@ export default function Offside() {
 
             <button onClick={() => setScreen('cover')} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-5 block mx-auto">{isEN ? 'Back to cover' : 'Torna alla copertina'}</button>
           </>
+        )}
+
+        {screen === 'premium' && (
+          <div>
+            {!premiumUnlocked ? (
+              <>
+                <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}40` }} className="rounded-2xl p-6 mb-5 text-center">
+                  <TrendingUp size={32} color={colors.premiumGold} className="mx-auto mb-3" />
+                  <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-lg font-bold mb-2">{isEN ? 'Train like your role and injury need' : 'Allenati come richiedono ruolo e infortunio'}</p>
+                  <p style={{ color: '#A9B7C4' }} className="text-sm leading-relaxed">{isEN ? 'Exercises tailored to your position AND the specific area — plus your real progress over time.' : 'Esercizi su misura per il tuo ruolo E la zona specifica — più il tuo vero andamento nel tempo.'}</p>
+                </div>
+                <div className="space-y-3 mb-6">
+                  <div className="flex gap-3 items-start">
+                    <CheckCircle2 size={18} color={colors.premiumGold} className="flex-shrink-0 mt-0.5" />
+                    <p style={{ color: colors.ink }} className="text-sm">{isEN ? 'Training that combines your position AND the specific area' : 'Allenamento che unisce il tuo ruolo E la zona specifica'}</p>
+                  </div>
+                  <div className="flex gap-3 items-start">
+                    <CheckCircle2 size={18} color={colors.premiumGold} className="flex-shrink-0 mt-0.5" />
+                    <p style={{ color: colors.ink }} className="text-sm">{isEN ? 'Feeling and stiffness trends, visualized day by day' : 'Andamento di feeling e rigidità, giorno per giorno'}</p>
+                  </div>
+                  <div className="flex gap-3 items-start">
+                    <CheckCircle2 size={18} color={colors.premiumGold} className="flex-shrink-0 mt-0.5" />
+                    <p style={{ color: colors.ink }} className="text-sm">{isEN ? 'A printable summary for your physio or coach' : 'Un riepilogo stampabile per il tuo fisioterapista o allenatore'}</p>
+                  </div>
+                </div>
+                <a href={STRIPE_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('premium_unlock_clicked')} style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity">
+                  <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
+                </a>
+              </>
+            ) : (
+              <>
+                {(() => {
+                  const roleRegion = injury ? regionOfInjury(selectedInjury, injuriesData) : selectedRegion;
+                  return (
+                    <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}40` }} className="rounded-2xl p-4 mb-5 shadow-sm">
+                      <p style={{ ...displayFont, color: colors.premiumGold, letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase mb-2">{isEN ? 'Training for your area + role' : 'Allenamento per zona + ruolo'}</p>
+                      {!roleRegion ? (
+                        <p style={{ color: '#D7E1EA' }} className="text-sm leading-relaxed">{isEN ? 'Select an injury or area first, to see training built specifically for it.' : 'Scegli prima un infortunio o una zona, per vedere l\'allenamento pensato apposta per quella.'}</p>
+                      ) : !playerPosition ? (
+                        <>
+                          <p style={{ color: '#D7E1EA' }} className="text-sm mb-3">{isEN ? `Pick your position to see exercises for ${regionLabels[roleRegion].toLowerCase()}, built for your role.` : `Scegli il tuo ruolo per vedere gli esercizi per ${regionLabels[roleRegion].toLowerCase()}, pensati per te.`}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {playerPositions.map((pos) => (
+                              <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: colors.premiumGoldTint, color: '#FFFFFF', border: `1px solid ${colors.premiumGold}60` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium hover:opacity-80 transition-colors">
+                                {pos.label}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between mb-2.5">
+                            <div>
+                              <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-bold">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>
+                              <p style={{ color: colors.premiumGold }} className="text-[11px] font-semibold uppercase">{regionLabels[roleRegion]}</p>
+                            </div>
+                            <button onClick={() => setPlayerPosition(null)} style={{ color: '#A9B7C4' }} className="os-focus text-[11px] underline hover:opacity-70">{isEN ? 'Change' : 'Cambia'}</button>
+                          </div>
+                          <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed mb-3">{regionRoleExercises[roleRegion][playerPosition].why}</p>
+                          <div className="space-y-2">
+                            {regionRoleExercises[roleRegion][playerPosition].exercises.map((ex, i) => (
+                              <div key={i} style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} className="flex items-start gap-2.5 rounded-lg p-2.5">
+                                <div style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5">{i + 1}</div>
+                                <p style={{ color: '#EEF3F8' }} className="text-sm leading-snug">{ex}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
+                {!injury ? (
+                  <p style={{ color: colors.mutedInk }} className="text-sm text-center py-6 leading-relaxed">{isEN ? 'Select an injury too, to also see your charts and printable summary.' : 'Scegli anche un infortunio per vedere pure i tuoi grafici e il riepilogo stampabile.'}</p>
+                ) : (() => {
+              const chartData = buildChartData(injuryLog, isEN);
+              const feelingLabel = (v) => ({ 3: isEN ? 'Good' : 'Bene', 2: isEN ? 'So-so' : 'Così così', 1: isEN ? 'Bad' : 'Male' }[v] || '');
+              const stiffnessLabel = (v) => ({ 3: isEN ? 'None' : 'Nessuna', 2: isEN ? 'A little' : 'Un po\'', 1: isEN ? 'A lot' : 'Tanta' }[v] || '');
+              return (
+                <>
+                  {chartData.length === 0 ? (
+                    <p style={{ color: colors.mutedInk }} className="text-sm text-center py-10 leading-relaxed">{isEN ? 'Not enough data yet — log a few daily sessions first, then come back here.' : 'Non ci sono ancora abbastanza dati — registra qualche sessione giornaliera, poi torna qui.'}</p>
+                  ) : (
+                    <>
+                      <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-4 shadow-sm">
+                        <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-3">{isEN ? 'How you\'ve been feeling' : 'Come ti sei sentito'}</p>
+                        <ResponsiveContainer width="100%" height={180}>
+                          <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={colors.hairline} />
+                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: colors.mutedInk }} />
+                            <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tickFormatter={feelingLabel} tick={{ fontSize: 11, fill: colors.mutedInk }} width={70} />
+                            <Tooltip formatter={feelingLabel} />
+                            <Line type="monotone" dataKey="feeling" stroke={colors.accent} strokeWidth={2.5} dot={{ r: 4, fill: colors.accent }} connectNulls />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
+                        <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-3">{isEN ? 'Stiffness trend' : 'Andamento rigidità'}</p>
+                        <ResponsiveContainer width="100%" height={180}>
+                          <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={colors.hairline} />
+                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: colors.mutedInk }} />
+                            <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tickFormatter={stiffnessLabel} tick={{ fontSize: 11, fill: colors.mutedInk }} width={70} />
+                            <Tooltip formatter={stiffnessLabel} />
+                            <Line type="monotone" dataKey="stiffness" stroke={colors.orange} strokeWidth={2.5} dot={{ r: 4, fill: colors.orange }} connectNulls />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </>
+                  )}
+
+                  <button onClick={() => { trackEvent('premium_print_clicked'); window.print(); }} style={{ backgroundColor: colors.ink, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium shadow-sm hover:opacity-90 transition-opacity mb-2">
+                    <Share2 size={16} />
+                    <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Print / Export PDF' : 'Stampa / Esporta PDF'}</span>
+                  </button>
+                  <p style={{ color: colors.mutedInk }} className="text-[11px] text-center mb-4">{isEN ? 'Opens your device\'s print dialog — choose "Save as PDF" to download it.' : 'Apre la finestra di stampa del dispositivo — scegli "Salva come PDF" per scaricarlo.'}</p>
+
+                  <div className="os-print-only">
+                    <h1>{isEN ? 'Recovery Summary' : 'Riepilogo del percorso'} — OFFSIDE</h1>
+                    <p><strong>{isEN ? 'Injury' : 'Infortunio'}:</strong> {injury.label}</p>
+                    <p><strong>{isEN ? 'Severity' : 'Gravità'}:</strong> {severityLabels[severity]}</p>
+                    {currentDate && <p><strong>{isEN ? 'Started on' : 'Iniziato il'}:</strong> {currentDate} ({isEN ? 'day' : 'giorno'} {dayCount})</p>}
+                    <p><strong>{isEN ? 'Current phase' : 'Fase attuale'}:</strong> {phase.name} ({isEN ? 'Phase' : 'Fase'} {activePhase + 1}/{injury.phases.length})</p>
+                    <p>{phase.why}</p>
+                    {phase.criteriaToAdvance && (
+                      <>
+                        <p><strong>{isEN ? 'Criteria to advance' : 'Criteri per avanzare'}:</strong></p>
+                        <ul>{phase.criteriaToAdvance.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                      </>
+                    )}
+                    <p><strong>{isEN ? 'Exercises in this phase' : 'Esercizi in questa fase'}:</strong></p>
+                    <ul>{phase.exercises.map((ex, i) => <li key={i}>{ex.text}</li>)}</ul>
+                    {chartData.length > 0 && (
+                      <>
+                        <p><strong>{isEN ? 'Daily log' : 'Diario giornaliero'}:</strong></p>
+                        <table>
+                          <thead><tr><th>{isEN ? 'Date' : 'Data'}</th><th>{isEN ? 'Feeling' : 'Feeling'}</th><th>{isEN ? 'Stiffness' : 'Rigidità'}</th></tr></thead>
+                          <tbody>
+                            {chartData.map((d, i) => (
+                              <tr key={i}>
+                                <td>{d.date}</td>
+                                <td>{d.feeling ? feelingLabel(d.feeling) : '—'}</td>
+                                <td>{d.stiffness ? stiffnessLabel(d.stiffness) : '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+              </>
+            )}
+          </div>
         )}
 
         {screen === 'firstaid' && (
@@ -2693,16 +3182,16 @@ export default function Offside() {
               const matches = triageTag && data.mechanismTags.includes(triageTag);
               const symptomsOpen = expandedSymptoms === key;
               return (
-                <div key={key} style={{ backgroundColor: colors.card, border: `1px solid ${matches ? colors.accent : colors.hairline}` }} className="rounded-xl overflow-hidden hover:shadow-sm transition-shadow">
-                  <button onClick={() => chooseInjury(key)} className="os-focus w-full flex items-center gap-4 px-4 py-4 text-left">
-                    <div style={{ backgroundColor: colors.card, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"><Icon size={19} color={colors.accentDark} strokeWidth={2} /></div>
+                <div key={key} style={{ backgroundColor: colors.card, border: `1.5px solid ${matches ? colors.accent : colors.hairline}` }} className="rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
+                  <button onClick={() => chooseInjury(key)} className="os-focus w-full flex items-center gap-4 px-4 py-4.5 text-left">
+                    <div style={{ backgroundColor: colors.accentTint, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center"><Icon size={24} color={colors.accentDark} strokeWidth={2} /></div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
                         <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.01em' }} className="text-base font-semibold uppercase">{data.label}</p>
                         {matches && <span style={{ backgroundColor: colors.accentTint, color: colors.accentDark }} className="text-[10px] px-2 py-0.5 rounded-full font-medium">Probabilmente questo</span>}
                       </div>
-                      <p style={{ color: colors.mutedInk }} className="text-sm">{data.subtitle}{hasProgress ? ' · in corso' : ''}</p>
-                      <p style={{ color: colors.accentDark }} className="text-xs font-medium mt-0.5">{data.mechanismTags.map((t) => mechanismLabels[t]).join(' o ')}</p>
+                      <p style={{ color: colors.mutedInk }} className="text-sm mb-1.5">{data.subtitle}{hasProgress ? ' · in corso' : ''}</p>
+                      <span style={{ backgroundColor: colors.paper, color: colors.accentDark, border: `1px solid ${colors.accent}30` }} className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full">{data.mechanismTags.map((t) => mechanismLabels[t]).join(' o ')}</span>
                     </div>
                     <ChevronRight size={20} color={colors.mutedInk} className="flex-shrink-0" />
                   </button>
@@ -2818,250 +3307,203 @@ export default function Offside() {
               </div>
             ) : (
               <>
-                <div style={{ backgroundColor: colors.laneBg }} className="flex gap-1 p-1 rounded-full mb-4">
-                  <button onClick={() => setTrackerTab('oggi')} style={{ backgroundColor: trackerTab === 'oggi' ? colors.card : 'transparent', color: trackerTab === 'oggi' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 py-2 rounded-full text-sm font-semibold transition-colors shadow-sm">{isEN ? 'Today' : 'Oggi'}</button>
-                  <button onClick={() => setTrackerTab('percorso')} style={{ backgroundColor: trackerTab === 'percorso' ? colors.card : 'transparent', color: trackerTab === 'percorso' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 py-2 rounded-full text-sm font-semibold transition-colors shadow-sm">{isEN ? 'Recovery' : 'Percorso'}</button>
+                <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-3 shadow-sm">
+                  <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.12em' }} className="text-[10px] font-bold uppercase mb-1">{isEN ? `Phase ${activePhase + 1} of ${injury.phases.length}` : `Fase ${activePhase + 1} di ${injury.phases.length}`}</p>
+                  <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-xl font-bold uppercase mb-1.5">{phase.name}</p>
+                  <p style={{ color: '#A9B7C4' }} className="text-sm">{phaseRangeLabel(activePhase, dayThresholds, isEN)} · {isEN ? 'severity' : 'gravità'} {severityLabels[severity].toLowerCase()}</p>
+                  {currentDate && (
+                    <div className="flex gap-1 relative pt-3">
+                      {segments.map((seg, i) => (
+                        <div key={i} className="relative h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.15)', flexGrow: seg.span, flexBasis: 0 }}>
+                          <div className="os-fill absolute inset-y-0 left-0 rounded-full" style={{ width: `${seg.fill}%`, backgroundColor: colors.accent }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {trackerTab === 'oggi' ? (
-                  currentDate ? (
+                <div style={{ backgroundColor: todayEntry.done ? colors.accentDark : colors.card, border: `1px solid ${todayEntry.done ? colors.accentDark : colors.hairline}` }} className="rounded-xl p-3.5 mb-5 shadow-sm transition-colors">
+                  {!currentDate ? (
+                    <button onClick={() => setEditingSetup(true)} className="os-focus w-full flex items-center justify-between gap-2">
+                      <span style={{ color: colors.accentDark, fontWeight: 500 }} className="text-sm">{isEN ? 'Add a date to start tracking daily sessions' : 'Aggiungi una data per iniziare a tracciare le sessioni'}</span>
+                      <ChevronRight size={16} color={colors.accentDark} />
+                    </button>
+                  ) : (
                     <>
-                      <button onClick={() => setEditingSetup(true)} className="os-focus w-full text-left mb-3">
-                        <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 shadow-sm">
-                          <div className="flex items-center justify-between mb-3">
-                            <span style={{ ...displayFont, color: colors.mutedInk }} className="text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1">{isEN ? 'Recovery lane' : 'Corsia di recupero'} <Pencil size={11} className="ml-1" /></span>
-                            <span style={{ ...displayFont, color: colors.accentDark }} className="os-tabular text-xl font-bold">{isEN ? 'Day' : 'Giorno'} {dayCount}</span>
-                          </div>
-                          <div className="flex gap-1 relative pt-1.5">
-                            {segments.map((seg, i) => (
-                              <div key={i} className="relative h-3 rounded-full overflow-hidden" style={{ backgroundColor: colors.laneBg, flexGrow: seg.span, flexBasis: 0 }}>
-                                <div className="os-fill absolute inset-y-0 left-0 rounded-full" style={{ width: `${seg.fill}%`, backgroundColor: colors.accent }} />
-                              </div>
-                            ))}
-                            <div
-                              className="absolute rounded-full os-fill shadow-sm"
-                              style={{
-                                width: '10px', height: '10px', top: '1px', backgroundColor: colors.ink, border: `2px solid ${colors.accent}`,
-                                left: `calc(${Math.min(100, (dayCount / totalEstimateDays) * 100)}% - 5px)`,
-                              }}
-                            />
-                          </div>
-                          <div className="flex gap-1 mt-1.5">
-                            {injury.phases.map((p, i) => (
-                              <div key={i} style={{ flexGrow: segments[i]?.span || 1, flexBasis: 0 }} className="text-center">
-                                <span style={{ ...displayFont, color: i === activePhase ? colors.accentDark : colors.mutedInk }} className="text-[10px] font-semibold uppercase">F{i + 1}</span>
-                              </div>
-                            ))}
-                          </div>
-                          <p style={{ color: colors.mutedInk }} className="text-[11px] mt-2">{isEN ? `${severityLabels[severity]} severity · indicative path over ~${totalEstimateDays} days` : `Gravità ${severityLabels[severity].toLowerCase()} · percorso indicativo su ~${totalEstimateDays} giorni`}</p>
-                        </div>
-                      </button>
-
-                      <div style={{ backgroundColor: todayEntry.done ? colors.accentDark : colors.card, border: `1px solid ${todayEntry.done ? colors.accentDark : colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm transition-colors">
-                        <div className="flex items-center justify-between mb-3">
-                          <span style={{ ...displayFont, color: todayEntry.done ? '#FFFFFF' : colors.ink }} className="text-sm font-semibold capitalize">{formatTodayLabel(isEN)}</span>
-                          {streak > 0 && (
-                            <span style={{ ...displayFont, color: todayEntry.done ? '#FFD9A0' : colors.orange }} className="flex items-center gap-1 text-sm font-bold os-tabular">
-                              <Flame size={15} strokeWidth={2.5} />{streak}
-                            </span>
-                          )}
-                        </div>
-
-                        <p style={{ color: todayEntry.done ? '#C9D8E5' : colors.mutedInk }} className="text-xs mb-2">{isEN ? 'How do you feel today?' : 'Come ti senti oggi?'}</p>
-                        <div className="flex gap-1.5 mb-3">
-                          {feelingOptions.map((opt) => (
-                            <button
-                              key={opt.key}
-                              onClick={() => setTodayFeeling(opt.key)}
-                              style={{
-                                backgroundColor: todayEntry.feeling === opt.key ? colors.accent : (todayEntry.done ? 'rgba(255,255,255,0.1)' : colors.paper),
-                                color: todayEntry.feeling === opt.key ? '#FFFFFF' : (todayEntry.done ? '#D7E1EA' : colors.ink),
-                              }}
-                              className="os-focus flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-
-                        <p style={{ color: todayEntry.done ? '#C9D8E5' : colors.mutedInk }} className="text-xs mb-2">{isEN ? 'Stiffness this morning?' : 'Rigidità stamattina?'}</p>
-                        <div className="flex gap-1.5 mb-3">
-                          {stiffnessOptions.map((opt) => (
-                            <button
-                              key={opt.key}
-                              onClick={() => setTodayStiffness(opt.key)}
-                              style={{
-                                backgroundColor: todayEntry.stiffness === opt.key ? colors.accent : (todayEntry.done ? 'rgba(255,255,255,0.1)' : colors.paper),
-                                color: todayEntry.stiffness === opt.key ? '#FFFFFF' : (todayEntry.done ? '#D7E1EA' : colors.ink),
-                              }}
-                              className="os-focus flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-
-                        {todayEntry.feeling === 'male' ? (
-                          <p style={{ color: todayEntry.done ? '#FFD0CC' : colors.red }} className="text-xs mb-3 leading-relaxed">
-                            {isEN
-                              ? 'Maybe take it easy today — review the warning signs above, and if the pain is worse than usual consider waiting before loading it.'
-                              : 'Magari oggi vacci piano — rivedi i segnali d\'allarme in alto, e se il dolore è più forte del solito considera di aspettare prima di caricare.'}
-                          </p>
-                        ) : dailyGuidance(todayEntry.feeling, todayEntry.stiffness) && (
-                          <div style={{ backgroundColor: todayEntry.done ? 'rgba(255,255,255,0.1)' : colors.accentTint }} className="rounded-lg p-3 mb-3">
-                            <p style={{ ...displayFont, color: todayEntry.done ? '#FFFFFF' : colors.accentDark }} className="text-xs font-semibold mb-0.5">{dailyGuidance(todayEntry.feeling, todayEntry.stiffness).label}</p>
-                            <p style={{ color: todayEntry.done ? '#C9D8E5' : colors.accentDark }} className="text-[11px] leading-snug">{dailyGuidance(todayEntry.feeling, todayEntry.stiffness).detail}</p>
-                          </div>
-                        )}
-
-                        <button
-                          onClick={toggleToday}
-                          style={{ backgroundColor: todayEntry.done ? 'rgba(255,255,255,0.15)' : colors.accentTint, color: todayEntry.done ? '#FFFFFF' : colors.accentDark, border: todayEntry.done ? '1px solid rgba(255,255,255,0.3)' : 'none' }}
-                          className="os-focus w-full flex items-center justify-center gap-2 rounded-lg py-3 mt-2 transition-all hover:opacity-90"
-                        >
-                          {todayEntry.done ? <CheckCircle2 size={18} strokeWidth={2.25} /> : <Circle size={18} strokeWidth={1.75} />}
-                          <span style={displayFont} className="text-sm font-semibold uppercase tracking-wide">
-                            {todayEntry.done ? (isEN ? 'Today\'s session completed' : 'Sessione di oggi completata') : (isEN ? 'Mark today\'s session as done' : 'Segna sessione di oggi come fatta')}
+                      <div className="flex items-center justify-between mb-2.5">
+                        <span style={{ ...displayFont, color: todayEntry.done ? '#FFFFFF' : colors.ink }} className="text-sm font-semibold capitalize">{isEN ? 'Day' : 'Giorno'} {dayCount} · {formatTodayLabel(isEN)}</span>
+                        {streak > 0 && (
+                          <span style={{ ...displayFont, color: todayEntry.done ? '#FFD9A0' : colors.orange }} className="flex items-center gap-1 text-sm font-bold os-tabular">
+                            <Flame size={14} strokeWidth={2.5} />{streak}
                           </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2.5 mb-1.5">
+                        <span style={{ color: todayEntry.done ? '#C9D8E5' : colors.mutedInk }} className="text-[11px] font-medium flex-shrink-0 w-14">{isEN ? 'Feeling' : 'Come va'}</span>
+                        <div className="flex gap-1 flex-1">
+                          {feelingOptions.map((opt) => (
+                            <button key={opt.key} onClick={() => setTodayFeeling(opt.key)} style={{ backgroundColor: todayEntry.feeling === opt.key ? colors.accent : (todayEntry.done ? 'rgba(255,255,255,0.1)' : colors.paper), color: todayEntry.feeling === opt.key ? '#FFFFFF' : (todayEntry.done ? '#D7E1EA' : colors.ink) }} className="os-focus flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors">
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2.5 mb-2.5">
+                        <span style={{ color: todayEntry.done ? '#C9D8E5' : colors.mutedInk }} className="text-[11px] font-medium flex-shrink-0 w-14">{isEN ? 'Stiffness' : 'Rigidità'}</span>
+                        <div className="flex gap-1 flex-1">
+                          {stiffnessOptions.map((opt) => (
+                            <button key={opt.key} onClick={() => setTodayStiffness(opt.key)} style={{ backgroundColor: todayEntry.stiffness === opt.key ? colors.orange : (todayEntry.done ? 'rgba(255,255,255,0.1)' : colors.paper), color: todayEntry.stiffness === opt.key ? '#FFFFFF' : (todayEntry.done ? '#D7E1EA' : colors.ink) }} className="os-focus flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors">
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {todayEntry.feeling === 'male' && (
+                        <p style={{ color: todayEntry.done ? '#FFD0CC' : colors.red }} className="text-[11px] mb-2.5 leading-relaxed">
+                          {isEN ? 'Take it easy today — review the warning signs above if the pain feels different than usual.' : 'Vacci piano oggi — rivedi i segnali d\'allarme in alto se il dolore ti sembra diverso dal solito.'}
+                        </p>
+                      )}
+
+                      <button
+                        onClick={toggleToday}
+                        style={{ backgroundColor: todayEntry.done ? 'rgba(255,255,255,0.15)' : colors.accentTint, color: todayEntry.done ? '#FFFFFF' : colors.accentDark, border: todayEntry.done ? '1px solid rgba(255,255,255,0.3)' : 'none' }}
+                        className="os-focus w-full flex items-center justify-center gap-2 rounded-lg py-2.5 transition-all hover:opacity-90"
+                      >
+                        {todayEntry.done ? <CheckCircle2 size={16} strokeWidth={2.25} /> : <Circle size={16} strokeWidth={1.75} />}
+                        <span style={displayFont} className="text-xs font-semibold uppercase tracking-wide">
+                          {todayEntry.done ? (isEN ? 'Today\'s session completed' : 'Sessione di oggi completata') : (isEN ? 'Mark today\'s session as done' : 'Segna sessione di oggi come fatta')}
+                        </span>
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-stretch gap-1.5 mb-5">
+                  {injury.phases.map((p, i) => {
+                    const isActive = i === activePhase;
+                    const pKey = `${selectedInjury}-${i}`;
+                    const pProgress = progress[pKey] || {};
+                    const pDone = p.exercises.length > 0 && p.exercises.filter((_, ei) => pProgress[ei]).length === p.exercises.length;
+                    return (
+                      <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isActive ? colors.accent : colors.card, border: `1px solid ${isActive ? colors.accent : colors.hairline}`, color: isActive ? '#FFFFFF' : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wide transition-colors shadow-sm">
+                        F{i + 1}{pDone && <CheckCircle2 size={12} strokeWidth={2.5} />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-4 shadow-sm">
+                  <p className="flex items-center gap-2 mb-2"><Info size={15} color={colors.accentDark} /><span style={{ ...displayFont, color: colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Why this phase' : 'Perché questa fase'}</span></p>
+                  <p style={{ color: colors.ink }} className="text-sm leading-relaxed">{phase.why}</p>
+                </div>
+
+                {phase.criteriaToAdvance && (
+                  <div style={{ backgroundColor: colors.accentTint, border: `1px solid ${colors.accent}33` }} className="rounded-xl p-4 mb-4 shadow-sm">
+                    <p className="flex items-center gap-2 mb-2">
+                      <ClipboardCheck size={15} color={colors.accentDark} />
+                      <span style={{ ...displayFont, color: colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Before moving on, ask yourself' : 'Prima di avanzare, chiediti'}</span>
+                    </p>
+                    <ul className="space-y-1 mb-1">
+                      {phase.criteriaToAdvance.map((c, i) => (
+                        <li key={i} style={{ color: colors.ink }} className="text-sm flex gap-2"><span style={{ color: colors.accentDark }}>—</span><span>{c}</span></li>
+                      ))}
+                    </ul>
+                    <p style={{ color: colors.accentDark, fontWeight: 500 }} className="text-xs mt-2">{isEN ? 'A self-check, not a clinical test.' : 'Un autocontrollo, non un test clinico.'}</p>
+                  </div>
+                )}
+
+                {activePhase === injury.phases.length - 1 && (
+                  <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
+                    <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'What position do you play?' : 'Che ruolo giochi?'}</p>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {playerPositions.map((pos) => (
+                        <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.paper, color: playerPosition === pos.key ? '#FFFFFF' : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                          {pos.label}
+                        </button>
+                      ))}
+                    </div>
+                    {playerPosition && (
+                      <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{playerPositions.find((p) => p.key === playerPosition)?.tip}</p>
+                    )}
+                  </div>
+                )}
+
+                {completedCount === phase.exercises.length && phase.exercises.length > 0 && (
+                  activePhase === injury.phases.length - 1 ? (
+                    <div style={{ background: 'linear-gradient(160deg, #16283A 0%, #0A1118 100%)', border: `1px solid ${colors.accent}55` }} className="rounded-xl p-5 mb-4 relative overflow-hidden os-fadein shadow-lg">
+                      <svg className="absolute inset-0 w-full h-full opacity-[0.08]" viewBox="0 0 300 150" fill="none" preserveAspectRatio="xMidYMid slice">
+                        <circle cx="150" cy="20" r="120" stroke={colors.accent} strokeWidth="1.5" />
+                      </svg>
+                      <div className="relative text-center">
+                        <div style={{ backgroundColor: 'rgba(255,255,255,0.1)', border: `1.5px solid ${colors.accent}` }} className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <Trophy size={26} color={colors.accent} strokeWidth={2} />
+                        </div>
+                        <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase mb-1">{isEN ? 'Recovery completed' : 'Percorso completato'}</p>
+                        <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-lg font-bold mb-2">{injury.label}</p>
+                        <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed mb-4 max-w-xs mx-auto">{isEN ? 'You\'ve completed every phase of the guided plan. If you feel ready for a full return, one last check with a professional never hurts.' : 'Hai portato a termine tutte le fasi del percorso guidato. Se ti senti pronto per il rientro pieno, un ultimo controllo con un professionista non fa mai male.'}</p>
+                        <button
+                          onClick={async () => {
+                            const text = isEN
+                              ? `I completed my ${injury.label.toLowerCase()} recovery plan on Offside — every phase done. Back on the pitch! 💪`
+                              : `Ho completato il percorso di recupero da ${injury.label.toLowerCase()} su Offside — tutte le fasi fatte. Si torna in campo! 💪`;
+                            try {
+                              if (navigator.share) await navigator.share({ text });
+                              else if (navigator.clipboard) { await navigator.clipboard.writeText(text); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); }
+                            } catch (err) {}
+                          }}
+                          style={{ backgroundColor: colors.accent, color: '#101B26' }}
+                          className="os-focus flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold mx-auto"
+                        >
+                          <Share2 size={13} />{shareCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Share the milestone' : 'Condividi il traguardo')}
                         </button>
                       </div>
-                    </>
+                    </div>
                   ) : (
-                    <button onClick={() => setEditingSetup(true)} style={{ color: colors.accentDark, backgroundColor: colors.accentTint }} className="os-focus w-full justify-center rounded-xl p-4 flex items-center gap-2 text-sm font-medium mb-5 hover:opacity-80 transition-opacity">
-                      <Calendar size={16} />Aggiungi data per sbloccare il tracker
-                    </button>
+                    <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-4 flex items-center gap-3 os-fadein shadow-md">
+                      <div style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
+                        <Trophy size={19} color={colors.accent} strokeWidth={2} />
+                      </div>
+                      <div>
+                        <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-semibold">{isEN ? 'Phase completed' : 'Fase completata'}</p>
+                        <p style={{ color: '#B9C4CF' }} className="text-xs leading-snug">{isEN ? 'When you feel ready, move to the next phase above.' : 'Quando ti senti pronto, passa alla fase successiva in alto.'}</p>
+                      </div>
+                    </div>
                   )
-                ) : (
-                  <>
-                    <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-3 shadow-sm">
-                      <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.12em' }} className="text-[10px] font-bold uppercase mb-1">{isEN ? `Phase ${activePhase + 1} of ${injury.phases.length}` : `Fase ${activePhase + 1} di ${injury.phases.length}`}</p>
-                      <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-xl font-bold uppercase mb-1.5">{phase.name}</p>
-                      <p style={{ color: '#A9B7C4' }} className="text-sm">{phaseRangeLabel(activePhase, dayThresholds, isEN)} · {isEN ? 'severity' : 'gravità'} {severityLabels[severity].toLowerCase()}</p>
-                    </div>
+                )}
 
-                    <div className="flex items-stretch gap-1.5 mb-5">
-                      {injury.phases.map((p, i) => {
-                        const isActive = i === activePhase;
-                        const pKey = `${selectedInjury}-${i}`;
-                        const pProgress = progress[pKey] || {};
-                        const pDone = p.exercises.length > 0 && p.exercises.filter((_, ei) => pProgress[ei]).length === p.exercises.length;
-                        return (
-                          <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isActive ? colors.accent : colors.card, border: `1px solid ${isActive ? colors.accent : colors.hairline}`, color: isActive ? '#FFFFFF' : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wide transition-colors shadow-sm">
-                            F{i + 1}{pDone && <CheckCircle2 size={12} strokeWidth={2.5} />}
+                <div className="flex items-center justify-between mb-1">
+                  <span style={{ ...displayFont, color: colors.ink, letterSpacing: '0.08em' }} className="text-xs font-semibold uppercase">{isEN ? 'Exercises' : 'Esercizi'}</span>
+                  <span style={{ ...displayFont, color: colors.accentDark }} className="os-tabular text-lg font-bold">{completedCount}<span style={{ color: colors.mutedInk }} className="text-sm font-normal"> / {phase.exercises.length}</span></span>
+                </div>
+                <p style={{ color: colors.mutedInk }} className="text-[11px] mb-4">{isEN ? 'Adjust them to how your body responds, don\'t push through sharp pain.' : 'Adattali a come risponde il tuo corpo, non forzare sul dolore acuto.'}</p>
+
+                <div>
+                  {phase.exercises.map((ex, i) => {
+                    const done = !!phaseProgress[i];
+                    const isLast = i === phase.exercises.length - 1;
+                    const exKey = `${activePhase}-${i}`;
+                    const isVideoOpen = activeVideo === exKey;
+                    
+                    return (
+                      <div key={i} className="flex gap-3">
+                        <div className="flex flex-col items-center flex-shrink-0" style={{ width: '32px' }}>
+                          <button onClick={() => toggleExercise(i)} style={{ backgroundColor: done ? colors.accent : colors.card, border: `2px solid ${done ? colors.accent : colors.hairline}` }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 shadow-sm transition-colors">
+                            {done ? <Check size={15} color="#FFFFFF" strokeWidth={3} /> : <span style={{ ...displayFont, color: colors.mutedInk }} className="text-xs font-bold">{i + 1}</span>}
                           </button>
-                        );
-                      })}
-                    </div>
-
-                    <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-4 shadow-sm">
-                      <p className="flex items-center gap-2 mb-2"><Info size={15} color={colors.accentDark} /><span style={{ ...displayFont, color: colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Why this phase' : 'Perché questa fase'}</span></p>
-                      <p style={{ color: colors.ink }} className="text-sm leading-relaxed">{phase.why}</p>
-                    </div>
-
-                    {phase.criteriaToAdvance && (
-                      <div style={{ backgroundColor: colors.accentTint, border: `1px solid ${colors.accent}33` }} className="rounded-xl p-4 mb-4 shadow-sm">
-                        <p className="flex items-center gap-2 mb-2">
-                          <ClipboardCheck size={15} color={colors.accentDark} />
-                          <span style={{ ...displayFont, color: colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Before moving on, ask yourself' : 'Prima di avanzare, chiediti'}</span>
-                        </p>
-                        <ul className="space-y-1 mb-1">
-                          {phase.criteriaToAdvance.map((c, i) => (
-                            <li key={i} style={{ color: colors.ink }} className="text-sm flex gap-2"><span style={{ color: colors.accentDark }}>—</span><span>{c}</span></li>
-                          ))}
-                        </ul>
-                        <p style={{ color: colors.accentDark, fontWeight: 500 }} className="text-xs mt-2">{isEN ? 'A self-check, not a clinical test.' : 'Un autocontrollo, non un test clinico.'}</p>
-                      </div>
-                    )}
-
-                    {activePhase === injury.phases.length - 1 && (
-                      <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
-                        <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'What position do you play?' : 'Che ruolo giochi?'}</p>
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {playerPositions.map((pos) => (
-                            <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.paper, color: playerPosition === pos.key ? '#FFFFFF' : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
-                              {pos.label}
+                          {!isLast && <div style={{ backgroundColor: done ? colors.accent : colors.hairline }} className="flex-1 -my-1 w-0.5 transition-colors" />}
+                        </div>
+                        <div className="flex-1 min-w-0 pb-6 pt-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <button onClick={() => toggleExercise(i)} className="os-focus text-left flex-1">
+                              <span style={{ color: done ? colors.accentDark : colors.ink, textDecoration: done ? 'line-through' : 'none', textDecorationColor: colors.accent + '99' }} className="text-sm leading-snug block">{ex.text}</span>
                             </button>
-                          ))}
-                        </div>
-                        {playerPosition && (
-                          <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{playerPositions.find((p) => p.key === playerPosition)?.tip}</p>
-                        )}
-                      </div>
-                    )}
-
-                    {completedCount === phase.exercises.length && phase.exercises.length > 0 && (
-                      activePhase === injury.phases.length - 1 ? (
-                        <div style={{ background: 'linear-gradient(160deg, #16283A 0%, #0A1118 100%)', border: `1px solid ${colors.accent}55` }} className="rounded-xl p-5 mb-4 relative overflow-hidden os-fadein shadow-lg">
-                          <svg className="absolute inset-0 w-full h-full opacity-[0.08]" viewBox="0 0 300 150" fill="none" preserveAspectRatio="xMidYMid slice">
-                            <circle cx="150" cy="20" r="120" stroke={colors.accent} strokeWidth="1.5" />
-                          </svg>
-                          <div className="relative text-center">
-                            <div style={{ backgroundColor: 'rgba(255,255,255,0.1)', border: `1.5px solid ${colors.accent}` }} className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3">
-                              <Trophy size={26} color={colors.accent} strokeWidth={2} />
-                            </div>
-                            <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase mb-1">{isEN ? 'Recovery completed' : 'Percorso completato'}</p>
-                            <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-lg font-bold mb-2">{injury.label}</p>
-                            <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed mb-4 max-w-xs mx-auto">{isEN ? 'You\'ve completed every phase of the guided plan. If you feel ready for a full return, one last check with a professional never hurts.' : 'Hai portato a termine tutte le fasi del percorso guidato. Se ti senti pronto per il rientro pieno, un ultimo controllo con un professionista non fa mai male.'}</p>
-                            <button
-                              onClick={async () => {
-                                const text = isEN
-                                  ? `I completed my ${injury.label.toLowerCase()} recovery plan on Offside — every phase done. Back on the pitch! 💪`
-                                  : `Ho completato il percorso di recupero da ${injury.label.toLowerCase()} su Offside — tutte le fasi fatte. Si torna in campo! 💪`;
-                                try {
-                                  if (navigator.share) await navigator.share({ text });
-                                  else if (navigator.clipboard) { await navigator.clipboard.writeText(text); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); }
-                                } catch (err) {}
-                              }}
-                              style={{ backgroundColor: colors.accent, color: '#101B26' }}
-                              className="os-focus flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold mx-auto"
-                            >
-                              <Share2 size={13} />{shareCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Share the milestone' : 'Condividi il traguardo')}
-                            </button>
+                            <span style={{ backgroundColor: colors.paper, color: colors.ink, fontWeight: 600 }} className="text-[11px] px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap mt-0.5">{catLabels[ex.cat]}</span>
                           </div>
-                        </div>
-                      ) : (
-                        <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-4 flex items-center gap-3 os-fadein shadow-md">
-                          <div style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
-                            <Trophy size={19} color={colors.accent} strokeWidth={2} />
-                          </div>
-                          <div>
-                            <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-semibold">{isEN ? 'Phase completed' : 'Fase completata'}</p>
-                            <p style={{ color: '#B9C4CF' }} className="text-xs leading-snug">{isEN ? 'When you feel ready, move to the next phase above.' : 'Quando ti senti pronto, passa alla fase successiva in alto.'}</p>
-                          </div>
-                        </div>
-                      )
-                    )}
-
-                    <div className="flex items-center justify-between mb-1">
-                      <span style={{ ...displayFont, color: colors.ink, letterSpacing: '0.08em' }} className="text-xs font-semibold uppercase">{isEN ? 'Exercises' : 'Esercizi'}</span>
-                      <span style={{ ...displayFont, color: colors.accentDark }} className="os-tabular text-lg font-bold">{completedCount}<span style={{ color: colors.mutedInk }} className="text-sm font-normal"> / {phase.exercises.length}</span></span>
-                    </div>
-                    <p style={{ color: colors.mutedInk }} className="text-[11px] mb-4">{isEN ? 'Adjust them to how your body responds, don\'t push through sharp pain.' : 'Adattali a come risponde il tuo corpo, non forzare sul dolore acuto.'}</p>
-
-                    <div>
-                      {phase.exercises.map((ex, i) => {
-                        const done = !!phaseProgress[i];
-                        const isLast = i === phase.exercises.length - 1;
-                        const exKey = `${activePhase}-${i}`;
-                        const isVideoOpen = activeVideo === exKey;
-                        
-                        return (
-                          <div key={i} className="flex gap-3">
-                            <div className="flex flex-col items-center flex-shrink-0" style={{ width: '32px' }}>
-                              <button onClick={() => toggleExercise(i)} style={{ backgroundColor: done ? colors.accent : colors.card, border: `2px solid ${done ? colors.accent : colors.hairline}` }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 shadow-sm transition-colors">
-                                {done ? <Check size={15} color="#FFFFFF" strokeWidth={3} /> : <span style={{ ...displayFont, color: colors.mutedInk }} className="text-xs font-bold">{i + 1}</span>}
-                              </button>
-                              {!isLast && <div style={{ backgroundColor: done ? colors.accent : colors.hairline }} className="flex-1 -my-1 w-0.5 transition-colors" />}
-                            </div>
-                            <div className="flex-1 min-w-0 pb-6 pt-1">
-                              <div className="flex items-start justify-between gap-2">
-                                <button onClick={() => toggleExercise(i)} className="os-focus text-left flex-1">
-                                  <span style={{ color: done ? colors.accentDark : colors.ink, textDecoration: done ? 'line-through' : 'none', textDecorationColor: colors.accent + '99' }} className="text-sm leading-snug block">{ex.text}</span>
-                                </button>
-                                <span style={{ backgroundColor: colors.paper, color: colors.ink, fontWeight: 600 }} className="text-[11px] px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap mt-0.5">{catLabels[ex.cat]}</span>
-                              </div>
-                              
-                              <button 
+                          
+                          <button 
+                            onClick={() => setActiveVideo(isVideoOpen ? null : exKey)} 
+                            style={{ color: colors.accentDark, backgroundColor: colors.accentTint }} 
                                 onClick={() => setActiveVideo(isVideoOpen ? null : exKey)} 
                                 style={{ color: colors.accentDark, backgroundColor: colors.accentTint }} 
                                 className="os-focus flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium mt-2 hover:opacity-80 transition-opacity"
@@ -3080,6 +3522,8 @@ export default function Offside() {
                         );
                       })}
                     </div>
+
+                    <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: your progress over time + a document for your physio' : 'Premium: il tuo andamento nel tempo + un documento per il fisio'} />
 
                     {injury.relatedInjuries && injury.relatedInjuries.length > 0 && (
                       <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="mt-6 pt-5">
@@ -3108,8 +3552,6 @@ export default function Offside() {
                 )}
               </>
             )}
-          </>
-        )}
       </div>
 
       <div style={{ borderTop: `1px solid ${colors.hairline}`, color: colors.mutedInk }} className="px-5 sm:px-8 py-4 text-xs leading-relaxed text-center">
