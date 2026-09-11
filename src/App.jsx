@@ -2146,12 +2146,26 @@ function BodyDiagram({ onSelectRegion, accentColor = colors.accent, tintColor = 
       <style>{`
         @keyframes os-radar { 0% { r: 4; opacity: 0.9; } 100% { r: 30; opacity: 0; } }
         .os-radar-ring { animation: os-radar 0.55s ease-out; transform-origin: center; }
+        @keyframes os-breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.9; } }
+        .os-breathe { animation: os-breathe 2.6s ease-in-out infinite; }
       `}</style>
-      <ellipse cx="100" cy="26" rx="16" ry="17" fill={colors.hairline} />
-      <rect x="94" y="40" width="12" height="12" rx="4" fill={colors.hairline} />
-      <rect x="70" y="50" width="60" height="70" rx="24" fill={colors.hairline} />
-      <rect x="51" y="56" width="15" height="54" rx="8" fill={colors.hairline} />
-      <rect x="134" y="56" width="15" height="54" rx="8" fill={colors.hairline} />
+      <defs>
+        <linearGradient id="os-body-gradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#E4EBF2" />
+          <stop offset="100%" stopColor="#CBD8E3" />
+        </linearGradient>
+        <filter id="os-body-shadow" x="-30%" y="-10%" width="160%" height="130%">
+          <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor={colors.ink} floodOpacity="0.12" />
+        </filter>
+      </defs>
+      <ellipse cx="100" cy="300" rx="52" ry="8" fill={colors.ink} opacity="0.06" />
+      <g filter="url(#os-body-shadow)">
+        <ellipse cx="100" cy="25" rx="15" ry="17" fill="url(#os-body-gradient)" />
+        <rect x="95" y="39" width="10" height="10" rx="4" fill="url(#os-body-gradient)" />
+        <path d="M72 58 Q100 44 128 58 L131 108 Q100 124 69 108 Z" fill="url(#os-body-gradient)" />
+        <rect x="53" y="58" width="14" height="52" rx="7" fill="url(#os-body-gradient)" />
+        <rect x="133" y="58" width="14" height="52" rx="7" fill="url(#os-body-gradient)" />
+      </g>
 
       {bodyZones.map((zone, i) => {
         const isPressed = pressed === i;
@@ -2159,6 +2173,7 @@ function BodyDiagram({ onSelectRegion, accentColor = colors.accent, tintColor = 
           fill: isPressed ? accentColor : tintColor,
           stroke: accentColor,
           strokeWidth: 1.3,
+          className: isPressed ? '' : 'os-breathe',
           style: { cursor: 'pointer', transition: 'fill 0.12s ease' },
           onClick: () => handleSelect(i, zone.region),
           onMouseDown: () => setPressed(i),
@@ -2184,14 +2199,14 @@ function BodyDiagram({ onSelectRegion, accentColor = colors.accent, tintColor = 
 
 function PremiumBanner({ text, onClick }) {
   return (
-    <button onClick={onClick} style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}50` }} className="os-focus w-full flex items-center gap-3 rounded-2xl p-3.5 mb-5 text-left hover:opacity-90 transition-opacity shadow-sm">
-      <div style={{ backgroundColor: colors.premiumGoldTint }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
-        <TrendingUp size={18} color={colors.premiumGold} />
+    <button onClick={onClick} style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}50` }} className="os-focus w-full flex items-center gap-3.5 rounded-2xl p-4 mb-5 text-left hover:opacity-90 transition-opacity shadow-sm">
+      <div style={{ backgroundColor: colors.premiumGoldTint }} className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center">
+        <TrendingUp size={22} color={colors.premiumGold} />
       </div>
       <div className="flex-1 min-w-0">
-        <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#FFFFFF' }} className="text-xs font-semibold leading-snug">{text}</p>
+        <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#FFFFFF' }} className="text-sm font-semibold leading-snug">{text}</p>
       </div>
-      <ChevronRight size={16} color={colors.premiumGold} className="flex-shrink-0" />
+      <ChevronRight size={18} color={colors.premiumGold} className="flex-shrink-0" />
     </button>
   );
 }
@@ -3600,49 +3615,44 @@ export default function Offside() {
                 <div>
                   {phase.exercises.map((ex, i) => {
                     const done = !!phaseProgress[i];
-                    const isLast = i === phase.exercises.length - 1;
                     const exKey = `${activePhase}-${i}`;
                     const isVideoOpen = activeVideo === exKey;
-                    
+                    const CatIcon = catIcons[ex.cat] || Circle;
+
                     return (
-                      <div key={i} className="flex gap-3">
-                        <div className="flex flex-col items-center flex-shrink-0" style={{ width: '32px' }}>
-                          <button onClick={() => toggleExercise(i)} style={{ backgroundColor: done ? colors.accent : colors.card, border: `2px solid ${done ? colors.accent : colors.hairline}` }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 shadow-sm transition-colors">
+                      <div key={i} style={{ backgroundColor: done ? colors.accentTint : colors.card, border: `1px solid ${done ? colors.accent + '55' : colors.hairline}` }} className="rounded-xl overflow-hidden shadow-sm mb-2.5 transition-colors">
+                        <div className="flex items-start gap-3 p-3.5">
+                          <button onClick={() => toggleExercise(i)} style={{ backgroundColor: done ? colors.accent : colors.paper, border: `2px solid ${done ? colors.accent : colors.hairline}` }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-colors">
                             {done ? <Check size={15} color="#FFFFFF" strokeWidth={3} /> : <span style={{ ...displayFont, color: colors.mutedInk }} className="text-xs font-bold">{i + 1}</span>}
                           </button>
-                          {!isLast && <div style={{ backgroundColor: done ? colors.accent : colors.hairline }} className="flex-1 -my-1 w-0.5 transition-colors" />}
-                        </div>
-                        <div className="flex-1 min-w-0 pb-6 pt-1">
-                          <div className="flex items-start justify-between gap-2">
-                            <button onClick={() => toggleExercise(i)} className="os-focus text-left flex-1">
-                              <span style={{ color: done ? colors.accentDark : colors.ink, textDecoration: done ? 'line-through' : 'none', textDecorationColor: colors.accent + '99' }} className="text-sm leading-snug block">{ex.text}</span>
+                          <div className="flex-1 min-w-0 pt-0.5">
+                            <button onClick={() => toggleExercise(i)} className="os-focus text-left w-full">
+                              <span style={{ color: done ? colors.accentDark : colors.ink, textDecoration: done ? 'line-through' : 'none', textDecorationColor: colors.accent + '99' }} className="text-sm leading-snug block mb-1.5">{ex.text}</span>
                             </button>
-                            <span style={{ backgroundColor: colors.paper, color: colors.ink, fontWeight: 600 }} className="text-[11px] px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap mt-0.5">{catLabels[ex.cat]}</span>
+                            <span style={{ backgroundColor: done ? 'rgba(255,255,255,0.6)' : colors.paper, color: colors.ink, fontWeight: 600 }} className="text-[11px] px-1.5 py-0.5 rounded inline-flex items-center gap-1"><CatIcon size={10} />{catLabels[ex.cat]}</span>
                           </div>
-                          
-                          <button 
-                            onClick={() => setActiveVideo(isVideoOpen ? null : exKey)} 
-                            style={{ color: colors.accentDark, backgroundColor: colors.accentTint }} 
-                                onClick={() => setActiveVideo(isVideoOpen ? null : exKey)} 
-                                style={{ color: colors.accentDark, backgroundColor: colors.accentTint }} 
-                                className="os-focus flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium mt-2 hover:opacity-80 transition-opacity"
-                              >
-                                {isVideoOpen ? <ChevronDown size={12} /> : <PlayCircle size={12} />} 
-                                {isVideoOpen ? (isEN ? 'Close' : 'Chiudi') : (isEN ? 'How do I do this?' : 'Come si fa?')}
-                              </button>
+                        </div>
 
-                              {isVideoOpen && (
-                                <div className="os-fadein">
-                                  <ExerciseHelp ex={ex} isEN={isEN} />
-                                </div>
-                              )}
-                            </div>
+                        <button
+                          onClick={() => setActiveVideo(isVideoOpen ? null : exKey)}
+                          style={{ color: colors.accentDark, borderTop: `1px solid ${done ? colors.accent + '30' : colors.hairline}` }}
+                          className="os-focus w-full flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold hover:opacity-70 transition-opacity"
+                        >
+                          <ChevronDown size={11} style={{ transform: isVideoOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                          {isEN ? 'How do I do this?' : 'Come si fa?'}
+                        </button>
+
+                        {isVideoOpen && (
+                          <div className="px-3.5 pb-3.5 os-fadein">
+                            <ExerciseHelp ex={ex} isEN={isEN} />
                           </div>
-                        );
-                      })}
-                    </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
 
-                    <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: your progress over time + a document for your physio' : 'Premium: il tuo andamento nel tempo + un documento per il fisio'} />
+                <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: your progress over time + a document for your physio' : 'Premium: il tuo andamento nel tempo + un documento per il fisio'} />
 
                     {injury.relatedInjuries && injury.relatedInjuries.length > 0 && (
                       <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="mt-6 pt-5">
