@@ -2444,6 +2444,7 @@ export default function Offside() {
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [installDismissed, setInstallDismissed] = useState(false);
   const [userProfile, setUserProfile] = useState({ age: '', weight: '', height: '', sex: '', level: '' });
+  const [onboardingProfileDone, setOnboardingProfileDone] = useState(false);
   const isEN = language === 'en';
   const injuriesData = isEN ? injuriesDataEN : injuriesDataIT;
   const preventionData = isEN ? preventionDataEN : preventionDataIT;
@@ -2504,6 +2505,7 @@ export default function Offside() {
           setCriteriaChecked(loaded.criteriaChecked || {});
           setInstallDismissed(!!loaded.installDismissed);
           setUserProfile(loaded.userProfile || { age: '', weight: '', height: '', sex: '', level: '' });
+          setOnboardingProfileDone(!!loaded.onboardingProfileDone);
         }
       } catch (err) {} finally {
         setLoading(false);
@@ -2537,7 +2539,7 @@ export default function Offside() {
     }
   }, []);
 
-  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, ...overrides });
+  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, onboardingProfileDone, ...overrides });
 
   const goBack = () => {
     if (screen === 'tracker') setScreen('injuries');
@@ -2875,13 +2877,52 @@ export default function Offside() {
           </button>
 
           <button
-            onClick={() => { if (disclaimerAccepted) { trackEvent('disclaimer_accepted'); setScreen('regions'); } }}
+            onClick={() => { if (disclaimerAccepted) { trackEvent('disclaimer_accepted'); setScreen(onboardingProfileDone ? 'regions' : 'onboarding'); } }}
             disabled={!disclaimerAccepted}
             style={{ backgroundColor: disclaimerAccepted ? colors.accent : colors.hairline, color: disclaimerAccepted ? '#FFFFFF' : colors.mutedInk }}
             className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium transition-colors shadow-sm"
           >
             <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Start your recovery' : 'Inizia il tuo percorso'}</span><ArrowRight size={16} />
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === 'onboarding') {
+    const finishOnboarding = () => { setOnboardingProfileDone(true); persist(snapshot({ onboardingProfileDone: true })); setScreen('regions'); };
+    return (
+      <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full min-h-[100dvh] relative flex flex-col">
+        <style>{sharedStyle}</style>
+        <div className="px-6 sm:px-10 pt-14 pb-8 flex flex-col flex-1">
+          <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[11px] font-bold uppercase mb-2">{isEN ? 'Just two quick things' : 'Due cose veloci'}</p>
+          <h1 style={{ ...displayFont, color: colors.ink }} className="text-2xl font-bold mb-2">{isEN ? 'What do you play?' : 'Cosa giochi?'}</h1>
+          <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-8">{isEN ? 'Helps tailor training to your position. Skip it if you\'d rather get started right away — you can always add this later.' : 'Aiuta a tarare l\'allenamento sul tuo ruolo. Salta pure se preferisci iniziare subito — puoi aggiungerlo comunque più tardi.'}</p>
+
+          <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Position' : 'Ruolo'}</p>
+          <div className="grid grid-cols-2 gap-2.5 mb-7">
+            {playerPositions.map((pos) => (
+              <button key={pos.key} onClick={() => setPlayerPosition(pos.key)} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.card, color: playerPosition === pos.key ? '#FFFFFF' : colors.ink, border: `1.5px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus rounded-xl py-3.5 text-sm font-semibold transition-colors shadow-sm">
+                {pos.label}
+              </button>
+            ))}
+          </div>
+
+          <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Playing level' : 'Categoria'}</p>
+          <div className="flex flex-wrap gap-2 mb-8">
+            {playerLevels.map((lvl) => (
+              <button key={lvl.key} onClick={() => { const next = { ...userProfile, level: lvl.key }; setUserProfile(next); }} style={{ backgroundColor: userProfile.level === lvl.key ? colors.accent : colors.card, color: userProfile.level === lvl.key ? '#FFFFFF' : colors.ink, border: `1.5px solid ${userProfile.level === lvl.key ? colors.accent : colors.hairline}` }} className="os-focus px-4 py-2.5 rounded-full text-sm font-medium transition-colors shadow-sm">
+                {lvl.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex-1" />
+
+          <button onClick={finishOnboarding} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
+            <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Continue' : 'Continua'}</span><ArrowRight size={16} />
+          </button>
+          <button onClick={finishOnboarding} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mx-auto">{isEN ? 'Skip for now' : 'Salta per ora'}</button>
         </div>
       </div>
     );
@@ -3649,7 +3690,7 @@ export default function Offside() {
                 <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-3 shadow-sm">
                   <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.12em' }} className="text-[10px] font-bold uppercase mb-1">{isEN ? `Phase ${activePhase + 1} of ${injury.phases.length}` : `Fase ${activePhase + 1} di ${injury.phases.length}`}</p>
                   <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-xl font-bold uppercase mb-1.5">{phase.name}</p>
-                  <p style={{ color: '#A9B7C4' }} className="text-sm">{phaseRangeLabel(activePhase, dayThresholds, isEN)} · {isEN ? 'severity' : 'gravità'} {severityLabels[severity].toLowerCase()}</p>
+                  <p style={{ color: '#A9B7C4' }} className="text-sm">{phaseRangeLabel(activePhase, dayThresholds, isEN)} · {isEN ? 'severity' : 'gravità'} {severityLabels[severity].toLowerCase()}{playerPosition && ` · ${playerPositions.find((p) => p.key === playerPosition)?.label}`}</p>
                   {currentDate && (
                     <div className="flex gap-1 relative pt-3">
                       {segments.map((seg, i) => (
@@ -3785,6 +3826,21 @@ export default function Offside() {
                         <p style={{ color: colors.accentDark, fontWeight: 500 }} className="text-xs mt-2">{isEN ? 'A self-check, not a clinical test.' : 'Un autocontrollo, non un test clinico.'}</p>
                       )}
                     </div>
+                  );
+                })()}
+
+                {userProfile.level && (() => {
+                  const levelNotes = {
+                    giovanili: isEN ? 'At youth level, it\'s worth involving a coach or parent in this decision too, not just yourself.' : 'A livello giovanile, vale la pena coinvolgere anche un allenatore o un genitore in questa decisione, non solo te stesso.',
+                    amatoriale: isEN ? 'Amateur football usually means less outside pressure to rush back — use that time, don\'t force it.' : 'Il calcio amatoriale di solito vuol dire meno pressione esterna per rientrare — usa questo tempo, non forzarlo.',
+                    dilettanti: isEN ? 'Even at a competitive level, healing follows its own timeline — the criteria above matter more than the calendar.' : 'Anche a livello dilettantistico serio, la guarigione segue i suoi tempi — i criteri qui sopra contano più del calendario.',
+                    semipro: isEN ? 'At this level the pressure to return quickly is real — but your body heals on the same timeline regardless of category.' : 'A questo livello la pressione a rientrare presto è reale — ma il corpo guarisce secondo gli stessi tempi, a prescindere dalla categoria.',
+                  };
+                  return (
+                    <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed mb-4 flex gap-2">
+                      <span style={{ color: colors.accentDark }} className="flex-shrink-0">—</span>
+                      <span>{levelNotes[userProfile.level]}</span>
+                    </p>
                   );
                 })()}
 
