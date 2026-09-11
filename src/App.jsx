@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // SOSTITUISCI questo con il tuo vero Payment Link di Stripe una volta creato
-const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/test_dRmbJ1c2K3Zt1sB8mB7IY00';
+const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/SOSTITUISCI_QUESTO';
 
 function trackEvent(name, params = {}) {
   if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
@@ -4344,6 +4344,7 @@ export default function Offside() {
                   )}
                 </div>
 
+                <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase mb-2">{isEN ? 'Phase' : 'Fase'}</p>
                 <div className="flex items-stretch gap-1.5 mb-5">
                   {injury.phases.map((p, i) => {
                     const isActive = i === activePhase;
@@ -4352,7 +4353,7 @@ export default function Offside() {
                     const pDone = p.exercises.length > 0 && p.exercises.filter((_, ei) => pProgress[ei]).length === p.exercises.length;
                     return (
                       <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isActive ? colors.accent : colors.card, border: `1px solid ${isActive ? colors.accent : colors.hairline}`, color: isActive ? '#FFFFFF' : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wide transition-colors shadow-sm">
-                        F{i + 1}{pDone && <CheckCircle2 size={12} strokeWidth={2.5} />}
+                        {isEN ? `Phase ${i + 1}` : `Fase ${i + 1}`}{pDone && <CheckCircle2 size={12} strokeWidth={2.5} />}
                       </button>
                     );
                   })}
