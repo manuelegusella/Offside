@@ -30,6 +30,15 @@ const colors = {
 const STORAGE_KEY = 'injury-recovery-progress-v3';
 
 const catIcons = { balance: Scale, strength: Dumbbell, stretch: Move, run: Wind, hold: Timer, rest: Pause };
+// Un video di riferimento generale per categoria, da fonti verificate (fisioterapisti/professionisti veri).
+// "run" ha una fonte meno consolidata delle altre, verificarla prima di fidarsene al 100%. "rest" non ha un video adatto, resta il link di ricerca.
+const catVideoIds = {
+  balance: 'Dtgh2_LFkBQ',   // Ask Doctor Jo — Single Leg Balance
+  strength: 'yQKxITLikiE',  // Ask Doctor Jo — 10 Best Knee Pain Strengthening Exercises
+  stretch: 'y9fNh7cYo64',   // Ask Doctor Jo — Total Body Stretch
+  run: 'zpZw26dYRVI',       // Agility Ladder Drills & Change of Direction Speed Drills
+  hold: 'MWs2TaDWQVQ',      // Ask Doctor Jo — Knee & Hip Isometric Exercises
+};
 const catLabelsIT = { balance: 'Equilibrio', strength: 'Rinforzo', stretch: 'Mobilità', run: 'Corsa/agilità', hold: 'Tenuta isometrica', rest: 'Scarico' };
 const catLabelsEN = { balance: 'Balance', strength: 'Strength', stretch: 'Mobility', run: 'Running/agility', hold: 'Isometric hold', rest: 'Offload' };
 const mechanismLabelsIT = { acute: 'Trauma improvviso', overuse: 'Da sovraccarico', contact: 'Da contatto' };
@@ -2244,6 +2253,7 @@ function ExerciseHelp({ ex, isEN }) {
   const searchSuffix = isEN ? ' exercise correct technique' : ' esercizio tecnica corretta';
   const videoUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query + searchSuffix)}`;
   const tips = (isEN ? formCuesEN : formCuesIT)[ex.cat] || [];
+  const embedId = catVideoIds[ex.cat];
   return (
     <div style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}` }} className="mt-2.5 rounded-xl p-3 space-y-2.5">
       {tips.length > 0 && (
@@ -2253,16 +2263,35 @@ function ExerciseHelp({ ex, isEN }) {
           ))}
         </ul>
       )}
-      <a
-        href={videoUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ backgroundColor: colors.accentTint, color: colors.accentDark }}
-        className="os-focus flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold w-full hover:opacity-80 transition-opacity"
-      >
-        <PlayCircle size={13} />{isEN ? 'Search video demonstrations' : 'Cerca dimostrazioni video'}
-      </a>
-      <p style={{ color: colors.mutedInk }} className="text-[10px] text-center leading-relaxed">{isEN ? 'Opens a YouTube search — you choose the video that looks clearest to you' : 'Apre una ricerca su YouTube — scegli tu il video che ti sembra più chiaro'}</p>
+      {embedId ? (
+        <>
+          <div style={{ aspectRatio: '16/9', backgroundColor: colors.ink }} className="w-full rounded-lg overflow-hidden">
+            <iframe
+              width="100%" height="100%"
+              src={`https://www.youtube.com/embed/${embedId}?rel=0&modestbranding=1`}
+              title={isEN ? 'Exercise demonstration video' : 'Video dimostrativo esercizio'}
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              loading="lazy"
+            />
+          </div>
+          <p style={{ color: colors.mutedInk }} className="text-[10px] text-center leading-relaxed">{isEN ? 'General reference for this type of movement, not this exact exercise' : 'Riferimento generale per questo tipo di movimento, non l\'esercizio esatto'}</p>
+        </>
+      ) : (
+        <>
+          <a
+            href={videoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ backgroundColor: colors.accentTint, color: colors.accentDark }}
+            className="os-focus flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold w-full hover:opacity-80 transition-opacity"
+          >
+            <PlayCircle size={13} />{isEN ? 'Search video demonstrations' : 'Cerca dimostrazioni video'}
+          </a>
+          <p style={{ color: colors.mutedInk }} className="text-[10px] text-center leading-relaxed">{isEN ? 'Opens a YouTube search — you choose the video that looks clearest to you' : 'Apre una ricerca su YouTube — scegli tu il video che ti sembra più chiaro'}</p>
+        </>
+      )}
     </div>
   );
 }
