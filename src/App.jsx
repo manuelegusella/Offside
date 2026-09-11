@@ -16,7 +16,7 @@ import {
   Calendar, Scale, Dumbbell, Move, Wind, Timer, Pause, Pencil, Target,
   HelpCircle, PlayCircle, Flame, Share2, ClipboardCheck, Check, Gauge, Waves,
   Aperture, PersonStanding, Ruler, Sprout, RotateCw, CircleDashed, ShieldAlert,
-  Snowflake, Bandage, ArrowUp, Trophy, Video, Lock
+  Snowflake, Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, Smartphone
 } from 'lucide-react';
 
 const colors = {
@@ -2197,6 +2197,34 @@ function BodyDiagram({ onSelectRegion, accentColor = colors.accent, tintColor = 
   );
 }
 
+function InstallBanner({ isEN, onInstallClick, canInstall, onDismiss }) {
+  const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  return (
+    <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-2xl p-3.5 mb-5 shadow-sm flex items-start gap-3">
+      <div style={{ backgroundColor: colors.accentTint }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
+        <Smartphone size={18} color={colors.accentDark} />
+      </div>
+      <div className="flex-1 min-w-0">
+        {isIOS ? (
+          <p style={{ color: colors.ink }} className="text-xs leading-relaxed">
+            {isEN ? 'Tap the Share icon, then "Add to Home Screen" — find Offside instantly next time, like a real app.' : 'Tocca l\'icona Condividi, poi "Aggiungi alla schermata Home" — ritrova Offside subito la prossima volta, come un\'app vera.'}
+          </p>
+        ) : canInstall ? (
+          <>
+            <p style={{ color: colors.ink, fontWeight: 600 }} className="text-xs mb-1.5">{isEN ? 'Add Offside to your home screen' : 'Aggiungi Offside alla schermata Home'}</p>
+            <button onClick={onInstallClick} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus text-[11px] font-semibold px-3 py-1.5 rounded-full">{isEN ? 'Install' : 'Installa'}</button>
+          </>
+        ) : (
+          <p style={{ color: colors.ink }} className="text-xs leading-relaxed">
+            {isEN ? 'Look for "Add to Home Screen" or "Install app" in your browser menu, to find Offside instantly next time.' : 'Cerca "Aggiungi a schermata Home" o "Installa app" nel menu del browser, per ritrovare Offside subito la prossima volta.'}
+          </p>
+        )}
+      </div>
+      <button onClick={onDismiss} style={{ color: colors.mutedInk }} className="os-focus flex-shrink-0 p-0.5"><X size={14} /></button>
+    </div>
+  );
+}
+
 function PremiumBanner({ text, onClick }) {
   return (
     <button onClick={onClick} style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}50` }} className="os-focus w-full flex items-center gap-3.5 rounded-2xl p-4 mb-5 text-left hover:opacity-90 transition-opacity shadow-sm">
@@ -2314,6 +2342,31 @@ function computeStreak(log) {
   }
   return { count: streak, graceUsed };
 }
+function downloadRecoveryReminders(isEN) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const fmt = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+  const start = new Date();
+  start.setDate(start.getDate() + 1);
+  start.setHours(18, 0, 0, 0);
+  const end = new Date(start.getTime() + 15 * 60000);
+  const summary = isEN ? 'Recovery session — Offside' : 'Sessione di recupero — Offside';
+  const description = isEN ? 'Open Offside and log today\'s session' : 'Apri Offside e segna la sessione di oggi';
+  const ics = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Offside//Recovery Reminders//IT',
+    'BEGIN:VEVENT',
+    `UID:offside-${Date.now()}@offside.app`,
+    `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
+    'RRULE:FREQ=DAILY;COUNT=28',
+    `SUMMARY:${summary}`, `DESCRIPTION:${description}`,
+    'END:VEVENT', 'END:VCALENDAR',
+  ].join('\r\n');
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'offside-promemoria.ics';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 function formatTodayLabel(isEN) {
   const d = new Date();
   const daysIT = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
@@ -2346,6 +2399,8 @@ export default function Offside() {
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
   const [language, setLanguage] = useState('it');
   const [premiumUnlocked, setPremiumUnlocked] = useState(false);
+  const [installPromptEvent, setInstallPromptEvent] = useState(null);
+  const [installDismissed, setInstallDismissed] = useState(false);
   const isEN = language === 'en';
   const injuriesData = isEN ? injuriesDataEN : injuriesDataIT;
   const preventionData = isEN ? preventionDataEN : preventionDataIT;
@@ -2403,6 +2458,7 @@ export default function Offside() {
           setLanguage(loaded.language || 'it');
           setPremiumUnlocked(!!loaded.premiumUnlocked);
           setCriteriaChecked(loaded.criteriaChecked || {});
+          setInstallDismissed(!!loaded.installDismissed);
         }
       } catch (err) {} finally {
         setLoading(false);
@@ -2421,6 +2477,12 @@ export default function Offside() {
     })();
   }, []);
 
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setInstallPromptEvent(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
   const persist = useCallback(async (next) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -2430,7 +2492,7 @@ export default function Offside() {
     }
   }, []);
 
-  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, ...overrides });
+  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, installDismissed, ...overrides });
 
   const goBack = () => {
     if (screen === 'tracker') setScreen('injuries');
@@ -2839,6 +2901,15 @@ export default function Offside() {
       <div key={screen} className="px-5 sm:px-8 py-6 os-fadein">
         {screen === 'regions' && (
           <>
+            {!installDismissed && !(typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches) && (
+              <InstallBanner
+                isEN={isEN}
+                canInstall={!!installPromptEvent}
+                onInstallClick={async () => { if (installPromptEvent) { installPromptEvent.prompt(); await installPromptEvent.userChoice; setInstallPromptEvent(null); } }}
+                onDismiss={() => { setInstallDismissed(true); persist(snapshot({ installDismissed: true })); }}
+              />
+            )}
+
             <div style={{ backgroundColor: colors.laneBg }} className="flex gap-1 p-1 rounded-full mb-5">
               <button onClick={() => setRegionsTab('injury')} style={{ backgroundColor: regionsTab === 'injury' ? colors.card : 'transparent', color: regionsTab === 'injury' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
                 <Snowflake size={14} />{isEN ? 'Injury' : 'Infortunio'}
@@ -3531,6 +3602,14 @@ export default function Offside() {
                         <span style={displayFont} className="text-xs font-semibold uppercase tracking-wide">
                           {todayEntry.done ? (isEN ? 'Today\'s session completed' : 'Sessione di oggi completata') : (isEN ? 'Mark today\'s session as done' : 'Segna sessione di oggi come fatta')}
                         </span>
+                      </button>
+
+                      <button
+                        onClick={() => { trackEvent('calendar_reminders_downloaded'); downloadRecoveryReminders(isEN); }}
+                        style={{ color: todayEntry.done ? '#C9D8E5' : colors.mutedInk }}
+                        className="os-focus w-full flex items-center justify-center gap-1.5 pt-2.5 text-[11px] font-medium hover:opacity-70 transition-opacity"
+                      >
+                        <CalendarPlus size={12} />{isEN ? 'Add daily reminders to your calendar' : 'Aggiungi promemoria giornalieri al calendario'}
                       </button>
                     </>
                   )}
