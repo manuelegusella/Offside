@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // SOSTITUISCI questo con il tuo vero Payment Link di Stripe una volta creato
-const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/SOSTITUISCI_QUESTO';
+const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/test_dRmbJ1c2K3Zt1sB8mB7IY00';
 
 function trackEvent(name, params = {}) {
   if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
@@ -2834,6 +2834,24 @@ function InstallBanner({ isEN, onInstallClick, canInstall, onDismiss }) {
   );
 }
 
+function SetupSection({ id, currentSection, onToggle, icon: Icon, label, badge, gold, children }) {
+  const isOpen = currentSection === id;
+  const accentColor = gold ? colors.premiumGold : colors.accent;
+  return (
+    <div style={{ backgroundColor: colors.card, border: `1.5px solid ${isOpen ? accentColor + '66' : colors.hairline}` }} className="rounded-xl overflow-hidden shadow-sm mb-2.5 transition-colors">
+      <button onClick={() => onToggle(isOpen ? null : id)} className="os-focus w-full flex items-center gap-3 px-4 py-3.5 text-left">
+        <div style={{ backgroundColor: gold ? colors.premiumGoldTint : colors.accentTint }} className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center">
+          <Icon size={16} color={gold ? colors.premiumGold : colors.accentDark} />
+        </div>
+        <span style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="flex-1 text-sm font-semibold">{label}</span>
+        {badge}
+        <ChevronDown size={16} color={colors.mutedInk} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }} />
+      </button>
+      {isOpen && <div className="px-4 pb-4 os-fadein">{children}</div>}
+    </div>
+  );
+}
+
 function PremiumBanner({ text, onClick }) {
   return (
     <button onClick={onClick} style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}50` }} className="os-focus w-full flex items-center gap-3.5 rounded-2xl p-4 mb-5 text-left hover:opacity-90 transition-opacity shadow-sm">
@@ -3034,6 +3052,9 @@ export default function Offside() {
   const [saveError, setSaveError] = useState(false);
   const [editingSetup, setEditingSetup] = useState(false);
   const [showSeverityInfo, setShowSeverityInfo] = useState(false);
+  const [setupSection, setSetupSection] = useState('gravita');
+  const [injuryRecurrence, setInjuryRecurrence] = useState({});
+  const [trackerSection, setTrackerSection] = useState('esercizi');
   const [pendingDate, setPendingDate] = useState('');
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
   const [language, setLanguage] = useState('it');
@@ -3103,6 +3124,7 @@ export default function Offside() {
           setInstallDismissed(!!loaded.installDismissed);
           setUserProfile(loaded.userProfile || { age: '', weight: '', height: '', sex: '', level: '' });
           setOnboardingProfileDone(!!loaded.onboardingProfileDone);
+          setInjuryRecurrence(loaded.injuryRecurrence || {});
         }
       } catch (err) {} finally {
         setLoading(false);
@@ -3136,7 +3158,7 @@ export default function Offside() {
     }
   }, []);
 
-  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, onboardingProfileDone, ...overrides });
+  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, onboardingProfileDone, injuryRecurrence, ...overrides });
 
   const goBack = () => {
     if (screen === 'tracker') setScreen('injuries');
@@ -3207,7 +3229,6 @@ export default function Offside() {
     const suggested = suggestPhase(daysSince(isoDate), dayThresholds);
     setInjuryDates(nextDates);
     setActivePhase(suggested);
-    setEditingSetup(false);
     setPendingDate('');
     persist(snapshot({ injuryDates: nextDates, activePhase: suggested }));
   };
@@ -3723,6 +3744,12 @@ export default function Offside() {
               </>
             ) : regionsTab === 'prevention' ? (
               <>
+                {selectedInjury && injuriesData[selectedInjury] && (
+                  <button onClick={() => resumeInjury(selectedInjury)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-2 rounded-xl px-4 py-3 mb-4 text-left shadow-sm hover:opacity-90 transition-opacity">
+                    <ArrowLeft size={15} color={colors.accentDark} className="flex-shrink-0" />
+                    <span style={{ color: colors.accentDark }} className="text-sm font-medium">{isEN ? `Back to ${injuriesData[selectedInjury].label}` : `Torna a ${injuriesData[selectedInjury].label}`}</span>
+                  </button>
+                )}
                 <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">
                   {isEN ? 'The best time to work on an injury is before it happens. Choose an area — you don\'t need anything to actually hurt.' : 'Il momento migliore per lavorare su un infortunio è prima che succeda. Scegli una zona — non serve avere nulla che fa male.'}
                 </p>
@@ -4272,12 +4299,10 @@ export default function Offside() {
             </div>
 
             {editingSetup ? (
-              <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 space-y-4 relative shadow-sm">
-                <button onClick={skipDate} style={{ color: colors.mutedInk }} className="os-focus absolute top-3 right-3" aria-label={isEN ? 'Close' : 'Chiudi'}><X size={16} /></button>
-                <div>
-                  <div className="flex items-center gap-2 mb-2.5 pr-6">
-                    <span style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Severity' : 'Gravità'}</span>
-                    <button onClick={() => setShowSeverityInfo(!showSeverityInfo)} className="os-focus" aria-label={isEN ? 'What each level means' : 'Cosa significa ogni livello'}><Info size={14} color={colors.mutedInk} /></button>
+              <div className="mb-5">
+                <SetupSection id="gravita" currentSection={setupSection} onToggle={setSetupSection} icon={Gauge} label={isEN ? 'Severity' : 'Gravità'} badge={<span style={{ color: colors.accentDark, fontWeight: 600 }} className="text-xs mr-1">{severityLabels[severity]}</span>}>
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <button onClick={() => setShowSeverityInfo(!showSeverityInfo)} style={{ color: colors.mutedInk }} className="os-focus flex items-center gap-1 text-[11px] hover:opacity-70"><Info size={12} />{isEN ? 'What each level means' : 'Cosa significa ogni livello'}</button>
                   </div>
                   <div className="flex gap-2 mb-2">
                     {Object.keys(severityLabels).map((sev) => (
@@ -4285,62 +4310,181 @@ export default function Offside() {
                     ))}
                   </div>
                   {showSeverityInfo && (
-                    <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-3 space-y-2 mt-3">
+                    <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-3 space-y-2 mt-2">
                       {Object.keys(severityLabels).map((sev) => (
                         <p key={sev} style={{ color: colors.mutedInk }} className="text-xs leading-relaxed"><span style={{ color: colors.ink, fontWeight: 600 }}>{severityLabels[sev]}: </span>{severityInfo[sev]}</p>
                       ))}
                     </div>
                   )}
-
-                  <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mt-4 relative overflow-hidden">
-                    <svg className="absolute bottom-0 left-0 w-full opacity-30" height="36" viewBox="0 0 200 36" preserveAspectRatio="none">
-                      <path d="M0 34 Q 50 34 90 20 T 200 2" stroke={colors.accent} strokeWidth="2" fill="none" />
-                    </svg>
-                    <div className="relative">
-                      <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.06em' }} className="text-[10px] font-semibold uppercase mb-1">{isEN ? `Recovery estimate, ${severityLabels[severity].toLowerCase()} severity` : `Stima di recupero, gravità ${severityLabels[severity].toLowerCase()}`}</p>
-                      <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-2xl font-bold os-tabular mb-1">~{injury.severityData[severity].totalEstimateDays} {isEN ? 'days' : 'giorni'}</p>
-                      <p style={{ color: '#A9B7C4' }} className="text-[11px] leading-relaxed mb-3">{isEN ? 'An indicative path, not a promise — it depends on how your body responds and how closely you follow it.' : 'Percorso indicativo, non una promessa — dipende da come risponde il tuo corpo e da quanto segui il percorso.'}</p>
-                      <button
-                        onClick={async () => {
-                          const text = isEN
-                            ? `I hurt my ${injury.label.toLowerCase()} (${severityLabels[severity].toLowerCase()} severity). On Offside the estimate is around ${injury.severityData[severity].totalEstimateDays} days, following the plan — let's see how it goes, I'll keep you posted.`
-                            : `Mi sono fatto male: ${injury.label.toLowerCase()} (gravità ${severityLabels[severity].toLowerCase()}). Su Offside la stima indicativa è di circa ${injury.severityData[severity].totalEstimateDays} giorni, seguendo il percorso — vediamo come va, vi aggiorno.`;
-                          try {
-                            if (navigator.share) await navigator.share({ text });
-                            else if (navigator.clipboard) { await navigator.clipboard.writeText(text); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); }
-                          } catch (err) {}
-                        }}
-                        style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#FFFFFF' }}
-                        className="os-focus flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium w-full hover:bg-white/20 transition-colors"
-                      >
-                        <Share2 size={13} />{shareCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Tell your team' : 'Dillo alla squadra')}
-                      </button>
+                  {severity === 'severo' && (
+                    <div style={{ backgroundColor: colors.redTint }} className="rounded-lg p-3 flex gap-2 mt-3">
+                      <AlertTriangle size={15} color={colors.red} className="flex-shrink-0 mt-0.5" />
+                      <p style={{ color: colors.red }} className="text-xs leading-relaxed">{isEN ? 'With severe severity, we recommend seeing a professional before starting this plan on your own.' : 'Con gravità severa ti consigliamo di sentire un professionista prima di iniziare da solo questo percorso.'}</p>
                     </div>
-                  </div>
-                </div>
-                <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="pt-4">
-                  <p className="flex items-center gap-2 mb-3"><Calendar size={15} color={colors.accentDark} /><span style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'When did it happen?' : 'Quando è successo?'}</span></p>
+                  )}
+                </SetupSection>
+
+                <SetupSection id="come" currentSection={setupSection} onToggle={setSetupSection} icon={Zap} label={isEN ? 'How it usually happens' : 'Come succede di solito'}>
                   <div className="flex flex-wrap gap-2 mb-3">
-                    {dateChips.map((chip) => (
-                      <button key={chip.label} onClick={() => { const d = new Date(); d.setDate(d.getDate() - chip.days); commitDate(toISODate(d)); }} style={{ backgroundColor: colors.accentTint, color: colors.accentDark }} className="os-focus px-3 py-1.5 rounded-full text-sm hover:opacity-80 transition-opacity">{chip.label}</button>
+                    {injury.mechanismTags.map((tag) => (
+                      <span key={tag} style={{ backgroundColor: colors.accentTint, color: colors.accentDark }} className="text-xs font-medium px-3 py-1.5 rounded-full">{mechanismLabels[tag]}</span>
                     ))}
                   </div>
+                  <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed mb-3">{isEN ? 'This reflects how this injury typically occurs, not necessarily your specific case.' : 'Riflette come questo infortunio si presenta tipicamente, non necessariamente il tuo caso specifico.'}</p>
+                  <button
+                    onClick={() => {
+                      const region = regionOfInjury(selectedInjury, injuriesData);
+                      setRegionsTab('prevention');
+                      setScreen('regions');
+                      if (region) { setExpandedPrevention(region); setTimeout(() => scrollToId(`prevention-${region}`), 200); }
+                    }}
+                    style={{ backgroundColor: colors.preventionTint, color: colors.preventionDark }}
+                    className="os-focus w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold hover:opacity-80 transition-opacity"
+                  >
+                    <ShieldCheck size={14} />{isEN ? 'See how to prevent it next time' : 'Vedi come prevenirlo la prossima volta'}
+                  </button>
+                </SetupSection>
+
+                <SetupSection id="quando" currentSection={setupSection} onToggle={setSetupSection} icon={Calendar} label={isEN ? 'When it started' : 'Quando è iniziato'} badge={currentDate && <CheckCircle2 size={15} color={colors.accent} className="mr-1" />}>
+                  {currentDate && (
+                    <div style={{ backgroundColor: colors.accentTint }} className="flex items-center gap-2 rounded-lg px-3 py-2 mb-3">
+                      <CheckCircle2 size={15} color={colors.accentDark} className="flex-shrink-0" />
+                      <p style={{ color: colors.accentDark }} className="text-xs font-medium">{isEN ? 'Set to' : 'Impostata al'} {currentDate}</p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    {dateChips.map((chip) => {
+                      const chipDate = (() => { const d = new Date(); d.setDate(d.getDate() - chip.days); return toISODate(d); })();
+                      const isChosen = currentDate === chipDate;
+                      return (
+                        <button key={chip.label} onClick={() => commitDate(chipDate)} style={{ backgroundColor: isChosen ? colors.accent : colors.accentTint, color: isChosen ? '#FFFFFF' : colors.accentDark, border: `1.5px solid ${isChosen ? colors.accent : 'transparent'}` }} className="os-focus px-3 py-2 rounded-lg text-sm text-center font-medium hover:opacity-80 transition-colors flex items-center justify-center gap-1">
+                          {isChosen && <Check size={13} strokeWidth={3} />}{chip.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <input type="date" value={pendingDate} className="os-date os-focus text-sm px-3 py-1.5 rounded-lg" style={{ border: `1px solid ${colors.hairline}`, color: colors.ink }} max={toISODate(new Date())} onChange={(e) => setPendingDate(e.target.value)} />
-                    <button onClick={() => pendingDate && commitDate(pendingDate)} disabled={!pendingDate} style={{ backgroundColor: pendingDate ? colors.accent : colors.hairline, color: pendingDate ? '#FFFFFF' : colors.mutedInk }} className="os-focus px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">{isEN ? 'Confirm date' : 'Conferma data'}</button>
+                    <input type="date" value={pendingDate} className="os-date os-focus text-sm px-3 py-1.5 rounded-lg flex-1" style={{ border: `1px solid ${colors.hairline}`, color: colors.ink }} max={toISODate(new Date())} onChange={(e) => setPendingDate(e.target.value)} />
+                    <button onClick={() => pendingDate && commitDate(pendingDate)} disabled={!pendingDate} style={{ backgroundColor: pendingDate ? colors.accent : colors.hairline, color: pendingDate ? '#FFFFFF' : colors.mutedInk }} className="os-focus px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">{isEN ? 'Confirm' : 'Conferma'}</button>
                   </div>
-                  <button onClick={skipDate} style={{ color: colors.mutedInk }} className="os-focus text-sm underline hover:opacity-70 mt-2 block">{isEN ? 'I\'d rather not say' : 'Preferisco non specificarla'}</button>
-                </div>
-                {severity === 'severo' && (
-                  <div style={{ backgroundColor: colors.redTint }} className="rounded-lg p-3 flex gap-2">
-                    <AlertTriangle size={15} color={colors.red} className="flex-shrink-0 mt-0.5" />
-                    <p style={{ color: colors.red }} className="text-xs leading-relaxed">{isEN ? 'With severe severity, we recommend seeing a professional before starting this plan on your own.' : 'Con gravità severa ti consigliamo di sentire un professionista prima di iniziare da solo questo percorso.'}</p>
+                  <button onClick={skipDate} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-2 block">{isEN ? 'I\'d rather not say' : 'Preferisco non specificarla'}</button>
+                </SetupSection>
+
+                <SetupSection id="ruolo" currentSection={setupSection} onToggle={setSetupSection} icon={User} label={isEN ? 'Your role' : 'Il tuo ruolo'} gold={!premiumUnlocked} badge={premiumUnlocked && playerPosition && <span style={{ color: colors.accentDark, fontWeight: 600 }} className="text-xs mr-1">{playerPositions.find((p) => p.key === playerPosition)?.label}</span>}>
+                  {premiumUnlocked ? (
+                    <div className="flex flex-wrap gap-2">
+                      {playerPositions.map((pos) => (
+                        <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.paper, color: playerPosition === pos.key ? '#FFFFFF' : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                          {pos.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div style={{ filter: 'blur(4px)', pointerEvents: 'none' }} className="flex flex-wrap gap-2" aria-hidden="true">
+                        {playerPositions.map((pos) => (
+                          <div key={pos.key} style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="px-3 py-1.5 rounded-full text-xs font-medium">{pos.label}</div>
+                        ))}
+                      </div>
+                      <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.55)' }}>
+                        <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-full shadow-sm">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
+                      </button>
+                    </div>
+                  )}
+                  <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mt-2.5">{isEN ? 'Training built specifically for your position on the pitch.' : 'Allenamento pensato apposta per il tuo ruolo in campo.'}</p>
+                </SetupSection>
+
+                <SetupSection id="grafico" currentSection={setupSection} onToggle={setSetupSection} icon={TrendingUp} label={isEN ? 'Recovery chart' : 'Grafico del percorso'} gold={!premiumUnlocked}>
+                  {premiumUnlocked ? (() => {
+                    const chartData = buildChartData(injuryLog, isEN);
+                    return chartData.length === 0 ? (
+                      <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'Log a few daily sessions first, then your chart appears here.' : 'Registra qualche sessione giornaliera, poi il grafico compare qui.'}</p>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={140}>
+                        <LineChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={colors.hairline} />
+                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: colors.mutedInk }} />
+                          <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tick={{ fontSize: 10, fill: colors.mutedInk }} width={60} />
+                          <Tooltip />
+                          <Line type="monotone" dataKey="feeling" stroke={colors.accent} strokeWidth={2.5} dot={{ r: 3, fill: colors.accent }} connectNulls />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    );
+                  })() : (
+                    <div className="relative">
+                      <div style={{ filter: 'blur(4px)', pointerEvents: 'none' }} aria-hidden="true">
+                        <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-3">
+                          <p style={{ color: colors.ink }} className="text-xs font-medium mb-2">{isEN ? 'Feeling and stiffness, over time' : 'Feeling e rigidità, nel tempo'}</p>
+                          <svg width="100%" height="60" viewBox="0 0 200 44" preserveAspectRatio="none">
+                            <path d="M0 34 L30 26 L60 30 L90 14 L120 20 L150 8 L180 12 L200 4" stroke={colors.accent} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                            <circle cx="30" cy="26" r="2.5" fill={colors.accent} /><circle cx="90" cy="14" r="2.5" fill={colors.accent} /><circle cx="150" cy="8" r="2.5" fill={colors.accent} /><circle cx="200" cy="4" r="2.5" fill={colors.accent} />
+                          </svg>
+                        </div>
+                      </div>
+                      <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.55)' }}>
+                        <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-full shadow-sm">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
+                      </button>
+                    </div>
+                  )}
+                  <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mt-2.5">{isEN ? 'Your real progress over time — useful to track and to share with a professional.' : 'Il tuo vero andamento nel tempo — utile da tracciare e da mostrare a un professionista.'}</p>
+                </SetupSection>
+
+                <SetupSection id="recidiva" currentSection={setupSection} onToggle={setSetupSection} icon={RotateCcw} label={isEN ? 'First time?' : 'Prima volta?'} badge={injuryRecurrence[selectedInjury] && <CheckCircle2 size={15} color={colors.accent} className="mr-1" />}>
+                  <div className="flex gap-2 mb-2.5">
+                    {[{ key: 'prima', label: isEN ? 'First time' : 'Prima volta' }, { key: 'recidiva', label: isEN ? 'Happened before' : 'Già successo prima' }].map((opt) => (
+                      <button key={opt.key} onClick={() => { const next = { ...injuryRecurrence, [selectedInjury]: opt.key }; setInjuryRecurrence(next); persist(snapshot({ injuryRecurrence: next })); }} style={{ backgroundColor: injuryRecurrence[selectedInjury] === opt.key ? colors.accent : colors.paper, color: injuryRecurrence[selectedInjury] === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${injuryRecurrence[selectedInjury] === opt.key ? colors.accent : colors.hairline}` }} className="os-focus flex-1 rounded-lg py-2 text-sm font-medium transition-colors">{opt.label}</button>
+                    ))}
                   </div>
-                )}
+                  {injuryRecurrence[selectedInjury] === 'recidiva' && (
+                    <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'A repeat injury is worth extra caution on the return-to-play criteria, and a chat with a professional if it keeps happening.' : 'Un infortunio che si ripete merita più attenzione sui criteri di rientro, e magari una parola con un professionista se continua a succedere.'}</p>
+                  )}
+                </SetupSection>
+
+                <SetupSection id="fasi" currentSection={setupSection} onToggle={setSetupSection} icon={Activity} label={isEN ? 'Phases and progression' : 'Fasi e decorso'}>
+                  <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-2.5">{isEN ? 'Tap the phase that matches where you actually are — useful if you\'re starting the app partway through recovery.' : 'Tocca la fase che corrisponde a dove sei davvero — utile se inizi a usare l\'app a metà del recupero.'}</p>
+                  <div className="space-y-2">
+                    {injury.phases.map((p, i) => {
+                      const isChosen = i === activePhase;
+                      return (
+                        <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isChosen ? colors.accentTint : colors.paper, border: `1.5px solid ${isChosen ? colors.accent : 'transparent'}` }} className="os-focus w-full flex items-center gap-3 rounded-lg p-2.5 text-left transition-colors">
+                          <div style={{ backgroundColor: isChosen ? colors.accent : colors.card, color: isChosen ? '#FFFFFF' : colors.accentDark }} className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold">{isChosen ? <Check size={13} strokeWidth={3} /> : i + 1}</div>
+                          <div className="flex-1 min-w-0">
+                            <p style={{ color: colors.ink }} className="text-sm font-medium">{p.name}</p>
+                            <p style={{ color: colors.mutedInk }} className="text-[11px] os-tabular">{phaseRangeLabel(i, injury.severityData[severity].dayThresholds, isEN)}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </SetupSection>
+
+                <SetupSection id="resoconto" currentSection={setupSection} onToggle={setSetupSection} icon={Lock} label={isEN ? 'Full report' : 'Resoconto completo'} gold>
+                  {!premiumUnlocked ? (
+                    <div className="relative">
+                      <div style={{ filter: 'blur(4px)', pointerEvents: 'none' }} className="space-y-1.5" aria-hidden="true">
+                        <p style={{ color: colors.ink }} className="text-xs">{isEN ? 'Injury' : 'Infortunio'}: {injury.label}</p>
+                        <p style={{ color: colors.ink }} className="text-xs">{isEN ? 'Severity' : 'Gravità'}: {severityLabels[severity]}</p>
+                        <p style={{ color: colors.ink }} className="text-xs">{isEN ? 'Full phase breakdown, printable' : 'Scomposizione completa delle fasi, stampabile'}</p>
+                      </div>
+                      <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.55)' }}>
+                        <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-full shadow-sm">{isEN ? 'Unlock' : 'Sblocca'}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'Find your full printable summary (with charts and role-specific training) in the Percorso tab, once you start tracking.' : 'Trovi il riepilogo completo stampabile (con grafici e allenamento per ruolo) nella scheda Percorso, una volta iniziato a tracciare.'}</p>
+                  )}
+                </SetupSection>
+
+                <button onClick={skipDate} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium shadow-sm hover:opacity-90 transition-opacity mt-2">
+                  <span style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Go to my recovery' : 'Vai al mio percorso'}</span><ArrowRight size={16} />
+                </button>
               </div>
             ) : (
               <>
-                <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-3 shadow-sm">
+                <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-3 shadow-sm relative">
+                  <button onClick={() => setEditingSetup(true)} style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} className="os-focus absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors" aria-label={isEN ? 'Edit severity, date and more' : 'Modifica gravità, data e altro'}>
+                    <Pencil size={13} color={colors.accent} />
+                  </button>
                   <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.12em' }} className="text-[10px] font-bold uppercase mb-1">{isEN ? `Phase ${activePhase + 1} of ${injury.phases.length}` : `Fase ${activePhase + 1} di ${injury.phases.length}`}</p>
                   <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-xl font-bold uppercase mb-1.5">{phase.name}</p>
                   <p style={{ color: '#A9B7C4' }} className="text-sm">{phaseRangeLabel(activePhase, dayThresholds, isEN)} · {isEN ? 'severity' : 'gravità'} {severityLabels[severity].toLowerCase()}{premiumUnlocked && playerPosition && ` · ${playerPositions.find((p) => p.key === playerPosition)?.label}`}</p>
@@ -4439,72 +4583,63 @@ export default function Offside() {
                   })}
                 </div>
 
-                <div style={{ borderLeft: `3px solid ${colors.accent}55` }} className="pl-3.5 mb-5">
-                  <p className="flex items-center gap-1.5 mb-1"><Info size={13} color={colors.mutedInk} /><span style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.06em' }} className="text-[11px] font-semibold uppercase">{isEN ? 'Why this phase' : 'Perché questa fase'}</span></p>
-                  <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed">{phase.why}</p>
-                </div>
+                <SetupSection id="perche" currentSection={trackerSection} onToggle={setTrackerSection} icon={Info} label={isEN ? 'Why this phase' : 'Perché questa fase'}>
+                  <p style={{ color: colors.ink }} className="text-sm leading-relaxed">{phase.why}</p>
+                </SetupSection>
 
                 {phase.criteriaToAdvance && (() => {
                   const pKey = `${selectedInjury}-${activePhase}`;
                   const checkedForPhase = criteriaChecked[pKey] || {};
-                  const allChecked = phase.criteriaToAdvance.every((_, i) => checkedForPhase[i]);
+                  const checkedCount = phase.criteriaToAdvance.filter((_, i) => checkedForPhase[i]).length;
+                  const allChecked = checkedCount === phase.criteriaToAdvance.length;
                   const isLastPhase = activePhase === injury.phases.length - 1;
                   return (
-                    <div style={{ backgroundColor: allChecked ? colors.accent : colors.accentTint, border: `1px solid ${colors.accent}${allChecked ? '' : '33'}` }} className="rounded-xl p-4 mb-4 shadow-sm transition-colors">
-                      <p className="flex items-center gap-2 mb-2.5">
-                        <ClipboardCheck size={15} color={allChecked ? '#FFFFFF' : colors.accentDark} />
-                        <span style={{ ...displayFont, color: allChecked ? '#FFFFFF' : colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Before moving on, check off' : 'Prima di avanzare, spunta'}</span>
-                      </p>
+                    <SetupSection id="criteri" currentSection={trackerSection} onToggle={setTrackerSection} icon={ClipboardCheck} label={isEN ? 'Ready to advance?' : 'Pronto ad avanzare?'} badge={<span style={{ color: allChecked ? colors.accent : colors.mutedInk, fontWeight: 600 }} className="text-xs mr-1 os-tabular">{checkedCount}/{phase.criteriaToAdvance.length}</span>}>
                       <div className="space-y-2 mb-1">
                         {phase.criteriaToAdvance.map((c, i) => {
                           const checked = !!checkedForPhase[i];
                           return (
                             <button key={i} onClick={() => toggleCriterion(i)} className="os-focus w-full flex items-start gap-2.5 text-left">
-                              <div style={{ backgroundColor: checked ? (allChecked ? '#FFFFFF' : colors.accent) : (allChecked ? 'rgba(255,255,255,0.15)' : colors.card), border: `1.5px solid ${checked ? (allChecked ? '#FFFFFF' : colors.accent) : (allChecked ? 'rgba(255,255,255,0.5)' : colors.accent + '60')}` }} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5 transition-colors">
-                                {checked && <Check size={12} strokeWidth={3} color={allChecked ? colors.accent : '#FFFFFF'} />}
+                              <div style={{ backgroundColor: checked ? colors.accent : colors.paper, border: `1.5px solid ${checked ? colors.accent : colors.hairline}` }} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5 transition-colors">
+                                {checked && <Check size={12} strokeWidth={3} color="#FFFFFF" />}
                               </div>
-                              <span style={{ color: allChecked ? '#FFFFFF' : colors.ink, textDecoration: checked ? 'line-through' : 'none' }} className="text-sm leading-snug">{c}</span>
+                              <span style={{ color: colors.ink, textDecoration: checked ? 'line-through' : 'none' }} className="text-sm leading-snug">{c}</span>
                             </button>
                           );
                         })}
                       </div>
                       {allChecked ? (
-                        <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.25)' }}>
-                          <p style={{ color: '#FFFFFF', fontWeight: 600 }} className="text-sm mb-2.5">{isEN ? 'Looks like you\'re ready.' : 'Sembra che tu sia pronto.'}</p>
+                        <div style={{ backgroundColor: colors.accentTint, borderTop: `1px solid ${colors.hairline}` }} className="rounded-lg p-3 mt-3">
+                          <p style={{ color: colors.accentDark, fontWeight: 600 }} className="text-sm mb-2.5">{isEN ? 'Looks like you\'re ready.' : 'Sembra che tu sia pronto.'}</p>
                           {!isLastPhase && (
-                            <button onClick={() => changePhase(activePhase + 1)} style={{ backgroundColor: '#FFFFFF', color: colors.accentDark }} className="os-focus w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wide hover:opacity-90 transition-opacity">
+                            <button onClick={() => changePhase(activePhase + 1)} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wide hover:opacity-90 transition-opacity">
                               {isEN ? 'Move to the next phase' : 'Passa alla fase successiva'}<ArrowRight size={13} />
                             </button>
                           )}
                         </div>
                       ) : (
-                        <p style={{ color: colors.accentDark, fontWeight: 500 }} className="text-xs mt-2">{isEN ? 'A self-check, not a clinical test.' : 'Un autocontrollo, non un test clinico.'}</p>
+                        <p style={{ color: colors.mutedInk, fontWeight: 500 }} className="text-xs mt-2">{isEN ? 'A self-check, not a clinical test.' : 'Un autocontrollo, non un test clinico.'}</p>
                       )}
-                    </div>
-                  );
-                })()}
-
-                {userProfile.level && (() => {
-                  const levelNotes = {
-                    giovanili: isEN ? 'At youth level, it\'s worth involving a coach or parent in this decision too, not just yourself.' : 'A livello giovanile, vale la pena coinvolgere anche un allenatore o un genitore in questa decisione, non solo te stesso.',
-                    amatoriale: isEN ? 'Amateur football usually means less outside pressure to rush back — use that time, don\'t force it.' : 'Il calcio amatoriale di solito vuol dire meno pressione esterna per rientrare — usa questo tempo, non forzarlo.',
-                    dilettanti: isEN ? 'Even at a competitive level, healing follows its own timeline — the criteria above matter more than the calendar.' : 'Anche a livello dilettantistico serio, la guarigione segue i suoi tempi — i criteri qui sopra contano più del calendario.',
-                    semipro: isEN ? 'At this level the pressure to return quickly is real — but your body heals on the same timeline regardless of category.' : 'A questo livello la pressione a rientrare presto è reale — ma il corpo guarisce secondo gli stessi tempi, a prescindere dalla categoria.',
-                  };
-                  return (
-                    <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed mb-4 flex gap-2">
-                      <span style={{ color: colors.accentDark }} className="flex-shrink-0">—</span>
-                      <span>{levelNotes[userProfile.level]}</span>
-                    </p>
+                      {userProfile.level && (() => {
+                        const levelNotes = {
+                          giovanili: isEN ? 'At youth level, it\'s worth involving a coach or parent in this decision too, not just yourself.' : 'A livello giovanile, vale la pena coinvolgere anche un allenatore o un genitore in questa decisione, non solo te stesso.',
+                          amatoriale: isEN ? 'Amateur football usually means less outside pressure to rush back — use that time, don\'t force it.' : 'Il calcio amatoriale di solito vuol dire meno pressione esterna per rientrare — usa questo tempo, non forzarlo.',
+                          dilettanti: isEN ? 'Even at a competitive level, healing follows its own timeline — the criteria above matter more than the calendar.' : 'Anche a livello dilettantistico serio, la guarigione segue i suoi tempi — i criteri qui sopra contano più del calendario.',
+                          semipro: isEN ? 'At this level the pressure to return quickly is real — but your body heals on the same timeline regardless of category.' : 'A questo livello la pressione a rientrare presto è reale — ma il corpo guarisce secondo gli stessi tempi, a prescindere dalla categoria.',
+                        };
+                        return (
+                          <p style={{ color: colors.mutedInk, borderTop: `1px solid ${colors.hairline}` }} className="text-xs leading-relaxed mt-3 pt-3 flex gap-2">
+                            <span style={{ color: colors.accentDark }} className="flex-shrink-0">—</span>
+                            <span>{levelNotes[userProfile.level]}</span>
+                          </p>
+                        );
+                      })()}
+                    </SetupSection>
                   );
                 })()}
 
                 {activePhase === injury.phases.length - 1 && (
-                  <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
-                    <div className="flex items-center gap-2 mb-2.5">
-                      {!premiumUnlocked && <Lock size={12} color={colors.premiumGold} />}
-                      <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'What position do you play?' : 'Che ruolo giochi?'}{!premiumUnlocked ? ' (Premium)' : ''}</p>
-                    </div>
+                  <SetupSection id="ruolo-percorso" currentSection={trackerSection} onToggle={setTrackerSection} icon={User} label={isEN ? 'What position do you play?' : 'Che ruolo giochi?'} gold={!premiumUnlocked} badge={premiumUnlocked && playerPosition && <span style={{ color: colors.accentDark, fontWeight: 600 }} className="text-xs mr-1">{playerPositions.find((p) => p.key === playerPosition)?.label}</span>}>
                     {!premiumUnlocked ? (
                       <>
                         <div className="relative mb-1">
@@ -4533,7 +4668,7 @@ export default function Offside() {
                         )}
                       </>
                     )}
-                  </div>
+                  </SetupSection>
                 )}
 
                 {completedCount === phase.exercises.length && phase.exercises.length > 0 && (
@@ -4591,18 +4726,9 @@ export default function Offside() {
                   )
                 )}
 
-                <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="pt-5 mt-1 mb-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="flex items-center gap-1.5">
-                      <Dumbbell size={16} color={colors.ink} />
-                      <span style={{ ...displayFont, color: colors.ink, letterSpacing: '0.04em' }} className="text-base font-bold uppercase">{isEN ? 'Exercises' : 'Esercizi'}</span>
-                    </span>
-                    <span style={{ ...displayFont, color: colors.accentDark }} className="os-tabular text-xl font-bold">{completedCount}<span style={{ color: colors.mutedInk }} className="text-sm font-normal"> / {phase.exercises.length}</span></span>
-                  </div>
-                </div>
-                <p style={{ color: colors.mutedInk }} className="text-[11px] mb-4">{isEN ? 'Adjust them to how your body responds, don\'t push through sharp pain.' : 'Adattali a come risponde il tuo corpo, non forzare sul dolore acuto.'}</p>
-
-                <div>
+                <SetupSection id="esercizi" currentSection={trackerSection} onToggle={setTrackerSection} icon={Dumbbell} label={isEN ? 'Exercises' : 'Esercizi'} badge={<span style={{ ...displayFont, color: colors.accentDark }} className="os-tabular text-sm font-bold mr-1">{completedCount}<span style={{ color: colors.mutedInk }} className="text-xs font-normal"> /{phase.exercises.length}</span></span>}>
+                  <p style={{ color: colors.mutedInk }} className="text-[11px] mb-3">{isEN ? 'Adjust them to how your body responds, don\'t push through sharp pain.' : 'Adattali a come risponde il tuo corpo, non forzare sul dolore acuto.'}</p>
+                  <div>
                   {phase.exercises.map((ex, i) => {
                     const done = !!phaseProgress[i];
                     const exKey = `${activePhase}-${i}`;
@@ -4640,7 +4766,8 @@ export default function Offside() {
                       </div>
                     );
                   })}
-                </div>
+                  </div>
+                </SetupSection>
 
                 <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: your progress over time + a document for your physio' : 'Premium: il tuo andamento nel tempo + un documento per il fisio'} />
 
