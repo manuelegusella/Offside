@@ -2661,6 +2661,29 @@ const weightOptionsEN = [
   { key: 'fatica', label: 'With difficulty, or not at all' },
 ];
 
+function BottomNav({ screen, isEN, onNavigate }) {
+  const items = [
+    { key: 'regions', label: isEN ? 'Home' : 'Home', icon: Compass, screens: ['regions', 'triage', 'injuries', 'firstaid'] },
+    { key: 'tracker', label: isEN ? 'Recovery' : 'Percorso', icon: Activity, screens: ['tracker'] },
+    { key: 'premium', label: 'Premium', icon: TrendingUp, screens: ['premium'] },
+    { key: 'profile', label: isEN ? 'Profile' : 'Profilo', icon: User, screens: ['profile'] },
+  ];
+  return (
+    <div style={{ backgroundColor: colors.card, borderTop: `1px solid ${colors.hairline}`, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} className="fixed bottom-0 left-0 right-0 flex items-stretch z-20 shadow-[0_-2px_10px_rgba(16,27,38,0.06)]">
+      {items.map((item) => {
+        const isActive = item.screens.includes(screen);
+        const Icon = item.icon;
+        return (
+          <button key={item.key} onClick={() => onNavigate(item.key)} className="os-focus flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5" style={{ color: isActive ? colors.accentDark : colors.mutedInk }}>
+            <Icon size={20} strokeWidth={isActive ? 2.4 : 1.8} />
+            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: isActive ? 700 : 500 }} className="text-[10px]">{item.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function PlayerMascot({ stage = 0, size = 28, color = colors.accent }) {
   const poses = [
     // 0 — in piedi, pronto
@@ -3522,6 +3545,16 @@ export default function Offside() {
   }
 
   const activeInjuryKeys = Object.keys(injuryDates).filter((k) => injuryDates[k] && injuriesData[k]);
+
+  const handleBottomNav = (key) => {
+    if (key === 'regions') { setScreen('regions'); }
+    else if (key === 'tracker') {
+      if (activeInjuryKeys.length > 0) resumeInjury(activeInjuryKeys[0]);
+      else { setRegionsTab('injury'); setScreen('regions'); }
+    }
+    else if (key === 'premium') { setScreen('premium'); }
+    else if (key === 'profile') { setScreen('profile'); }
+  };
 
   return (
     <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full min-h-[100dvh] relative">
@@ -4640,13 +4673,15 @@ export default function Offside() {
             )}
       </div>
 
-      <div style={{ borderTop: `1px solid ${colors.hairline}`, color: colors.mutedInk }} className="px-5 sm:px-8 py-4 text-xs leading-relaxed text-center">
+      <div style={{ borderTop: `1px solid ${colors.hairline}`, color: colors.mutedInk }} className="px-5 sm:px-8 py-4 pb-24 text-xs leading-relaxed text-center">
         {isEN ? 'General informational content. Not a substitute for a medical assessment. If in doubt, see a professional.' : 'Contenuto informativo generale. Non sostituisce una valutazione medica. In caso di dubbi rivolgiti a un professionista.'}
         {saveError && <div style={{ color: colors.red }} className="mt-2 flex items-center justify-center gap-1.5"><X size={13} /> {isEN ? 'Data could not be saved.' : 'Salvataggio dati non riuscito.'}</div>}
         <a href="mailto:manuelegusella@icloud.com?subject=Feedback%20Offside" style={{ color: colors.accentDark }} className="os-focus flex items-center justify-center gap-1.5 mt-3 hover:underline">
           <Share2 size={11} />{isEN ? 'Found a problem or have a suggestion? Let me know' : 'Hai trovato un problema o hai un suggerimento? Scrivimelo'}
         </a>
       </div>
+
+      <BottomNav screen={screen} isEN={isEN} onNavigate={handleBottomNav} />
     </div>
   );
 }
