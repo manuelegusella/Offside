@@ -2661,6 +2661,34 @@ const weightOptionsEN = [
   { key: 'fatica', label: 'With difficulty, or not at all' },
 ];
 
+function PlayerMascot({ stage = 0, size = 28, color = colors.accent }) {
+  const poses = [
+    // 0 — in piedi, pronto
+    { head: { cx: 20, cy: 8 }, torso: 'M20 12 L20 27', armL: 'M20 15 L14 20', armR: 'M20 15 L26 20', legL: 'M20 27 L15 40', legR: 'M20 27 L25 40', ball: { cx: 20, cy: 44 }, trail: null },
+    // 1 — leggera rincorsa
+    { head: { cx: 19, cy: 8 }, torso: 'M19 12 L21 27', armL: 'M21 15 L15 18', armR: 'M21 15 L28 22', legL: 'M21 27 L14 40', legR: 'M21 27 L27 38', ball: { cx: 22, cy: 42 }, trail: null },
+    // 2 — gamba indietro, carica il tiro
+    { head: { cx: 18, cy: 8 }, torso: 'M18 12 L22 26', armL: 'M22 15 L14 12', armR: 'M22 15 L30 20', legL: 'M22 26 L16 38', legR: 'M22 26 L32 22', ball: { cx: 20, cy: 42 }, trail: null },
+    // 3 — contatto con il pallone
+    { head: { cx: 19, cy: 8 }, torso: 'M19 12 L21 26', armL: 'M21 15 L13 18', armR: 'M21 15 L29 14', legL: 'M21 26 L15 40', legR: 'M21 26 L28 38', ball: { cx: 31, cy: 40 }, trail: null },
+    // 4 — pallone in volo, gesto finale
+    { head: { cx: 20, cy: 7 }, torso: 'M20 11 L20 25', armL: 'M20 14 L12 10', armR: 'M20 14 L28 10', legL: 'M20 25 L14 39', legR: 'M20 25 L30 30', ball: { cx: 37, cy: 19 }, trail: 'M32 26 L28 30 M34 22 L30 25' },
+  ];
+  const p = poses[Math.min(stage, poses.length - 1)];
+  return (
+    <svg width={size} height={size * 1.2} viewBox="0 0 40 48" fill="none" aria-hidden="true" style={{ transition: 'all 0.3s ease' }}>
+      <circle cx={p.head.cx} cy={p.head.cy} r="4" fill={color} />
+      <path d={p.torso} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <path d={p.armL} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <path d={p.armR} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <path d={p.legL} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <path d={p.legR} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx={p.ball.cx} cy={p.ball.cy} r="3" fill="none" stroke={color} strokeWidth="1.8" />
+      {p.trail && <path d={p.trail} stroke={color} strokeWidth="1.3" strokeLinecap="round" opacity="0.4" />}
+    </svg>
+  );
+}
+
 function LogoMark({ size = 32, color = colors.accent, strokeWidth = 3 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
@@ -2944,6 +2972,16 @@ function downloadRecoveryReminders(isEN) {
   a.href = url; a.download = 'offside-promemoria.ics';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+function mascotStageForScreen(screen) {
+  const stages = {
+    cover: 0, onboarding: 0,
+    regions: 1,
+    triage: 2, injuries: 2, firstaid: 2,
+    tracker: 3, profile: 3,
+    premium: 4,
+  };
+  return stages[screen] ?? 1;
 }
 function formatTodayLabel(isEN) {
   const d = new Date();
@@ -3378,10 +3416,15 @@ export default function Offside() {
           </div>
 
           <div className="flex-1 flex flex-col justify-center mb-8">
-            <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.16em' }} className="text-[11px] font-bold uppercase mb-2">{isEN ? 'For amateur footballers' : 'Per il calcio amatoriale'}</p>
-            <h1 style={{ ...displayFont, letterSpacing: '0.01em' }} className="text-[64px] sm:text-[80px] font-bold leading-[0.95] mb-1">
-              <span style={{ color: colors.ink }}>OFF</span><span style={{ color: colors.accent }}>SIDE</span>
-            </h1>
+            <div className="flex items-center justify-between">
+              <div>
+                <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.16em' }} className="text-[11px] font-bold uppercase mb-2">{isEN ? 'For amateur footballers' : 'Per il calcio amatoriale'}</p>
+                <h1 style={{ ...displayFont, letterSpacing: '0.01em' }} className="text-[64px] sm:text-[80px] font-bold leading-[0.95] mb-1">
+                  <span style={{ color: colors.ink }}>OFF</span><span style={{ color: colors.accent }}>SIDE</span>
+                </h1>
+              </div>
+              <PlayerMascot stage={0} size={30} color={colors.accent} />
+            </div>
           </div>
 
           <div className="mb-6 space-y-3">
@@ -3506,6 +3549,9 @@ export default function Offside() {
             {shareCopied ? <Check size={15} color={colors.accentDark} /> : <Share2 size={15} color={colors.accentDark} />}
           </button>
         )}
+        <div className="flex-shrink-0" style={{ width: 20 }}>
+          <PlayerMascot stage={mascotStageForScreen(screen)} size={20} color={colors.accentDark} />
+        </div>
         {screen !== 'profile' && (
           <button onClick={() => setScreen('profile')} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Your profile' : 'Il tuo profilo'}>
             <User size={15} color={colors.accentDark} />
@@ -4352,8 +4398,9 @@ export default function Offside() {
                     const pProgress = progress[pKey] || {};
                     const pDone = p.exercises.length > 0 && p.exercises.filter((_, ei) => pProgress[ei]).length === p.exercises.length;
                     return (
-                      <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isActive ? colors.accent : colors.card, border: `1px solid ${isActive ? colors.accent : colors.hairline}`, color: isActive ? '#FFFFFF' : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wide transition-colors shadow-sm">
-                        {isEN ? `Phase ${i + 1}` : `Fase ${i + 1}`}{pDone && <CheckCircle2 size={12} strokeWidth={2.5} />}
+                      <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isActive ? colors.accent : colors.card, border: `1px solid ${isActive ? colors.accent : colors.hairline}`, color: isActive ? '#FFFFFF' : colors.mutedInk }} className="os-focus flex-1 flex flex-col items-center justify-center gap-0.5 rounded-lg py-2 transition-colors shadow-sm">
+                        <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wide">{isEN ? `Phase ${i + 1}` : `Fase ${i + 1}`}{pDone && <CheckCircle2 size={12} strokeWidth={2.5} />}</span>
+                        <span style={{ color: isActive ? 'rgba(255,255,255,0.85)' : colors.mutedInk }} className="text-[10px] font-normal normal-case os-tabular">{phaseRangeLabel(i, dayThresholds, isEN)}</span>
                       </button>
                     );
                   })}
