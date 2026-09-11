@@ -2295,16 +2295,24 @@ function segmentFill(dayCount, segStart, segEnd) {
   return Math.round(((dayCount - segStart) / (segEnd - segStart)) * 100);
 }
 function computeStreak(log) {
-  if (!log) return 0;
+  if (!log) return { count: 0, graceUsed: false };
   let streak = 0;
   let d = new Date();
+  let graceUsed = false;
   const isDone = (key) => log[key] && log[key].done;
   if (!isDone(toISODate(d))) d.setDate(d.getDate() - 1);
-  while (isDone(toISODate(d))) {
-    streak++;
-    d.setDate(d.getDate() - 1);
+  while (true) {
+    if (isDone(toISODate(d))) {
+      streak++;
+      d.setDate(d.getDate() - 1);
+    } else if (!graceUsed && streak > 0) {
+      graceUsed = true;
+      d.setDate(d.getDate() - 1);
+    } else {
+      break;
+    }
   }
-  return streak;
+  return { count: streak, graceUsed };
 }
 function formatTodayLabel(isEN) {
   const d = new Date();
@@ -2326,6 +2334,7 @@ export default function Offside() {
   const [selectedInjury, setSelectedInjury] = useState(null);
   const [activePhase, setActivePhase] = useState(0);
   const [progress, setProgress] = useState({});
+  const [criteriaChecked, setCriteriaChecked] = useState({});
   const [injuryDates, setInjuryDates] = useState({});
   const [injurySeverities, setInjurySeverities] = useState({});
   const [dailyLog, setDailyLog] = useState({});
@@ -2393,6 +2402,7 @@ export default function Offside() {
           setPreventionProgress(loaded.preventionProgress || {});
           setLanguage(loaded.language || 'it');
           setPremiumUnlocked(!!loaded.premiumUnlocked);
+          setCriteriaChecked(loaded.criteriaChecked || {});
         }
       } catch (err) {} finally {
         setLoading(false);
@@ -2420,7 +2430,7 @@ export default function Offside() {
     }
   }, []);
 
-  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, premiumUnlocked, ...overrides });
+  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, ...overrides });
 
   const goBack = () => {
     if (screen === 'tracker') setScreen('injuries');
@@ -2506,6 +2516,16 @@ export default function Offside() {
     const nextProgress = { ...progress, [pKey]: nextForPhase };
     setProgress(nextProgress);
     persist(snapshot({ progress: nextProgress }));
+  };
+
+  const toggleCriterion = (cIdx) => {
+    if (!selectedInjury) return;
+    const pKey = `${selectedInjury}-${activePhase}`;
+    const current = criteriaChecked[pKey] || {};
+    const nextForPhase = { ...current, [cIdx]: !current[cIdx] };
+    const nextChecked = { ...criteriaChecked, [pKey]: nextForPhase };
+    setCriteriaChecked(nextChecked);
+    persist(snapshot({ criteriaChecked: nextChecked }));
   };
 
   const togglePreventionExercise = (regionKey, exIdx) => {
@@ -2635,7 +2655,7 @@ export default function Offside() {
       `Current phase: ${phase.name} (Phase ${activePhase + 1} of ${injury.phases.length})`,
       `Exercises completed in this phase: ${completedCount}/${phase.exercises.length}`,
       `Daily sessions logged: ${doneDays}`,
-      streak > 0 ? `Current streak: ${streak} consecutive days` : null,
+      streak.count > 0 ? `Current streak: ${streak.count} consecutive days` : null,
     ] : [
       'OFFSIDE — Riepilogo recupero',
       '',
@@ -2645,7 +2665,7 @@ export default function Offside() {
       `Fase attuale: ${phase.name} (Fase ${activePhase + 1} di ${injury.phases.length})`,
       `Esercizi completati in questa fase: ${completedCount}/${phase.exercises.length}`,
       `Sessioni giornaliere registrate: ${doneDays}`,
-      streak > 0 ? `Serie attuale: ${streak} giorni consecutivi` : null,
+      streak.count > 0 ? `Serie attuale: ${streak.count} giorni consecutivi` : null,
     ];
     const text = lines.filter(Boolean).join('\n');
     try {
@@ -3464,14 +3484,17 @@ export default function Offside() {
                     </button>
                   ) : (
                     <>
-                      <div className="flex items-center justify-between mb-2.5">
+                      <div className="flex items-center justify-between mb-1">
                         <span style={{ ...displayFont, color: todayEntry.done ? '#FFFFFF' : colors.ink }} className="text-sm font-semibold capitalize">{isEN ? 'Day' : 'Giorno'} {dayCount} · {formatTodayLabel(isEN)}</span>
-                        {streak > 0 && (
+                        {streak.count > 0 && (
                           <span style={{ ...displayFont, color: todayEntry.done ? '#FFD9A0' : colors.orange }} className="flex items-center gap-1 text-sm font-bold os-tabular">
-                            <Flame size={14} strokeWidth={2.5} />{streak}
+                            <Flame size={14} strokeWidth={2.5} />{streak.count}
                           </span>
                         )}
                       </div>
+                      {streak.graceUsed && (
+                        <p style={{ color: todayEntry.done ? '#C9D8E5' : colors.mutedInk }} className="text-[11px] mb-2 -mt-1">❄️ {isEN ? 'A missed day doesn\'t break your streak — picked up right where you left off.' : 'Un giorno saltato non rompe la serie — ripresa da dove l\'avevi lasciata.'}</p>
+                      )}
                       <div className="flex items-center gap-2.5 mb-1.5">
                         <span style={{ color: todayEntry.done ? '#C9D8E5' : colors.mutedInk }} className="text-[11px] font-medium flex-shrink-0 w-14">{isEN ? 'Feeling' : 'Come va'}</span>
                         <div className="flex gap-1 flex-1">
@@ -3532,20 +3555,45 @@ export default function Offside() {
                   <p style={{ color: colors.ink }} className="text-sm leading-relaxed">{phase.why}</p>
                 </div>
 
-                {phase.criteriaToAdvance && (
-                  <div style={{ backgroundColor: colors.accentTint, border: `1px solid ${colors.accent}33` }} className="rounded-xl p-4 mb-4 shadow-sm">
-                    <p className="flex items-center gap-2 mb-2">
-                      <ClipboardCheck size={15} color={colors.accentDark} />
-                      <span style={{ ...displayFont, color: colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Before moving on, ask yourself' : 'Prima di avanzare, chiediti'}</span>
-                    </p>
-                    <ul className="space-y-1 mb-1">
-                      {phase.criteriaToAdvance.map((c, i) => (
-                        <li key={i} style={{ color: colors.ink }} className="text-sm flex gap-2"><span style={{ color: colors.accentDark }}>—</span><span>{c}</span></li>
-                      ))}
-                    </ul>
-                    <p style={{ color: colors.accentDark, fontWeight: 500 }} className="text-xs mt-2">{isEN ? 'A self-check, not a clinical test.' : 'Un autocontrollo, non un test clinico.'}</p>
-                  </div>
-                )}
+                {phase.criteriaToAdvance && (() => {
+                  const pKey = `${selectedInjury}-${activePhase}`;
+                  const checkedForPhase = criteriaChecked[pKey] || {};
+                  const allChecked = phase.criteriaToAdvance.every((_, i) => checkedForPhase[i]);
+                  const isLastPhase = activePhase === injury.phases.length - 1;
+                  return (
+                    <div style={{ backgroundColor: allChecked ? colors.accent : colors.accentTint, border: `1px solid ${colors.accent}${allChecked ? '' : '33'}` }} className="rounded-xl p-4 mb-4 shadow-sm transition-colors">
+                      <p className="flex items-center gap-2 mb-2.5">
+                        <ClipboardCheck size={15} color={allChecked ? '#FFFFFF' : colors.accentDark} />
+                        <span style={{ ...displayFont, color: allChecked ? '#FFFFFF' : colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Before moving on, check off' : 'Prima di avanzare, spunta'}</span>
+                      </p>
+                      <div className="space-y-2 mb-1">
+                        {phase.criteriaToAdvance.map((c, i) => {
+                          const checked = !!checkedForPhase[i];
+                          return (
+                            <button key={i} onClick={() => toggleCriterion(i)} className="os-focus w-full flex items-start gap-2.5 text-left">
+                              <div style={{ backgroundColor: checked ? (allChecked ? '#FFFFFF' : colors.accent) : (allChecked ? 'rgba(255,255,255,0.15)' : colors.card), border: `1.5px solid ${checked ? (allChecked ? '#FFFFFF' : colors.accent) : (allChecked ? 'rgba(255,255,255,0.5)' : colors.accent + '60')}` }} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5 transition-colors">
+                                {checked && <Check size={12} strokeWidth={3} color={allChecked ? colors.accent : '#FFFFFF'} />}
+                              </div>
+                              <span style={{ color: allChecked ? '#FFFFFF' : colors.ink, textDecoration: checked ? 'line-through' : 'none' }} className="text-sm leading-snug">{c}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {allChecked ? (
+                        <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.25)' }}>
+                          <p style={{ color: '#FFFFFF', fontWeight: 600 }} className="text-sm mb-2.5">{isEN ? 'Looks like you\'re ready.' : 'Sembra che tu sia pronto.'}</p>
+                          {!isLastPhase && (
+                            <button onClick={() => changePhase(activePhase + 1)} style={{ backgroundColor: '#FFFFFF', color: colors.accentDark }} className="os-focus w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wide hover:opacity-90 transition-opacity">
+                              {isEN ? 'Move to the next phase' : 'Passa alla fase successiva'}<ArrowRight size={13} />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <p style={{ color: colors.accentDark, fontWeight: 500 }} className="text-xs mt-2">{isEN ? 'A self-check, not a clinical test.' : 'Un autocontrollo, non un test clinico.'}</p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {activePhase === injury.phases.length - 1 && (
                   <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
