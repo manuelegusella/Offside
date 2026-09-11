@@ -16,7 +16,7 @@ import {
   Calendar, Scale, Dumbbell, Move, Wind, Timer, Pause, Pencil, Target,
   HelpCircle, PlayCircle, Flame, Share2, ClipboardCheck, Check, Gauge, Waves,
   Aperture, PersonStanding, Ruler, Sprout, RotateCw, CircleDashed, ShieldAlert,
-  Snowflake, Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, Smartphone, User
+  Snowflake, Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, Smartphone, User, Hand, Grip
 } from 'lucide-react';
 
 const colors = {
@@ -831,6 +831,209 @@ const injuriesDataIT = {
         ] },
     ],
   },
+  shoulder_impingement: {
+    relatedInjuries: ['ac_joint', 'bicep_tendinopathy'], relatedReason: 'Spalla, articolazione acromion-claveare e bicipite condividono lo stesso meccanismo di lancio/rinvio del portiere.',
+    label: 'Conflitto di spalla', subtitle: 'Impingement subacromiale, spesso da rinvii ripetuti', icon: Grip, mechanismTags: ['overuse'],
+    severityData: {
+      lieve: { dayThresholds: [7, 21], totalEstimateDays: 35 },
+      moderato: { dayThresholds: [14, 35], totalEstimateDays: 63 },
+      severo: { dayThresholds: [28, 63], totalEstimateDays: 120 },
+    },
+    specialRedFlags: [
+      'Non riesci a sollevare il braccio sopra la testa per niente, nemmeno lentamente',
+      'Senti formicolio o debolezza che scende lungo il braccio fino alla mano',
+    ],
+    phases: [
+      { name: 'Riduzione carico', why: 'Il tendine è infiammato dal sovraccarico ripetuto (rinvii, lanci). I primi giorni servono a calmarlo, evitando movimenti sopra la testa.',
+        exercises: [
+          { text: 'Pendolo di Codman: lascia il braccio penzolare e oscillare leggermente, senza forzare', cat: 'stretch' },
+          { text: 'Evita rinvii e lanci sopra la testa nei primi giorni', cat: 'rest' },
+          { text: 'Mobilità leggera della spalla entro il dolore, senza sollevare oltre l\'orizzontale', cat: 'stretch' },
+        ] },
+      { name: 'Recupero attivo', why: 'Si inizia a rinforzare i muscoli della cuffia dei rotatori e della scapola, che spesso sono il vero punto debole dietro un conflitto di spalla.',
+        criteriaToAdvance: ['Riesci a sollevare il braccio all\'altezza delle spalle senza dolore acuto', 'Il dolore a riposo è chiaramente diminuito'],
+        exercises: [
+          { text: 'Rotazione esterna con elastico, gomito fermo al fianco (3 serie da 12-15)', cat: 'strength' },
+          { text: 'Rinforzo della scapola: stringi le scapole insieme e tieni (3 serie da 10, tenuta 5 secondi)', cat: 'hold' },
+          { text: 'Sollevamenti laterali controllati sotto l\'altezza della spalla (2-3 serie da 12)', cat: 'strength' },
+        ] },
+      { name: 'Rientro in campo', why: 'Prima di tornare a rinviare e lanciare a piena potenza, la spalla deve tollerare il movimento sopra la testa ripetuto senza dolore.',
+        criteriaToAdvance: ['Riesci a sollevare il braccio completamente sopra la testa senza dolore', 'Nessun dolore dopo un rinvio leggero di prova'],
+        exercises: [
+          { text: 'Rinvii progressivi, partendo da distanza ridotta', cat: 'strength' },
+          { text: 'Esercizi di lancio/presa a intensità crescente', cat: 'strength' },
+          { text: 'Simulazione di tuffo con presa sopra la testa', cat: 'balance' },
+        ] },
+    ],
+  },
+  ac_joint: {
+    relatedInjuries: ['shoulder_impingement'], relatedReason: 'Una caduta sulla spalla che coinvolge l\'acromion-claveare spesso lascia rigidità che assomiglia a un conflitto di spalla.',
+    label: 'Trauma acromion-claveare', subtitle: 'Caduta sulla punta della spalla, tipico dei tuffi', icon: Grip, mechanismTags: ['acute', 'contact'],
+    severityData: {
+      lieve: { dayThresholds: [7, 14], totalEstimateDays: 21 },
+      moderato: { dayThresholds: [14, 35], totalEstimateDays: 56 },
+      severo: { dayThresholds: [35, 70], totalEstimateDays: 126 },
+    },
+    specialRedFlags: [
+      'Vedi una protuberanza o un gradino visibile sopra la spalla che prima non c\'era',
+      'Non riesci a muovere il braccio per niente subito dopo il trauma',
+    ],
+    phases: [
+      { name: 'Protezione', why: 'Dopo un impatto diretto sulla punta della spalla, il legamento acromion-claveare va protetto da ulteriori sollecitazioni nei primi giorni.',
+        exercises: [
+          { text: 'Tutore/fascia di supporto se consigliato, braccio a riposo vicino al corpo', cat: 'rest' },
+          { text: 'Mobilità del gomito e della mano per non irrigidirli, senza muovere la spalla', cat: 'stretch' },
+          { text: 'Ghiaccio sulla parte superiore della spalla nei primi giorni', cat: 'rest' },
+        ] },
+      { name: 'Recupero attivo', why: 'Il legamento inizia a tollerare movimento controllato. Si lavora per recuperare l\'ampiezza di movimento persa nei primi giorni.',
+        criteriaToAdvance: ['Riesci a muovere il braccio all\'altezza della spalla senza dolore acuto', 'Il dolore alla pressione diretta sulla zona è diminuito'],
+        exercises: [
+          { text: 'Mobilità attiva della spalla in tutte le direzioni, entro il dolore', cat: 'stretch' },
+          { text: 'Rinforzo isometrico leggero della spalla (tenuta 15-20 secondi, 3-4 volte)', cat: 'hold' },
+          { text: 'Rinforzo della scapola con elastico leggero', cat: 'strength' },
+        ] },
+      { name: 'Rientro in campo', why: 'Prima di tornare ai tuffi e ai contatti fisici, la spalla deve tollerare un carico diretto sulla zona senza dolore.',
+        criteriaToAdvance: ['Riesci ad appoggiarti sul braccio senza dolore alla spalla', 'Nessun dolore in un\'attività fisica moderata di prova'],
+        exercises: [
+          { text: 'Appoggi progressivi sul braccio (da terra in ginocchio, poi in piedi)', cat: 'strength' },
+          { text: 'Simulazione di caduta/atterraggio controllata su superficie morbida', cat: 'balance' },
+          { text: 'Ripresa graduale dei tuffi, da distanza ridotta', cat: 'run' },
+        ] },
+    ],
+  },
+  bicep_tendinopathy: {
+    relatedInjuries: ['shoulder_impingement'], relatedReason: 'Il bicipite si inserisce vicino alla cuffia dei rotatori, quindi un sovraccarico dell\'uno spesso coinvolge l\'altra.',
+    label: 'Tendinopatia del bicipite', subtitle: 'Da presa e lancio ripetuti', icon: Grip, mechanismTags: ['overuse'],
+    severityData: {
+      lieve: { dayThresholds: [7, 21], totalEstimateDays: 35 },
+      moderato: { dayThresholds: [14, 35], totalEstimateDays: 63 },
+      severo: { dayThresholds: [28, 56], totalEstimateDays: 105 },
+    },
+    phases: [
+      { name: 'Riduzione carico', why: 'Il tendine del bicipite è infiammato da prese e lanci ripetuti. Serve ridurre il carico prima di iniziare a rinforzarlo.',
+        exercises: [
+          { text: 'Evita prese e lanci ripetuti nei primi giorni', cat: 'rest' },
+          { text: 'Mobilità leggera del gomito e della spalla entro il dolore', cat: 'stretch' },
+          { text: 'Massaggio leggero con automassaggio o foam roller sul braccio', cat: 'stretch' },
+        ] },
+      { name: 'Recupero attivo', why: 'Il tendine risponde bene a un carico progressivo e controllato, in particolare nella fase di allungamento del movimento (eccentrica).',
+        criteriaToAdvance: ['Riesci a piegare il gomito contro resistenza leggera senza dolore acuto', 'Il dolore alla pressione sul tendine è diminuito'],
+        exercises: [
+          { text: 'Curl del bicipite con enfasi sulla fase di discesa lenta (3 serie da 10-12)', cat: 'strength' },
+          { text: 'Presa isometrica: stringi un oggetto e tieni (3 serie da 20 secondi)', cat: 'hold' },
+          { text: 'Rinforzo della cuffia dei rotatori con elastico leggero', cat: 'strength' },
+        ] },
+      { name: 'Rientro in campo', why: 'Prima di tornare a lanciare e parare a piena intensità, il tendine deve tollerare presa e trazione ripetute senza dolore.',
+        criteriaToAdvance: ['Riesci a fare curl a pieno carico senza dolore', 'Nessun dolore dopo prese ripetute di prova'],
+        exercises: [
+          { text: 'Lanci e prese progressivi, da intensità ridotta', cat: 'strength' },
+          { text: 'Simulazione di parata con presa del pallone', cat: 'balance' },
+        ] },
+    ],
+  },
+  wrist_sprain: {
+    relatedInjuries: ['finger_jam', 'thumb_sprain'], relatedReason: 'Polso, dita e pollice spesso si infortunano insieme nella stessa caduta su mano aperta.',
+    label: 'Distorsione di polso', subtitle: 'Caduta su mano aperta, comune nei tuffi', icon: Hand, mechanismTags: ['acute'],
+    severityData: {
+      lieve: { dayThresholds: [4, 10], totalEstimateDays: 18 },
+      moderato: { dayThresholds: [7, 21], totalEstimateDays: 35 },
+      severo: { dayThresholds: [14, 42], totalEstimateDays: 84 },
+    },
+    specialRedFlags: [
+      'Il polso appare visibilmente deformato o gonfio in modo marcato subito dopo la caduta',
+      'Il dolore è concentrato in un punto preciso dell\'osso, non diffuso su tutto il polso',
+    ],
+    phases: [
+      { name: 'Protezione', why: 'Dopo una caduta sulla mano aperta, i legamenti del polso sono infiammati. Si protegge il polso evitando l\'appoggio diretto.',
+        exercises: [
+          { text: 'Evita di appoggiarti sulla mano (niente flessioni, niente appoggi a terra)', cat: 'rest' },
+          { text: 'Mobilità delle dita per non irrigidirle, senza muovere il polso', cat: 'stretch' },
+          { text: 'Ghiaccio sul polso nei primi giorni', cat: 'rest' },
+        ] },
+      { name: 'Recupero attivo', why: 'Il legamento inizia a tollerare movimento controllato. Si lavora su ampiezza di movimento e forza di presa.',
+        criteriaToAdvance: ['Riesci a muovere il polso in tutte le direzioni senza dolore acuto', 'Il gonfiore è chiaramente diminuito'],
+        exercises: [
+          { text: 'Mobilità attiva del polso: flessione, estensione, rotazione', cat: 'stretch' },
+          { text: 'Rinforzo di presa con una pallina morbida (3 serie da 15)', cat: 'strength' },
+          { text: 'Rinforzo del polso con elastico leggero, tutte le direzioni', cat: 'strength' },
+        ] },
+      { name: 'Rientro in campo', why: 'Prima di tornare a tuffarti e appoggiarti sulle mani, il polso deve tollerare un carico diretto senza dolore.',
+        criteriaToAdvance: ['Riesci ad appoggiarti sulla mano a terra senza dolore', 'Nessun dolore dopo una parata di prova a bassa intensità'],
+        exercises: [
+          { text: 'Appoggi progressivi sulla mano (in ginocchio, poi in piedi)', cat: 'strength' },
+          { text: 'Simulazione di parata e appoggio controllato', cat: 'balance' },
+          { text: 'Ripresa graduale dei tuffi', cat: 'run' },
+        ] },
+    ],
+  },
+  finger_jam: {
+    relatedInjuries: ['wrist_sprain', 'thumb_sprain'], relatedReason: 'Polso, dita e pollice spesso si infortunano insieme nello stesso impatto con il pallone.',
+    label: 'Trauma alle dita', subtitle: 'Impatto diretto del pallone, "dito incastrato"', icon: Hand, mechanismTags: ['acute', 'contact'],
+    severityData: {
+      lieve: { dayThresholds: [3, 7], totalEstimateDays: 14 },
+      moderato: { dayThresholds: [7, 14], totalEstimateDays: 28 },
+      severo: { dayThresholds: [14, 35], totalEstimateDays: 63 },
+    },
+    specialRedFlags: [
+      'Il dito appare storto o deformato rispetto agli altri',
+      'Non riesci a stendere completamente il dito da solo',
+    ],
+    phases: [
+      { name: 'Protezione', why: 'Dopo un impatto diretto, l\'articolazione del dito è infiammata. Si protegge nei primi giorni, spesso con un bendaggio al dito vicino (buddy taping).',
+        exercises: [
+          { text: 'Bendaggio al dito adiacente (buddy taping) se consigliato', cat: 'rest' },
+          { text: 'Ghiaccio sul dito nei primi giorni', cat: 'rest' },
+          { text: 'Evita prese dirette del pallone nei primi giorni', cat: 'rest' },
+        ] },
+      { name: 'Recupero attivo', why: 'Si recupera l\'ampiezza di movimento dell\'articolazione e si inizia a rinforzare la presa.',
+        criteriaToAdvance: ['Riesci a piegare e stendere il dito senza dolore acuto', 'Il gonfiore è chiaramente diminuito'],
+        exercises: [
+          { text: 'Mobilità attiva del dito, piega ed estendi lentamente', cat: 'stretch' },
+          { text: 'Rinforzo di presa con una pallina morbida (3 serie da 15)', cat: 'strength' },
+          { text: 'Esercizi di pinza tra pollice e dito infortunato', cat: 'strength' },
+        ] },
+      { name: 'Rientro in campo', why: 'Prima di tornare a parare, il dito deve tollerare l\'impatto diretto del pallone senza dolore.',
+        criteriaToAdvance: ['Riesci a stringere il pugno completamente senza dolore', 'Nessun dolore dopo prese leggere di prova'],
+        exercises: [
+          { text: 'Prese progressive del pallone, da distanza ridotta e velocità bassa', cat: 'strength' },
+          { text: 'Simulazione di parate a mani aperte', cat: 'balance' },
+        ] },
+    ],
+  },
+  thumb_sprain: {
+    relatedInjuries: ['wrist_sprain', 'finger_jam'], relatedReason: 'Polso, dita e pollice spesso si infortunano insieme nella stessa presa o caduta.',
+    label: 'Distorsione del pollice', subtitle: 'Torsione in presa o caduta, coinvolge spesso il legamento interno', icon: Hand, mechanismTags: ['acute'],
+    severityData: {
+      lieve: { dayThresholds: [5, 14], totalEstimateDays: 21 },
+      moderato: { dayThresholds: [10, 28], totalEstimateDays: 42 },
+      severo: { dayThresholds: [21, 56], totalEstimateDays: 90 },
+    },
+    specialRedFlags: [
+      'Il pollice appare instabile, come se "cedesse" lateralmente sotto pressione leggera',
+      'Non riesci a stringere niente tra pollice e indice per il dolore',
+    ],
+    phases: [
+      { name: 'Protezione', why: 'Il legamento alla base del pollice è infiammato dalla torsione. Si protegge nei primi giorni, spesso con un tutore specifico.',
+        exercises: [
+          { text: 'Tutore/fascia per il pollice se consigliato', cat: 'rest' },
+          { text: 'Ghiaccio sulla base del pollice nei primi giorni', cat: 'rest' },
+          { text: 'Evita prese a pinza (pollice contro indice) nei primi giorni', cat: 'rest' },
+        ] },
+      { name: 'Recupero attivo', why: 'Si recupera l\'ampiezza di movimento e si inizia a rinforzare gradualmente la presa a pinza.',
+        criteriaToAdvance: ['Riesci a muovere il pollice in tutte le direzioni senza dolore acuto', 'Il gonfiore è chiaramente diminuito'],
+        exercises: [
+          { text: 'Mobilità attiva del pollice in tutte le direzioni', cat: 'stretch' },
+          { text: 'Rinforzo di presa a pinza leggera con una pallina morbida', cat: 'strength' },
+          { text: 'Rinforzo con elastico leggero attorno al pollice', cat: 'strength' },
+        ] },
+      { name: 'Rientro in campo', why: 'Prima di tornare a parare, il pollice deve tollerare la presa del pallone sotto pressione senza cedere.',
+        criteriaToAdvance: ['Riesci a stringere a pinza con forza senza dolore', 'Nessuna sensazione di instabilità nella presa'],
+        exercises: [
+          { text: 'Prese progressive del pallone a due mani', cat: 'strength' },
+          { text: 'Simulazione di parate con presa ferma', cat: 'balance' },
+        ] },
+    ],
+  },
 };
 const injuriesDataEN = {
   ankle: {
@@ -1541,6 +1744,209 @@ const injuriesDataEN = {
         ] },
     ],
   },
+  shoulder_impingement: {
+    relatedInjuries: ['ac_joint', 'bicep_tendinopathy'], relatedReason: 'The shoulder, AC joint, and bicep share the same throwing/clearing motion goalkeepers repeat constantly.',
+    label: 'Shoulder impingement', subtitle: 'Subacromial impingement, often from repeated throws', icon: Grip, mechanismTags: ['overuse'],
+    severityData: {
+      lieve: { dayThresholds: [7, 21], totalEstimateDays: 35 },
+      moderato: { dayThresholds: [14, 35], totalEstimateDays: 63 },
+      severo: { dayThresholds: [28, 63], totalEstimateDays: 120 },
+    },
+    specialRedFlags: [
+      'You can\'t lift your arm above your head at all, even slowly',
+      'You feel tingling or weakness running down your arm into your hand',
+    ],
+    phases: [
+      { name: 'Load reduction', why: 'The tendon is inflamed from repeated overhead motion (throws, clearances). The first days are about calming it down, avoiding overhead movement.',
+        exercises: [
+          { text: 'Codman pendulum: let the arm hang and swing gently, no forcing', cat: 'stretch' },
+          { text: 'Avoid overhead throws and clearances for the first few days', cat: 'rest' },
+          { text: 'Gentle shoulder mobility within pain-free range, not above shoulder height', cat: 'stretch' },
+        ] },
+      { name: 'Active recovery', why: 'Start strengthening the rotator cuff and scapular muscles, often the real weak link behind shoulder impingement.',
+        criteriaToAdvance: ['You can lift your arm to shoulder height without sharp pain', 'Pain at rest has clearly decreased'],
+        exercises: [
+          { text: 'External rotation with a band, elbow tucked at your side (3 sets of 12-15)', cat: 'strength' },
+          { text: 'Scapular strengthening: squeeze shoulder blades together and hold (3 sets of 10, 5-second hold)', cat: 'hold' },
+          { text: 'Controlled lateral raises below shoulder height (2-3 sets of 12)', cat: 'strength' },
+        ] },
+      { name: 'Return to play', why: 'Before going back to full-power throws and clearances, the shoulder needs to tolerate repeated overhead movement pain-free.',
+        criteriaToAdvance: ['You can lift your arm fully overhead without pain', 'No pain after a light test clearance'],
+        exercises: [
+          { text: 'Progressive clearances, starting from reduced distance', cat: 'strength' },
+          { text: 'Throwing/catching drills at increasing intensity', cat: 'strength' },
+          { text: 'Diving simulation with overhead catch', cat: 'balance' },
+        ] },
+    ],
+  },
+  ac_joint: {
+    relatedInjuries: ['shoulder_impingement'], relatedReason: 'A fall onto the shoulder involving the AC joint often leaves stiffness that resembles shoulder impingement.',
+    label: 'AC joint injury', subtitle: 'Fall onto the point of the shoulder, common on dives', icon: Grip, mechanismTags: ['acute', 'contact'],
+    severityData: {
+      lieve: { dayThresholds: [7, 14], totalEstimateDays: 21 },
+      moderato: { dayThresholds: [14, 35], totalEstimateDays: 56 },
+      severo: { dayThresholds: [35, 70], totalEstimateDays: 126 },
+    },
+    specialRedFlags: [
+      'You see a visible bump or step above the shoulder that wasn\'t there before',
+      'You can\'t move the arm at all right after the impact',
+    ],
+    phases: [
+      { name: 'Protection', why: 'After a direct impact on the point of the shoulder, the AC ligament needs protecting from further stress in the first few days.',
+        exercises: [
+          { text: 'Support sling/strap if advised, arm resting close to the body', cat: 'rest' },
+          { text: 'Elbow and hand mobility to avoid stiffness, without moving the shoulder', cat: 'stretch' },
+          { text: 'Ice on the top of the shoulder for the first few days', cat: 'rest' },
+        ] },
+      { name: 'Active recovery', why: 'The ligament starts tolerating controlled movement. Work on regaining the range of motion lost in the first days.',
+        criteriaToAdvance: ['You can move your arm to shoulder height without sharp pain', 'Pain on direct pressure over the area has decreased'],
+        exercises: [
+          { text: 'Active shoulder mobility in all directions, within pain-free range', cat: 'stretch' },
+          { text: 'Light isometric shoulder holds (15-20 second holds, 3-4 times)', cat: 'hold' },
+          { text: 'Scapular strengthening with a light band', cat: 'strength' },
+        ] },
+      { name: 'Return to play', why: 'Before returning to dives and physical contact, the shoulder needs to tolerate direct load on the area without pain.',
+        criteriaToAdvance: ['You can lean on your arm without shoulder pain', 'No pain during a moderate test activity'],
+        exercises: [
+          { text: 'Progressive weight-bearing on the arm (from kneeling, then standing)', cat: 'strength' },
+          { text: 'Controlled fall/landing simulation on a soft surface', cat: 'balance' },
+          { text: 'Gradual return to diving, from reduced distance', cat: 'run' },
+        ] },
+    ],
+  },
+  bicep_tendinopathy: {
+    relatedInjuries: ['shoulder_impingement'], relatedReason: 'The bicep tendon attaches close to the rotator cuff, so overload in one often involves the other.',
+    label: 'Bicep tendinopathy', subtitle: 'From repeated catching and throwing', icon: Grip, mechanismTags: ['overuse'],
+    severityData: {
+      lieve: { dayThresholds: [7, 21], totalEstimateDays: 35 },
+      moderato: { dayThresholds: [14, 35], totalEstimateDays: 63 },
+      severo: { dayThresholds: [28, 56], totalEstimateDays: 105 },
+    },
+    phases: [
+      { name: 'Load reduction', why: 'The bicep tendon is inflamed from repeated catching and throwing. Reduce load before starting to strengthen it.',
+        exercises: [
+          { text: 'Avoid repeated catching and throwing for the first few days', cat: 'rest' },
+          { text: 'Gentle elbow and shoulder mobility within pain-free range', cat: 'stretch' },
+          { text: 'Light self-massage or foam rolling on the arm', cat: 'stretch' },
+        ] },
+      { name: 'Active recovery', why: 'The tendon responds well to progressive, controlled loading, especially on the lengthening (eccentric) phase of the movement.',
+        criteriaToAdvance: ['You can bend the elbow against light resistance without sharp pain', 'Pain on pressing the tendon has decreased'],
+        exercises: [
+          { text: 'Bicep curls emphasizing a slow lowering phase (3 sets of 10-12)', cat: 'strength' },
+          { text: 'Isometric grip: squeeze an object and hold (3 sets of 20 seconds)', cat: 'hold' },
+          { text: 'Rotator cuff strengthening with a light band', cat: 'strength' },
+        ] },
+      { name: 'Return to play', why: 'Before returning to full-intensity throwing and saves, the tendon needs to tolerate repeated grip and pull without pain.',
+        criteriaToAdvance: ['You can do full-load curls without pain', 'No pain after repeated test catches'],
+        exercises: [
+          { text: 'Progressive throws and catches, starting from reduced intensity', cat: 'strength' },
+          { text: 'Save simulation with ball catch', cat: 'balance' },
+        ] },
+    ],
+  },
+  wrist_sprain: {
+    relatedInjuries: ['finger_jam', 'thumb_sprain'], relatedReason: 'The wrist, fingers, and thumb are often injured together in the same fall onto an open hand.',
+    label: 'Wrist sprain', subtitle: 'Fall onto an open hand, common on dives', icon: Hand, mechanismTags: ['acute'],
+    severityData: {
+      lieve: { dayThresholds: [4, 10], totalEstimateDays: 18 },
+      moderato: { dayThresholds: [7, 21], totalEstimateDays: 35 },
+      severo: { dayThresholds: [14, 42], totalEstimateDays: 84 },
+    },
+    specialRedFlags: [
+      'The wrist looks visibly deformed or markedly swollen right after the fall',
+      'The pain is concentrated at one precise point on the bone, not spread across the wrist',
+    ],
+    phases: [
+      { name: 'Protection', why: 'After a fall onto an open hand, the wrist ligaments are inflamed. Protect the wrist by avoiding direct weight-bearing.',
+        exercises: [
+          { text: 'Avoid leaning on the hand (no push-ups, no bearing weight on the ground)', cat: 'rest' },
+          { text: 'Finger mobility to avoid stiffness, without moving the wrist', cat: 'stretch' },
+          { text: 'Ice on the wrist for the first few days', cat: 'rest' },
+        ] },
+      { name: 'Active recovery', why: 'The ligament starts tolerating controlled movement. Work on range of motion and grip strength.',
+        criteriaToAdvance: ['You can move the wrist in every direction without sharp pain', 'Swelling has clearly decreased'],
+        exercises: [
+          { text: 'Active wrist mobility: flexion, extension, rotation', cat: 'stretch' },
+          { text: 'Grip strengthening with a soft ball (3 sets of 15)', cat: 'strength' },
+          { text: 'Wrist strengthening with a light band, all directions', cat: 'strength' },
+        ] },
+      { name: 'Return to play', why: 'Before returning to dives and hand-supported movements, the wrist needs to tolerate direct load without pain.',
+        criteriaToAdvance: ['You can lean on your hand on the ground without pain', 'No pain after a low-intensity test save'],
+        exercises: [
+          { text: 'Progressive weight-bearing on the hand (kneeling, then standing)', cat: 'strength' },
+          { text: 'Controlled save and landing simulation', cat: 'balance' },
+          { text: 'Gradual return to diving', cat: 'run' },
+        ] },
+    ],
+  },
+  finger_jam: {
+    relatedInjuries: ['wrist_sprain', 'thumb_sprain'], relatedReason: 'The wrist, fingers, and thumb are often injured together in the same impact with the ball.',
+    label: 'Jammed finger', subtitle: 'Direct ball impact', icon: Hand, mechanismTags: ['acute', 'contact'],
+    severityData: {
+      lieve: { dayThresholds: [3, 7], totalEstimateDays: 14 },
+      moderato: { dayThresholds: [7, 14], totalEstimateDays: 28 },
+      severo: { dayThresholds: [14, 35], totalEstimateDays: 63 },
+    },
+    specialRedFlags: [
+      'The finger looks crooked or deformed compared to the others',
+      'You can\'t straighten the finger fully on your own',
+    ],
+    phases: [
+      { name: 'Protection', why: 'After a direct impact, the finger joint is inflamed. Protect it for the first few days, often with buddy taping to the next finger.',
+        exercises: [
+          { text: 'Buddy taping to the adjacent finger if advised', cat: 'rest' },
+          { text: 'Ice on the finger for the first few days', cat: 'rest' },
+          { text: 'Avoid direct ball catches for the first few days', cat: 'rest' },
+        ] },
+      { name: 'Active recovery', why: 'Regain the joint\'s range of motion and start rebuilding grip strength.',
+        criteriaToAdvance: ['You can bend and straighten the finger without sharp pain', 'Swelling has clearly decreased'],
+        exercises: [
+          { text: 'Active finger mobility, bend and extend slowly', cat: 'stretch' },
+          { text: 'Grip strengthening with a soft ball (3 sets of 15)', cat: 'strength' },
+          { text: 'Pinch exercises between thumb and the injured finger', cat: 'strength' },
+        ] },
+      { name: 'Return to play', why: 'Before returning to saves, the finger needs to tolerate direct ball impact without pain.',
+        criteriaToAdvance: ['You can make a full fist without pain', 'No pain after light test catches'],
+        exercises: [
+          { text: 'Progressive ball catches, from reduced distance and low speed', cat: 'strength' },
+          { text: 'Open-hand save simulation', cat: 'balance' },
+        ] },
+    ],
+  },
+  thumb_sprain: {
+    relatedInjuries: ['wrist_sprain', 'finger_jam'], relatedReason: 'The wrist, fingers, and thumb are often injured together in the same catch or fall.',
+    label: 'Thumb sprain', subtitle: 'Twisting on a catch or fall, often involves the inner ligament', icon: Hand, mechanismTags: ['acute'],
+    severityData: {
+      lieve: { dayThresholds: [5, 14], totalEstimateDays: 21 },
+      moderato: { dayThresholds: [10, 28], totalEstimateDays: 42 },
+      severo: { dayThresholds: [21, 56], totalEstimateDays: 90 },
+    },
+    specialRedFlags: [
+      'The thumb feels unstable, like it "gives way" sideways under light pressure',
+      'You can\'t pinch anything between thumb and index finger due to pain',
+    ],
+    phases: [
+      { name: 'Protection', why: 'The ligament at the base of the thumb is inflamed from the twist. Protect it for the first few days, often with a specific brace.',
+        exercises: [
+          { text: 'Thumb brace/strap if advised', cat: 'rest' },
+          { text: 'Ice on the base of the thumb for the first few days', cat: 'rest' },
+          { text: 'Avoid pinch grips (thumb against index) for the first few days', cat: 'rest' },
+        ] },
+      { name: 'Active recovery', why: 'Regain range of motion and gradually start rebuilding pinch grip strength.',
+        criteriaToAdvance: ['You can move the thumb in every direction without sharp pain', 'Swelling has clearly decreased'],
+        exercises: [
+          { text: 'Active thumb mobility in every direction', cat: 'stretch' },
+          { text: 'Light pinch grip strengthening with a soft ball', cat: 'strength' },
+          { text: 'Strengthening with a light band around the thumb', cat: 'strength' },
+        ] },
+      { name: 'Return to play', why: 'Before returning to saves, the thumb needs to tolerate gripping the ball under pressure without giving way.',
+        criteriaToAdvance: ['You can pinch firmly without pain', 'No feeling of instability in the grip'],
+        exercises: [
+          { text: 'Progressive two-handed ball catches', cat: 'strength' },
+          { text: 'Firm-grip save simulation', cat: 'balance' },
+        ] },
+    ],
+  },
 };
 
 const regions = {
@@ -1550,9 +1956,11 @@ const regions = {
   calf_region: { label: 'Gamba e polpaccio', icon: Activity, injuries: ['calf', 'shinsplints', 'cramps'] },
   hip_groin: { label: 'Anca e inguine', icon: ArrowLeftRight, injuries: ['groin', 'hipflexor', 'piriformis', 'trochanteric'] },
   lower_back: { label: 'Zona lombare', icon: PersonStanding, injuries: ['lowback'] },
+  shoulder_arm: { label: 'Spalla e braccio', icon: Grip, injuries: ['shoulder_impingement', 'ac_joint', 'bicep_tendinopathy'] },
+  hand_wrist: { label: 'Mano e polso', icon: Hand, injuries: ['wrist_sprain', 'finger_jam', 'thumb_sprain'] },
 };
-const regionLabelsIT = { ankle_foot: 'Caviglia e piede', knee: 'Ginocchio', thigh: 'Coscia', calf_region: 'Gamba e polpaccio', hip_groin: 'Anca e inguine', lower_back: 'Zona lombare' };
-const regionLabelsEN = { ankle_foot: 'Ankle and foot', knee: 'Knee', thigh: 'Thigh', calf_region: 'Leg and calf', hip_groin: 'Hip and groin', lower_back: 'Lower back' };
+const regionLabelsIT = { ankle_foot: 'Caviglia e piede', knee: 'Ginocchio', thigh: 'Coscia', calf_region: 'Gamba e polpaccio', hip_groin: 'Anca e inguine', lower_back: 'Zona lombare', shoulder_arm: 'Spalla e braccio', hand_wrist: 'Mano e polso' };
+const regionLabelsEN = { ankle_foot: 'Ankle and foot', knee: 'Knee', thigh: 'Thigh', calf_region: 'Leg and calf', hip_groin: 'Hip and groin', lower_back: 'Lower back', shoulder_arm: 'Shoulder and arm', hand_wrist: 'Hand and wrist' };
 
 function regionOfInjury(injuryKey, data) {
   if (!injuryKey || !data[injuryKey]) return null;
@@ -1669,6 +2077,28 @@ const preventionDataIT = {
       { text: 'Ponte glutei a due gambe (3 serie da 12-15)', cat: 'strength' },
     ],
   },
+  shoulder_arm: {
+    label: 'Spalla e braccio',
+    why: 'La spalla di chi para lavora costantemente sopra la testa, nei rinvii e nei tuffi — la stabilità della cuffia dei rotatori e della scapola è quello che previene il sovraccarico nel tempo.',
+    exercises: [
+      { text: 'Rotazione esterna con elastico, gomito fermo al fianco (2-3 serie da 12-15)', cat: 'strength' },
+      { text: 'Rinforzo della scapola: stringi le scapole insieme e tieni (2-3 serie da 10, tenuta 5 secondi)', cat: 'hold' },
+      { text: 'Pendolo di Codman per la mobilità della spalla', cat: 'stretch' },
+      { text: 'Sollevamenti laterali controllati sotto l\'altezza della spalla (2-3 serie da 12)', cat: 'strength' },
+      { text: 'Rinforzo isometrico in rotazione interna ed esterna (tenuta 15-20 secondi, 3-4 volte)', cat: 'hold' },
+    ],
+  },
+  hand_wrist: {
+    label: 'Mano e polso',
+    why: 'Cadute su mano aperta e prese ripetute mettono sotto stress polso e dita — forza di presa e mobilità sono la prima difesa contro distorsioni che si ripetono nel tempo.',
+    exercises: [
+      { text: 'Rinforzo di presa con una pallina morbida (2-3 serie da 15)', cat: 'strength' },
+      { text: 'Mobilità attiva del polso in tutte le direzioni', cat: 'stretch' },
+      { text: 'Rinforzo del polso con elastico leggero, tutte le direzioni (2-3 serie da 12-15)', cat: 'strength' },
+      { text: 'Flessioni sulle nocche invece che sul palmo, se comodo (2-3 serie da 8-10)', cat: 'strength' },
+      { text: 'Esercizi di pinza tra pollice e dita', cat: 'strength' },
+    ],
+  },
 };
 const preventionDataEN = {
   ankle_foot: {
@@ -1735,6 +2165,28 @@ const preventionDataEN = {
       { text: 'Gentle lower back mobility lying down', cat: 'stretch' },
       { text: 'Side plank (2-3 sets of 15-20 seconds per side)', cat: 'strength' },
       { text: 'Two-leg glute bridge (3 sets of 12-15)', cat: 'strength' },
+    ],
+  },
+  shoulder_arm: {
+    label: 'Shoulder and arm',
+    why: 'A goalkeeper\'s shoulder works constantly overhead, on clearances and dives — rotator cuff and scapular stability is what prevents overload building up over time.',
+    exercises: [
+      { text: 'External rotation with a band, elbow tucked at your side (2-3 sets of 12-15)', cat: 'strength' },
+      { text: 'Scapular strengthening: squeeze shoulder blades together and hold (2-3 sets of 10, 5-second hold)', cat: 'hold' },
+      { text: 'Codman pendulum for shoulder mobility', cat: 'stretch' },
+      { text: 'Controlled lateral raises below shoulder height (2-3 sets of 12)', cat: 'strength' },
+      { text: 'Isometric holds in internal and external rotation (15-20 second holds, 3-4 times)', cat: 'hold' },
+    ],
+  },
+  hand_wrist: {
+    label: 'Hand and wrist',
+    why: 'Falls onto an open hand and repeated catches put the wrist and fingers under stress — grip strength and mobility are the first defense against sprains that keep coming back.',
+    exercises: [
+      { text: 'Grip strengthening with a soft ball (2-3 sets of 15)', cat: 'strength' },
+      { text: 'Active wrist mobility in every direction', cat: 'stretch' },
+      { text: 'Wrist strengthening with a light band, all directions (2-3 sets of 12-15)', cat: 'strength' },
+      { text: 'Knuckle push-ups instead of flat palm, if comfortable (2-3 sets of 8-10)', cat: 'strength' },
+      { text: 'Pinch exercises between thumb and fingers', cat: 'strength' },
     ],
   },
 };
@@ -1909,6 +2361,45 @@ const regionRoleExercisesIT = {
       'Tecnica di rotazione del busto nel tiro, a vuoto e controllata (3 serie da 8 per lato)',
       'Plank con rotazione (3 serie da 8-10 per lato)',
       'Rinforzo rotazionale del core con resistenza leggera (2-3 serie da 10 per lato)',
+    ]},
+  },
+  shoulder_arm: {
+    portiere: { why: 'La spalla del portiere lavora sopra la testa nei rinvii e assorbe l\'impatto diretto nei tuffi laterali — potenza di lancio e stabilità nell\'atterraggio vanno allenate insieme.', exercises: [
+      'Tecnica di rinvio progressivo, potenza controllata (8-10 ripetizioni)',
+      'Atterraggio controllato sul lato dopo un tuffo simulato (3 serie da 5 per lato)',
+      'Rinforzo della cuffia dei rotatori con elastico (2-3 serie da 12-15)',
+    ]},
+    difensore: { why: 'Nei duelli aerei e nei blocchi, la spalla assorbe contatto diretto — la stabilità conta quanto la forza pura.', exercises: [
+      'Tecnica di blocco/schermatura con la spalla, controllata (3 serie da 8 per lato)',
+      'Rinforzo della scapola sotto leggero carico (2-3 serie da 12)',
+      'Stabilità della spalla sotto contatto esterno leggero (3 serie da 8)',
+    ]},
+    centrocampista: { why: 'Meno centrale rispetto ad altri ruoli, ma i duelli fisici prolungati per novanta minuti mettono comunque sotto stress la spalla nel tempo.', exercises: [
+      'Rinforzo generale della cuffia dei rotatori (2-3 serie da 15)',
+      'Resistenza della spalla sotto carico ripetuto e leggero (2-3 serie da 15-20)',
+    ]},
+    attaccante: { why: 'Schermare il pallone con il braccio contro un difensore è un gesto ripetuto che richiede stabilità della spalla sotto pressione.', exercises: [
+      'Tecnica di schermatura del pallone, braccio stabile (3 serie da 8 per lato)',
+      'Rinforzo isometrico della spalla sotto pressione esterna (3 serie da 15-20 secondi)',
+    ]},
+  },
+  hand_wrist: {
+    portiere: { why: 'Presa e controllo del pallone dipendono dalla forza di dita e polso — è la base tecnica di ogni parata, non solo un dettaglio.', exercises: [
+      'Tecnica di presa progressiva su palloni a velocità crescente (10-12 ripetizioni)',
+      'Rinforzo delle dita con una pallina morbida (3 serie da 15)',
+      'Appoggio controllato della mano dopo un tuffo simulato (3 serie da 6)',
+    ]},
+    difensore: { why: 'Le cadute durante i contrasti mettono spesso il polso sotto stress improvviso — la forza di base riduce il rischio di una distorsione.', exercises: [
+      'Rinforzo di presa generale con una pallina morbida (2-3 serie da 15)',
+      'Mobilità del polso in tutte le direzioni, a fine sessione',
+    ]},
+    centrocampista: { why: 'Come per gli altri ruoli di movimento, le cadute occasionali durante il gioco beneficiano di un polso più forte e mobile.', exercises: [
+      'Rinforzo di presa generale con una pallina morbida (2-3 serie da 15)',
+      'Mobilità del polso in tutte le direzioni, a fine sessione',
+    ]},
+    attaccante: { why: 'Il contatto fisico continuo e le cadute occasionali beneficiano di un polso più forte e mobile, anche se non è il fattore principale per questo ruolo.', exercises: [
+      'Rinforzo di presa generale con una pallina morbida (2-3 serie da 15)',
+      'Mobilità del polso in tutte le direzioni, a fine sessione',
     ]},
   },
 };
@@ -2097,6 +2588,45 @@ const regionRoleExercisesEN = {
       'Rotational core strengthening with light resistance (2-3 sets of 10 per side)',
     ]},
   },
+  shoulder_arm: {
+    portiere: { why: 'A goalkeeper\'s shoulder works overhead on clearances and absorbs direct impact on lateral dives — throwing power and landing stability need training together.', exercises: [
+      'Progressive clearance technique, controlled power (8-10 reps)',
+      'Controlled landing on the side after a simulated dive (3 sets of 5 per side)',
+      'Rotator cuff strengthening with a band (2-3 sets of 12-15)',
+    ]},
+    difensore: { why: 'In aerial duels and blocking, the shoulder absorbs direct contact — stability matters as much as raw strength.', exercises: [
+      'Shoulder blocking/shielding technique, controlled (3 sets of 8 per side)',
+      'Scapular strengthening under light load (2-3 sets of 12)',
+      'Shoulder stability under light external contact (3 sets of 8)',
+    ]},
+    centrocampista: { why: 'Less central than for other roles, but prolonged physical duels over ninety minutes still stress the shoulder over time.', exercises: [
+      'General rotator cuff strengthening (2-3 sets of 15)',
+      'Shoulder endurance under light repeated load (2-3 sets of 15-20)',
+    ]},
+    attaccante: { why: 'Shielding the ball with the arm against a defender is a repeated action that requires shoulder stability under pressure.', exercises: [
+      'Ball-shielding technique, stable arm (3 sets of 8 per side)',
+      'Isometric shoulder strengthening under external pressure (3 sets of 15-20 seconds)',
+    ]},
+  },
+  hand_wrist: {
+    portiere: { why: 'Catching and controlling the ball depend on finger and wrist strength — it\'s the technical foundation of every save, not just a detail.', exercises: [
+      'Progressive catching technique on balls at increasing speed (10-12 reps)',
+      'Finger strengthening with a soft ball (3 sets of 15)',
+      'Controlled hand landing after a simulated dive (3 sets of 6)',
+    ]},
+    difensore: { why: 'Falls during tackles often put the wrist under sudden stress — baseline strength reduces the risk of a sprain.', exercises: [
+      'General grip strengthening with a soft ball (2-3 sets of 15)',
+      'Wrist mobility in every direction, end of session',
+    ]},
+    centrocampista: { why: 'As with other outfield roles, occasional falls during play benefit from a stronger, more mobile wrist.', exercises: [
+      'General grip strengthening with a soft ball (2-3 sets of 15)',
+      'Wrist mobility in every direction, end of session',
+    ]},
+    attaccante: { why: 'Constant physical contact and occasional falls benefit from a stronger, more mobile wrist, even though it isn\'t the main factor for this role.', exercises: [
+      'General grip strengthening with a soft ball (2-3 sets of 15)',
+      'Wrist mobility in every direction, end of session',
+    ]},
+  },
 };
 
 const dateChipsIT = [
@@ -2151,6 +2681,10 @@ const bodyZones = [
   { region: 'calf_region', label: 'Polpaccio dx', shape: 'rect', center: { cx: 113, cy: 254.5 }, props: { x: 106, y: 233, width: 14, height: 43, rx: 7 } },
   { region: 'ankle_foot', label: 'Caviglia sx', shape: 'ellipse', center: { cx: 87, cy: 292 }, props: { cx: 87, cy: 292, rx: 10, ry: 9 } },
   { region: 'ankle_foot', label: 'Caviglia dx', shape: 'ellipse', center: { cx: 113, cy: 292 }, props: { cx: 113, cy: 292, rx: 10, ry: 9 } },
+  { region: 'shoulder_arm', label: 'Spalla/braccio sx', shape: 'rect', center: { cx: 60, cy: 97 }, props: { x: 53, y: 58, width: 14, height: 78, rx: 7 } },
+  { region: 'shoulder_arm', label: 'Spalla/braccio dx', shape: 'rect', center: { cx: 140, cy: 97 }, props: { x: 133, y: 58, width: 14, height: 78, rx: 7 } },
+  { region: 'hand_wrist', label: 'Mano/polso sx', shape: 'ellipse', center: { cx: 60, cy: 141 }, props: { cx: 60, cy: 141, rx: 8, ry: 9 } },
+  { region: 'hand_wrist', label: 'Mano/polso dx', shape: 'ellipse', center: { cx: 140, cy: 141 }, props: { cx: 140, cy: 141, rx: 8, ry: 9 } },
 ];
 
 function BodyDiagram({ onSelectRegion, accentColor = colors.accent, tintColor = colors.accentTint }) {
@@ -2185,8 +2719,10 @@ function BodyDiagram({ onSelectRegion, accentColor = colors.accent, tintColor = 
         <ellipse cx="100" cy="25" rx="15" ry="17" fill="url(#os-body-gradient)" />
         <rect x="95" y="39" width="10" height="10" rx="4" fill="url(#os-body-gradient)" />
         <path d="M72 58 Q100 44 128 58 L131 108 Q100 124 69 108 Z" fill="url(#os-body-gradient)" />
-        <rect x="53" y="58" width="14" height="52" rx="7" fill="url(#os-body-gradient)" />
-        <rect x="133" y="58" width="14" height="52" rx="7" fill="url(#os-body-gradient)" />
+        <rect x="53" y="58" width="14" height="78" rx="7" fill="url(#os-body-gradient)" />
+        <rect x="133" y="58" width="14" height="78" rx="7" fill="url(#os-body-gradient)" />
+        <ellipse cx="60" cy="141" rx="8" ry="9" fill="url(#os-body-gradient)" />
+        <ellipse cx="140" cy="141" rx="8" ry="9" fill="url(#os-body-gradient)" />
       </g>
 
       {bodyZones.map((zone, i) => {
@@ -2895,18 +3431,14 @@ export default function Offside() {
       <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full min-h-[100dvh] relative flex flex-col">
         <style>{sharedStyle}</style>
         <div className="px-6 sm:px-10 pt-14 pb-8 flex flex-col flex-1">
-          <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[11px] font-bold uppercase mb-2">{isEN ? 'Just two quick things' : 'Due cose veloci'}</p>
-          <h1 style={{ ...displayFont, color: colors.ink }} className="text-2xl font-bold mb-2">{isEN ? 'What do you play?' : 'Cosa giochi?'}</h1>
-          <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-8">{isEN ? 'Helps tailor training to your position. Skip it if you\'d rather get started right away — you can always add this later.' : 'Aiuta a tarare l\'allenamento sul tuo ruolo. Salta pure se preferisci iniziare subito — puoi aggiungerlo comunque più tardi.'}</p>
-
-          <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Position' : 'Ruolo'}</p>
-          <div className="grid grid-cols-2 gap-2.5 mb-7">
-            {playerPositions.map((pos) => (
-              <button key={pos.key} onClick={() => setPlayerPosition(pos.key)} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.card, color: playerPosition === pos.key ? '#FFFFFF' : colors.ink, border: `1.5px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus rounded-xl py-3.5 text-sm font-semibold transition-colors shadow-sm">
-                {pos.label}
-              </button>
-            ))}
+          <div className="flex items-start justify-between mb-2">
+            <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[11px] font-bold uppercase">{isEN ? 'One quick thing' : 'Una cosa veloce'}</p>
+            <button onClick={finishOnboarding} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Skip' : 'Salta'}>
+              <X size={17} color={colors.mutedInk} />
+            </button>
           </div>
+          <h1 style={{ ...displayFont, color: colors.ink }} className="text-2xl font-bold mb-2">{isEN ? 'What level do you play at?' : 'A che livello giochi?'}</h1>
+          <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-8">{isEN ? 'Helps set the right tone for your recovery. You can skip this and add it later.' : 'Aiuta a impostare il tono giusto per il tuo recupero. Puoi saltarlo e aggiungerlo più tardi.'}</p>
 
           <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Playing level' : 'Categoria'}</p>
           <div className="flex flex-wrap gap-2 mb-8">
@@ -2917,12 +3449,30 @@ export default function Offside() {
             ))}
           </div>
 
+          <div className="flex items-center gap-2 mb-2.5">
+            <Lock size={13} color={colors.premiumGold} />
+            <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Position (Premium)' : 'Ruolo (Premium)'}</p>
+          </div>
+          <div className="relative mb-2">
+            <div style={{ filter: 'blur(4px)', pointerEvents: 'none' }} className="grid grid-cols-2 gap-2.5" aria-hidden="true">
+              {playerPositions.map((pos) => (
+                <div key={pos.key} style={{ backgroundColor: colors.card, border: `1.5px solid ${colors.hairline}`, color: colors.ink }} className="rounded-xl py-3.5 text-sm font-semibold text-center shadow-sm">
+                  {pos.label}
+                </div>
+              ))}
+            </div>
+            <button onClick={() => { finishOnboarding(); setScreen('premium'); }} className="os-focus absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-xl" style={{ backgroundColor: 'rgba(238,243,248,0.55)' }}>
+              <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="text-[11px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-full shadow-sm">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
+            </button>
+          </div>
+          <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-8">{isEN ? 'Premium tailors training and recovery tips to your exact position.' : 'Premium adatta allenamento e consigli di recupero al tuo ruolo esatto.'}</p>
+
           <div className="flex-1" />
 
           <button onClick={finishOnboarding} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
-            <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Continue' : 'Continua'}</span><ArrowRight size={16} />
+            <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Continue without Premium' : 'Continua senza Premium'}</span><ArrowRight size={16} />
           </button>
-          <button onClick={finishOnboarding} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mx-auto">{isEN ? 'Skip for now' : 'Salta per ora'}</button>
+          <p style={{ color: colors.mutedInk }} className="text-[11px] text-center">{isEN ? 'You can unlock Premium anytime from your profile.' : 'Puoi sbloccare Premium quando vuoi dal tuo profilo.'}</p>
         </div>
       </div>
     );
@@ -3278,15 +3828,21 @@ export default function Offside() {
                             </div>
                             <button onClick={() => setPlayerPosition(null)} style={{ color: '#A9B7C4' }} className="os-focus text-[11px] underline hover:opacity-70">{isEN ? 'Change' : 'Cambia'}</button>
                           </div>
-                          <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed mb-3">{regionRoleExercises[roleRegion][playerPosition].why}</p>
-                          <div className="space-y-2">
-                            {regionRoleExercises[roleRegion][playerPosition].exercises.map((ex, i) => (
-                              <div key={i} style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} className="flex items-start gap-2.5 rounded-lg p-2.5">
-                                <div style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5">{i + 1}</div>
-                                <p style={{ color: '#EEF3F8' }} className="text-sm leading-snug">{ex}</p>
+                          {regionRoleExercises[roleRegion]?.[playerPosition] ? (
+                            <>
+                              <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed mb-3">{regionRoleExercises[roleRegion][playerPosition].why}</p>
+                              <div className="space-y-2">
+                                {regionRoleExercises[roleRegion][playerPosition].exercises.map((ex, i) => (
+                                  <div key={i} style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} className="flex items-start gap-2.5 rounded-lg p-2.5">
+                                    <div style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5">{i + 1}</div>
+                                    <p style={{ color: '#EEF3F8' }} className="text-sm leading-snug">{ex}</p>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
+                            </>
+                          ) : (
+                            <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed">{isEN ? 'Role-specific training for this area is coming soon.' : 'L\'allenamento per ruolo per questa zona arriva presto.'}</p>
+                          )}
                         </>
                       )}
                     </div>
@@ -3430,14 +3986,32 @@ export default function Offside() {
               ))}
             </div>
 
-            <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Position' : 'Ruolo'}</p>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {playerPositions.map((pos) => (
-                <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.card, color: playerPosition === pos.key ? '#FFFFFF' : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
-                  {pos.label}
-                </button>
-              ))}
+            <div className="flex items-center gap-2 mb-2.5">
+              {!premiumUnlocked && <Lock size={12} color={colors.premiumGold} />}
+              <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Position' : 'Ruolo'}{!premiumUnlocked ? ' (Premium)' : ''}</p>
             </div>
+            {!premiumUnlocked ? (
+              <button onClick={() => setScreen('premium')} className="os-focus w-full text-left">
+                <div className="relative mb-2">
+                  <div style={{ filter: 'blur(4px)', pointerEvents: 'none' }} className="flex flex-wrap gap-2" aria-hidden="true">
+                    {playerPositions.map((pos) => (
+                      <div key={pos.key} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="px-3 py-1.5 rounded-full text-xs font-medium">{pos.label}</div>
+                    ))}
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}>
+                    <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full shadow-sm">{isEN ? 'Unlock' : 'Sblocca'}</span>
+                  </div>
+                </div>
+              </button>
+            ) : (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {playerPositions.map((pos) => (
+                  <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.card, color: playerPosition === pos.key ? '#FFFFFF' : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                    {pos.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">{isEN ? 'Used for role-specific training in Premium, and for return-to-play tips in your recovery.' : 'Usato per l\'allenamento per ruolo in Premium, e per i consigli sul rientro nel tuo percorso.'}</p>
           </div>
         )}
@@ -3690,7 +4264,7 @@ export default function Offside() {
                 <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-3 shadow-sm">
                   <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.12em' }} className="text-[10px] font-bold uppercase mb-1">{isEN ? `Phase ${activePhase + 1} of ${injury.phases.length}` : `Fase ${activePhase + 1} di ${injury.phases.length}`}</p>
                   <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-xl font-bold uppercase mb-1.5">{phase.name}</p>
-                  <p style={{ color: '#A9B7C4' }} className="text-sm">{phaseRangeLabel(activePhase, dayThresholds, isEN)} · {isEN ? 'severity' : 'gravità'} {severityLabels[severity].toLowerCase()}{playerPosition && ` · ${playerPositions.find((p) => p.key === playerPosition)?.label}`}</p>
+                  <p style={{ color: '#A9B7C4' }} className="text-sm">{phaseRangeLabel(activePhase, dayThresholds, isEN)} · {isEN ? 'severity' : 'gravità'} {severityLabels[severity].toLowerCase()}{premiumUnlocked && playerPosition && ` · ${playerPositions.find((p) => p.key === playerPosition)?.label}`}</p>
                   {currentDate && (
                     <div className="flex gap-1 relative pt-3">
                       {segments.map((seg, i) => (
@@ -3846,16 +4420,37 @@ export default function Offside() {
 
                 {activePhase === injury.phases.length - 1 && (
                   <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
-                    <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'What position do you play?' : 'Che ruolo giochi?'}</p>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {playerPositions.map((pos) => (
-                        <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.paper, color: playerPosition === pos.key ? '#FFFFFF' : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
-                          {pos.label}
-                        </button>
-                      ))}
+                    <div className="flex items-center gap-2 mb-2.5">
+                      {!premiumUnlocked && <Lock size={12} color={colors.premiumGold} />}
+                      <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'What position do you play?' : 'Che ruolo giochi?'}{!premiumUnlocked ? ' (Premium)' : ''}</p>
                     </div>
-                    {playerPosition && (
-                      <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{playerPositions.find((p) => p.key === playerPosition)?.tip}</p>
+                    {!premiumUnlocked ? (
+                      <>
+                        <div className="relative mb-1">
+                          <div style={{ filter: 'blur(4px)', pointerEvents: 'none' }} className="flex flex-wrap gap-2" aria-hidden="true">
+                            {playerPositions.map((pos) => (
+                              <div key={pos.key} style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="px-3 py-1.5 rounded-full text-xs font-medium">{pos.label}</div>
+                            ))}
+                          </div>
+                          <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}>
+                            <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full shadow-sm">{isEN ? 'Unlock' : 'Sblocca'}</span>
+                          </button>
+                        </div>
+                        <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">{isEN ? 'Get a return-to-play tip built for your exact position.' : 'Ricevi un consiglio sul rientro pensato per il tuo ruolo esatto.'}</p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {playerPositions.map((pos) => (
+                            <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.paper, color: playerPosition === pos.key ? '#FFFFFF' : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                              {pos.label}
+                            </button>
+                          ))}
+                        </div>
+                        {playerPosition && (
+                          <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{playerPositions.find((p) => p.key === playerPosition)?.tip}</p>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
