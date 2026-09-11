@@ -16,7 +16,7 @@ import {
   Calendar, Scale, Dumbbell, Move, Wind, Timer, Pause, Pencil, Target,
   HelpCircle, PlayCircle, Flame, Share2, ClipboardCheck, Check, Gauge, Waves,
   Aperture, PersonStanding, Ruler, Sprout, RotateCw, CircleDashed, ShieldAlert,
-  Snowflake, Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, Smartphone
+  Snowflake, Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, Smartphone, User
 } from 'lucide-react';
 
 const colors = {
@@ -1765,6 +1765,19 @@ const playerPositionsEN = [
   { key: 'attaccante', label: 'Forward', tip: 'As a forward, short bursts and sudden accelerations are your daily bread: make sure you tolerate repeated sprints and explosive changes of pace well, not just continuous running.' },
 ];
 
+const playerLevelsIT = [
+  { key: 'giovanili', label: 'Giovanili' },
+  { key: 'amatoriale', label: 'Amatoriale' },
+  { key: 'dilettanti', label: 'Dilettanti' },
+  { key: 'semipro', label: 'Semi-pro / Pro' },
+];
+const playerLevelsEN = [
+  { key: 'giovanili', label: 'Youth' },
+  { key: 'amatoriale', label: 'Amateur' },
+  { key: 'dilettanti', label: 'Competitive amateur' },
+  { key: 'semipro', label: 'Semi-pro / Pro' },
+];
+
 const regionRoleExercisesIT = {
   ankle_foot: {
     portiere: { why: 'Nei tuffi la caviglia assorbe il carico in appoggio instabile — la tecnica di atterraggio conta quanto la forza.', exercises: [
@@ -2430,6 +2443,7 @@ export default function Offside() {
   const [premiumUnlocked, setPremiumUnlocked] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [installDismissed, setInstallDismissed] = useState(false);
+  const [userProfile, setUserProfile] = useState({ age: '', weight: '', height: '', sex: '', level: '' });
   const isEN = language === 'en';
   const injuriesData = isEN ? injuriesDataEN : injuriesDataIT;
   const preventionData = isEN ? preventionDataEN : preventionDataIT;
@@ -2446,6 +2460,7 @@ export default function Offside() {
   const riceAvoid = isEN ? riceAvoidEN : riceAvoidIT;
   const injuryScenarios = isEN ? injuryScenariosEN : injuryScenariosIT;
   const playerPositions = isEN ? playerPositionsEN : playerPositionsIT;
+  const playerLevels = isEN ? playerLevelsEN : playerLevelsIT;
   const regionRoleExercises = isEN ? regionRoleExercisesEN : regionRoleExercisesIT;
   const techniqueData = isEN ? techniqueDataEN : techniqueDataIT;
   const dateChips = isEN ? dateChipsEN : dateChipsIT;
@@ -2488,6 +2503,7 @@ export default function Offside() {
           setPremiumUnlocked(!!loaded.premiumUnlocked);
           setCriteriaChecked(loaded.criteriaChecked || {});
           setInstallDismissed(!!loaded.installDismissed);
+          setUserProfile(loaded.userProfile || { age: '', weight: '', height: '', sex: '', level: '' });
         }
       } catch (err) {} finally {
         setLoading(false);
@@ -2521,7 +2537,7 @@ export default function Offside() {
     }
   }, []);
 
-  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, installDismissed, ...overrides });
+  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, ...overrides });
 
   const goBack = () => {
     if (screen === 'tracker') setScreen('injuries');
@@ -2529,6 +2545,7 @@ export default function Offside() {
     else if (screen === 'triage') setScreen('regions');
     else if (screen === 'firstaid') setScreen('regions');
     else if (screen === 'premium') setScreen('tracker');
+    else if (screen === 'profile') setScreen('regions');
     else if (screen === 'regions') setScreen('cover');
   };
 
@@ -2890,12 +2907,17 @@ export default function Offside() {
             <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">Offside</p>
           </div>
           <h1 style={{ ...displayFont, color: colors.ink }} className="text-lg sm:text-xl font-semibold truncate">
-            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Where does it hurt?' : 'Dove senti il problema?')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
+            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Where does it hurt?' : 'Dove senti il problema?')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
           </h1>
         </div>
         {screen === 'tracker' && injury && (
           <button onClick={shareProgress} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Share your progress' : 'Condividi il tuo percorso'}>
             {shareCopied ? <Check size={15} color={colors.accentDark} /> : <Share2 size={15} color={colors.accentDark} />}
+          </button>
+        )}
+        {screen !== 'profile' && (
+          <button onClick={() => setScreen('profile')} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Your profile' : 'Il tuo profilo'}>
+            <User size={15} color={colors.accentDark} />
           </button>
         )}
       </div>
@@ -3277,6 +3299,18 @@ export default function Offside() {
 
                   <div className="os-print-only">
                     <h1>{isEN ? 'Recovery Summary' : 'Riepilogo del percorso'} — OFFSIDE</h1>
+                    {(userProfile.age || userProfile.weight || userProfile.height || userProfile.sex || userProfile.level || playerPosition) && (
+                      <p>
+                        {[
+                          userProfile.age && `${isEN ? 'Age' : 'Età'}: ${userProfile.age}`,
+                          userProfile.weight && `${isEN ? 'Weight' : 'Peso'}: ${userProfile.weight} kg`,
+                          userProfile.height && `${isEN ? 'Height' : 'Altezza'}: ${userProfile.height} cm`,
+                          userProfile.sex && `${isEN ? 'Sex' : 'Sesso'}: ${{ m: isEN ? 'Male' : 'Maschio', f: isEN ? 'Female' : 'Femmina', na: '—' }[userProfile.sex]}`,
+                          userProfile.level && `${isEN ? 'Level' : 'Livello'}: ${playerLevels.find((l) => l.key === userProfile.level)?.label}`,
+                          playerPosition && `${isEN ? 'Position' : 'Ruolo'}: ${playerPositions.find((p) => p.key === playerPosition)?.label}`,
+                        ].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
                     <p><strong>{isEN ? 'Injury' : 'Infortunio'}:</strong> {injury.label}</p>
                     <p><strong>{isEN ? 'Severity' : 'Gravità'}:</strong> {severityLabels[severity]}</p>
                     {currentDate && <p><strong>{isEN ? 'Started on' : 'Iniziato il'}:</strong> {currentDate} ({isEN ? 'day' : 'giorno'} {dayCount})</p>}
@@ -3313,6 +3347,57 @@ export default function Offside() {
             })()}
               </>
             )}
+          </div>
+        )}
+
+        {screen === 'profile' && (
+          <div>
+            <p style={{ color: colors.mutedInk }} className="text-sm mb-6 leading-relaxed">
+              {isEN ? 'Optional — helps make the app feel a bit more yours, and gets added to your printable summary for a professional. Stays only on this device.' : 'Facoltativo — aiuta a rendere l\'app un po\' più tua, e viene aggiunto al riepilogo stampabile per un professionista. Resta solo su questo dispositivo.'}
+            </p>
+
+            <div className="grid grid-cols-3 gap-2.5 mb-5">
+              <div>
+                <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Age' : 'Età'}</label>
+                <input type="number" inputMode="numeric" min="5" max="99" value={userProfile.age} onChange={(e) => { const next = { ...userProfile, age: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-2.5 py-2.5 text-sm text-center" placeholder="—" />
+              </div>
+              <div>
+                <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Weight (kg)' : 'Peso (kg)'}</label>
+                <input type="number" inputMode="numeric" min="20" max="200" value={userProfile.weight} onChange={(e) => { const next = { ...userProfile, weight: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-2.5 py-2.5 text-sm text-center" placeholder="—" />
+              </div>
+              <div>
+                <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Height (cm)' : 'Altezza (cm)'}</label>
+                <input type="number" inputMode="numeric" min="100" max="220" value={userProfile.height} onChange={(e) => { const next = { ...userProfile, height: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-2.5 py-2.5 text-sm text-center" placeholder="—" />
+              </div>
+            </div>
+
+            <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Sex' : 'Sesso'}</p>
+            <div className="flex flex-wrap gap-2 mb-5">
+              {[{ key: 'm', label: isEN ? 'Male' : 'Maschio' }, { key: 'f', label: isEN ? 'Female' : 'Femmina' }, { key: 'na', label: isEN ? 'Prefer not to say' : 'Preferisco non dire' }].map((opt) => (
+                <button key={opt.key} onClick={() => { const next = { ...userProfile, sex: opt.key }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: userProfile.sex === opt.key ? colors.accent : colors.card, color: userProfile.sex === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${userProfile.sex === opt.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Playing level' : 'Livello di gioco'}</p>
+            <div className="flex flex-wrap gap-2 mb-5">
+              {playerLevels.map((lvl) => (
+                <button key={lvl.key} onClick={() => { const next = { ...userProfile, level: lvl.key }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: userProfile.level === lvl.key ? colors.accent : colors.card, color: userProfile.level === lvl.key ? '#FFFFFF' : colors.ink, border: `1px solid ${userProfile.level === lvl.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                  {lvl.label}
+                </button>
+              ))}
+            </div>
+
+            <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Position' : 'Ruolo'}</p>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {playerPositions.map((pos) => (
+                <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.card, color: playerPosition === pos.key ? '#FFFFFF' : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                  {pos.label}
+                </button>
+              ))}
+            </div>
+            <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">{isEN ? 'Used for role-specific training in Premium, and for return-to-play tips in your recovery.' : 'Usato per l\'allenamento per ruolo in Premium, e per i consigli sul rientro nel tuo percorso.'}</p>
           </div>
         )}
 
@@ -3746,6 +3831,18 @@ export default function Offside() {
                           className="os-focus flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold mx-auto"
                         >
                           <Share2 size={13} />{shareCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Share the milestone' : 'Condividi il traguardo')}
+                        </button>
+                        <button
+                          onClick={() => {
+                            const region = regionOfInjury(selectedInjury, injuriesData);
+                            setRegionsTab('prevention');
+                            setScreen('regions');
+                            if (region) { setExpandedPrevention(region); setTimeout(() => scrollToId(`prevention-${region}`), 200); }
+                          }}
+                          style={{ color: colors.accent }}
+                          className="os-focus block mx-auto mt-3 text-xs font-medium underline hover:opacity-70"
+                        >
+                          {isEN ? 'Don\'t let it happen again — see prevention exercises for this area' : 'Non farlo ripetere — vedi gli esercizi di prevenzione per questa zona'}
                         </button>
                       </div>
                     </div>
