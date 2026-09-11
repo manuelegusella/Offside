@@ -4359,9 +4359,9 @@ export default function Offside() {
                   })}
                 </div>
 
-                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-4 shadow-sm">
-                  <p className="flex items-center gap-2 mb-2"><Info size={15} color={colors.accentDark} /><span style={{ ...displayFont, color: colors.accentDark }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Why this phase' : 'Perché questa fase'}</span></p>
-                  <p style={{ color: colors.ink }} className="text-sm leading-relaxed">{phase.why}</p>
+                <div style={{ borderLeft: `3px solid ${colors.accent}55` }} className="pl-3.5 mb-5">
+                  <p className="flex items-center gap-1.5 mb-1"><Info size={13} color={colors.mutedInk} /><span style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.06em' }} className="text-[11px] font-semibold uppercase">{isEN ? 'Why this phase' : 'Perché questa fase'}</span></p>
+                  <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed">{phase.why}</p>
                 </div>
 
                 {phase.criteriaToAdvance && (() => {
@@ -4511,9 +4511,14 @@ export default function Offside() {
                   )
                 )}
 
-                <div className="flex items-center justify-between mb-1">
-                  <span style={{ ...displayFont, color: colors.ink, letterSpacing: '0.08em' }} className="text-xs font-semibold uppercase">{isEN ? 'Exercises' : 'Esercizi'}</span>
-                  <span style={{ ...displayFont, color: colors.accentDark }} className="os-tabular text-lg font-bold">{completedCount}<span style={{ color: colors.mutedInk }} className="text-sm font-normal"> / {phase.exercises.length}</span></span>
+                <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="pt-5 mt-1 mb-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="flex items-center gap-1.5">
+                      <Dumbbell size={16} color={colors.ink} />
+                      <span style={{ ...displayFont, color: colors.ink, letterSpacing: '0.04em' }} className="text-base font-bold uppercase">{isEN ? 'Exercises' : 'Esercizi'}</span>
+                    </span>
+                    <span style={{ ...displayFont, color: colors.accentDark }} className="os-tabular text-xl font-bold">{completedCount}<span style={{ color: colors.mutedInk }} className="text-sm font-normal"> / {phase.exercises.length}</span></span>
+                  </div>
                 </div>
                 <p style={{ color: colors.mutedInk }} className="text-[11px] mb-4">{isEN ? 'Adjust them to how your body responds, don\'t push through sharp pain.' : 'Adattali a come risponde il tuo corpo, non forzare sul dolore acuto.'}</p>
 
