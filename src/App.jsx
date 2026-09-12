@@ -2717,6 +2717,40 @@ const dateChipsEN = [
   { label: 'A week ago', days: 7 }, { label: '2+ weeks ago', days: 14 },
 ];
 
+// Profilo tipico di presentazione per ciascun infortunio, usato per ordinare i risultati del triage per probabilità.
+// weight usa le stesse chiavi delle risposte: 'normale' (impatto minimo), 'dolore' (doloroso ma possibile), 'fatica' (molto difficile).
+const triageProfiles = {
+  ankle: { pop: true, swelling: true, weight: 'fatica' },
+  achilles: { pop: false, swelling: false, weight: 'dolore' },
+  achilles_rupture: { pop: true, swelling: true, weight: 'fatica' },
+  knee: { pop: false, swelling: false, weight: 'dolore' },
+  mcl: { pop: true, swelling: true, weight: 'dolore' },
+  patellar: { pop: false, swelling: false, weight: 'dolore' },
+  meniscus: { pop: true, swelling: true, weight: 'dolore' },
+  itband: { pop: false, swelling: false, weight: 'dolore' },
+  osgood: { pop: false, swelling: true, weight: 'dolore' },
+  hamstring: { pop: true, swelling: true, weight: 'dolore' },
+  quad: { pop: true, swelling: true, weight: 'dolore' },
+  contusion: { pop: false, swelling: true, weight: 'dolore' },
+  calf: { pop: true, swelling: true, weight: 'dolore' },
+  shinsplints: { pop: false, swelling: false, weight: 'dolore' },
+  plantarfasciitis: { pop: false, swelling: false, weight: 'dolore' },
+  groin: { pop: false, swelling: false, weight: 'dolore' },
+  hipflexor: { pop: false, swelling: false, weight: 'dolore' },
+  piriformis: { pop: false, swelling: false, weight: 'dolore' },
+  trochanteric: { pop: false, swelling: false, weight: 'dolore' },
+  lcl: { pop: true, swelling: true, weight: 'dolore' },
+  cramps: { pop: false, swelling: false, weight: 'normale' },
+  blisters: { pop: false, swelling: false, weight: 'dolore' },
+  lowback: { pop: false, swelling: false, weight: 'dolore' },
+  shoulder_impingement: { pop: false, swelling: false, weight: 'normale' },
+  ac_joint: { pop: false, swelling: true, weight: 'dolore' },
+  bicep_tendinopathy: { pop: false, swelling: false, weight: 'normale' },
+  wrist_sprain: { pop: false, swelling: true, weight: 'dolore' },
+  finger_jam: { pop: false, swelling: true, weight: 'dolore' },
+  thumb_sprain: { pop: false, swelling: true, weight: 'dolore' },
+};
+
 const mechanismOptionsIT = [
   { key: 'contatto', label: 'Contatto con un avversario', icon: Shield },
   { key: 'torsione', label: 'Movimento del corpo (torsione, scatto, salto)', icon: Zap },
@@ -2734,11 +2768,13 @@ const weightOptionsIT = [
   { key: 'dolore', label: 'Sì, ma con dolore' },
   { key: 'fatica', label: 'A fatica o per niente' },
 ];
+const swellingOptionsIT = [{ key: 'si', label: 'Sì' }, { key: 'no', label: 'No' }, { key: 'nonso', label: 'Non so / non ancora visibile' }];
 const weightOptionsEN = [
   { key: 'normale', label: 'Yes, normally' },
   { key: 'dolore', label: 'Yes, but with pain' },
   { key: 'fatica', label: 'With difficulty, or not at all' },
 ];
+const swellingOptionsEN = [{ key: 'si', label: 'Yes' }, { key: 'no', label: 'No' }, { key: 'nonso', label: 'Not sure / not visible yet' }];
 
 function BottomNav({ screen, isEN, onNavigate }) {
   const items = [
@@ -3109,7 +3145,9 @@ export default function Offside() {
   const [screen, setScreen] = useState('cover');
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [triageTag, setTriageTag] = useState(null);
-  const [triageAnswers, setTriageAnswers] = useState({ mechanism: null, pop: null, weight: null });
+  const [triageAnswers, setTriageAnswers] = useState({ mechanism: null, pop: null, weight: null, swelling: null });
+  const [triageRegion, setTriageRegion] = useState(null);
+  const [triageCandidateIndex, setTriageCandidateIndex] = useState(0);
   const [selectedInjury, setSelectedInjury] = useState(null);
   const [activePhase, setActivePhase] = useState(0);
   const [progress, setProgress] = useState({});
@@ -3159,6 +3197,7 @@ export default function Offside() {
   const mechanismOptions = isEN ? mechanismOptionsEN : mechanismOptionsIT;
   const popOptions = isEN ? popOptionsEN : popOptionsIT;
   const weightOptions = isEN ? weightOptionsEN : weightOptionsIT;
+  const swellingOptions = isEN ? swellingOptionsEN : swellingOptionsIT;
   const regionLabels = isEN ? regionLabelsEN : regionLabelsIT;
   const [shareCopied, setShareCopied] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
@@ -3253,6 +3292,7 @@ export default function Offside() {
     if (screen === 'tracker') setScreen('injuries');
     else if (screen === 'injuries') { setScreen('regions'); setSelectedRegion(null); setTriageTag(null); }
     else if (screen === 'triage') setScreen('regions');
+    else if (screen === 'triageResults') setScreen('triage');
     else if (screen === 'firstaid') setScreen('regions');
     else if (screen === 'premium') setScreen('tracker');
     else if (screen === 'profile') setScreen('regions');
@@ -3280,7 +3320,7 @@ export default function Offside() {
     persist({ selectedInjury: key, activePhase: suggested, progress, injuryDates, injurySeverities, dailyLog, playerPosition });
   };
   
-  const startTriage = () => { setTriageAnswers({ mechanism: null, pop: null, weight: null }); setTriageTag(null); setScreen('triage'); };
+  const startTriage = () => { setTriageAnswers({ mechanism: null, pop: null, weight: null, swelling: null }); setTriageRegion(null); setTriageTag(null); setTriageCandidateIndex(0); setScreen('triage'); };
   const handleScenario = (scenario) => { setTriageTag(scenario.tag); openRegion(scenario.region); };
 
   const chooseInjury = (key) => {
@@ -3476,13 +3516,28 @@ export default function Offside() {
     persist({ selectedInjury: nextSelected, activePhase, progress: nextProgress, injuryDates: nextDates, injurySeverities, dailyLog: nextLog, playerPosition });
   };
 
-  const answerTriage = (field, value) => setTriageAnswers({ ...triageAnswers, [field]: value });
-  const triageComplete = triageAnswers.mechanism && triageAnswers.pop && triageAnswers.weight;
+  const answerTriage = (field, value) => { setTriageAnswers({ ...triageAnswers, [field]: value }); setTriageCandidateIndex(0); };
+  const triageComplete = triageRegion && triageAnswers.mechanism && triageAnswers.pop && triageAnswers.weight && triageAnswers.swelling;
   const triageRedirect = triageAnswers.weight === 'fatica' || (triageAnswers.pop === 'si' && triageAnswers.mechanism === 'torsione');
+  const triageMechanismTagMap = { contatto: 'contact', sovraccarico: 'overuse', torsione: 'acute' };
+  const computeTriageScore = (injuryKey) => {
+    const profile = triageProfiles[injuryKey];
+    const data = injuriesData[injuryKey];
+    if (!profile || !data) return 0;
+    let score = 0;
+    if (data.mechanismTags.includes(triageMechanismTagMap[triageAnswers.mechanism])) score += 2;
+    if ((triageAnswers.pop === 'si') === profile.pop) score += 1;
+    if (triageAnswers.weight === profile.weight) score += 1;
+    if (triageAnswers.swelling !== 'nonso' && (triageAnswers.swelling === 'si') === profile.swelling) score += 1;
+    return score;
+  };
+  const triageResults = triageRegion && regions[triageRegion]
+    ? [...regions[triageRegion].injuries].sort((a, b) => computeTriageScore(b) - computeTriageScore(a))
+    : [];
   const finishTriage = () => {
-    const tagMap = { contatto: 'contact', sovraccarico: 'overuse', torsione: 'acute' };
-    setTriageTag(tagMap[triageAnswers.mechanism]);
-    setScreen('regions');
+    setTriageTag(triageMechanismTagMap[triageAnswers.mechanism]);
+    setTriageCandidateIndex(0);
+    setScreen('triageResults');
   };
 
   const displayFont = { fontFamily: "'Space Grotesk', sans-serif" };
@@ -3733,7 +3788,7 @@ export default function Offside() {
             <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">Offside</p>
           </div>
           <h1 style={{ ...displayFont, color: colors.ink }} className="text-lg sm:text-xl font-semibold truncate">
-            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Where does it hurt?' : 'Dove senti il problema?')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
+            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Where does it hurt?' : 'Dove senti il problema?')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'triageResults' ? (isEN ? 'Most likely matches' : 'Probabilmente è questo') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
           </h1>
         </div>
         {screen === 'tracker' && injury && (
@@ -3868,16 +3923,16 @@ export default function Offside() {
                   })}
                 </div>
 
-                <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase mb-2.5">{isEN ? 'Or, what happened?' : 'Oppure, cos\'è successo?'}</p>
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  {injuryScenarios.map((sc, i) => (
-                    <button key={i} onClick={() => handleScenario(sc)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus flex flex-col items-start gap-2 p-3 rounded-xl text-left hover:border-green-400 transition-colors shadow-sm">
-                      <sc.icon size={18} color={colors.accentDark} strokeWidth={2} />
-                      <span style={{ color: colors.ink }} className="text-xs leading-snug font-medium">{sc.label}</span>
-                    </button>
-                  ))}
-                </div>
-                <button onClick={startTriage} style={{ color: colors.accentDark }} className="os-focus text-xs underline hover:opacity-70 mb-2 block">{isEN ? 'None of these — answer 3 questions' : 'Nessuno di questi — rispondi a 3 domande'}</button>
+                <button onClick={startTriage} style={{ backgroundColor: colors.card, border: `1.5px dashed ${colors.hairline}` }} className="os-focus w-full flex items-center gap-3 rounded-2xl p-4 mb-2 text-left hover:border-green-300 transition-colors">
+                  <div style={{ backgroundColor: colors.accentTint }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center">
+                    <HelpCircle size={20} color={colors.accentDark} />
+                  </div>
+                  <div className="flex-1">
+                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Not sure what it is?' : 'Non sai cosa hai?'}</p>
+                    <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? 'Answer 4 fixed questions, ranked by likelihood' : 'Rispondi a 4 domande fisse, ordinate per probabilità'}</p>
+                  </div>
+                  <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0" />
+                </button>
               </>
             ) : regionsTab === 'prevention' ? (
               <>
@@ -4381,72 +4436,144 @@ export default function Offside() {
 
         {screen === 'triage' && (
           <div>
-            <div className="flex gap-1.5 mb-6">
-              {[triageAnswers.mechanism, triageAnswers.pop, triageAnswers.weight].map((answered, i) => (
-                <div key={i} style={{ backgroundColor: answered ? colors.accent : colors.hairline }} className="flex-1 h-1 rounded-full transition-colors" />
-              ))}
-            </div>
+            {!triageRegion ? (
+              <>
+                <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-6">{isEN ? 'First, tap where you feel the problem — then a few fixed questions to narrow it down.' : 'Prima tocca dove senti il problema — poi qualche domanda fissa per restringere il campo.'}</p>
+                <BodyDiagram onSelectRegion={(key) => setTriageRegion(key)} />
+              </>
+            ) : (
+              <>
+                <button onClick={() => { setTriageRegion(null); setTriageAnswers({ mechanism: null, pop: null, weight: null, swelling: null }); }} style={{ color: colors.mutedInk }} className="os-focus flex items-center gap-1.5 text-xs mb-4 hover:opacity-70">
+                  <RotateCcw size={12} />{isEN ? `Change area (${regionLabels[triageRegion]})` : `Cambia zona (${regionLabels[triageRegion]})`}
+                </button>
 
-            <div className="space-y-6">
-              <div>
-                <p className="flex items-center gap-2.5 mb-3">
-                  <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">1</span>
-                  <span style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{isEN ? 'How did it happen?' : 'Com\'è successo?'}</span>
-                </p>
-                <div className="space-y-2">
-                  {mechanismOptions.map((opt) => (
-                    <button key={opt.key} onClick={() => answerTriage('mechanism', opt.key)}
-                      style={{ backgroundColor: triageAnswers.mechanism === opt.key ? colors.accent : colors.card, color: triageAnswers.mechanism === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.mechanism === opt.key ? colors.accent : colors.hairline}` }}
-                      className="os-focus w-full flex items-center gap-2.5 text-left px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">
-                      <opt.icon size={16} color={triageAnswers.mechanism === opt.key ? '#FFFFFF' : colors.accent} className="flex-shrink-0" />
-                      {opt.label}
+                <div className="flex gap-1.5 mb-6">
+                  {[triageAnswers.mechanism, triageAnswers.pop, triageAnswers.weight, triageAnswers.swelling].map((answered, i) => (
+                    <div key={i} style={{ backgroundColor: answered ? colors.accent : colors.hairline }} className="flex-1 h-1 rounded-full transition-colors" />
+                  ))}
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <p className="flex items-center gap-2.5 mb-3">
+                      <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">1</span>
+                      <span style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{isEN ? 'How did it happen?' : 'Com\'è successo?'}</span>
+                    </p>
+                    <div className="space-y-2">
+                      {mechanismOptions.map((opt) => (
+                        <button key={opt.key} onClick={() => answerTriage('mechanism', opt.key)}
+                          style={{ backgroundColor: triageAnswers.mechanism === opt.key ? colors.accent : colors.card, color: triageAnswers.mechanism === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.mechanism === opt.key ? colors.accent : colors.hairline}` }}
+                          className="os-focus w-full flex items-center gap-2.5 text-left px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">
+                          <opt.icon size={16} color={triageAnswers.mechanism === opt.key ? '#FFFFFF' : colors.accent} className="flex-shrink-0" />
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="flex items-center gap-2.5 mb-3">
+                      <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">2</span>
+                      <span style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Did you hear a snap or "pop"?' : 'Hai sentito uno schiocco o un "pop"?'}</span>
+                    </p>
+                    <div className="flex gap-2">
+                      {popOptions.map((opt) => (
+                        <button key={opt.key} onClick={() => answerTriage('pop', opt.key)}
+                          style={{ backgroundColor: triageAnswers.pop === opt.key ? colors.accent : colors.card, color: triageAnswers.pop === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.pop === opt.key ? colors.accent : colors.hairline}` }}
+                          className="os-focus flex-1 text-center px-4 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm">{opt.label}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="flex items-center gap-2.5 mb-3">
+                      <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">3</span>
+                      <span style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Can you move/use the area normally?' : 'Riesci a muovere/usare la zona normalmente?'}</span>
+                    </p>
+                    <div className="space-y-2">
+                      {weightOptions.map((opt) => (
+                        <button key={opt.key} onClick={() => answerTriage('weight', opt.key)}
+                          style={{ backgroundColor: triageAnswers.weight === opt.key ? colors.accent : colors.card, color: triageAnswers.weight === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.weight === opt.key ? colors.accent : colors.hairline}` }}
+                          className="os-focus w-full text-left px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">{opt.label}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="flex items-center gap-2.5 mb-3">
+                      <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">4</span>
+                      <span style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Is there visible swelling?' : 'C\'è gonfiore visibile?'}</span>
+                    </p>
+                    <div className="flex gap-2">
+                      {swellingOptions.map((opt) => (
+                        <button key={opt.key} onClick={() => answerTriage('swelling', opt.key)}
+                          style={{ backgroundColor: triageAnswers.swelling === opt.key ? colors.accent : colors.card, color: triageAnswers.swelling === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.swelling === opt.key ? colors.accent : colors.hairline}` }}
+                          className="os-focus flex-1 text-center px-3 py-3 rounded-lg text-xs font-medium transition-colors shadow-sm">{opt.label}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {triageComplete && triageRedirect && (
+                  <div style={{ backgroundColor: colors.redTint }} className="rounded-xl p-4 flex gap-2.5 mt-6">
+                    <AlertTriangle size={18} color={colors.red} className="flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p style={{ color: colors.red, fontWeight: 600 }} className="text-sm mb-1">{isEN ? 'Better to get it checked by a professional' : 'Meglio farlo vedere da un professionista'}</p>
+                      <p style={{ color: colors.red }} className="text-xs leading-relaxed mb-3">{isEN ? 'Based on what you indicated, we recommend a professional assessment before starting a recovery plan on your own.' : 'In base a quello che hai indicato, ti consigliamo una valutazione professionale prima di iniziare da soli un percorso di recupero.'}</p>
+                      <button onClick={finishTriage} style={{ color: colors.red }} className="os-focus text-xs underline">{isEN ? 'Understood, I still want to see the general information' : 'Ho capito, voglio comunque vedere le informazioni generali'}</button>
+                    </div>
+                  </div>
+                )}
+                {triageComplete && !triageRedirect && (
+                  <button onClick={finishTriage} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 shadow-sm mt-6">
+                    <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'See the results' : 'Vedi i risultati'}</span><ArrowRight size={16} />
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {screen === 'triageResults' && triageRegion && (
+          <div>
+            <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-5">{isEN ? 'Based on your answers, ordered from most to least likely. Not a diagnosis — just a starting point.' : 'In base alle tue risposte, dal più al meno probabile. Non è una diagnosi — solo un punto di partenza.'}</p>
+
+            {(() => {
+              const key = triageResults[triageCandidateIndex];
+              const data = injuriesData[key];
+              if (!data) return null;
+              const score = computeTriageScore(key);
+              const confidence = score >= 4 ? (isEN ? 'Strong match' : 'Corrispondenza alta') : score >= 2 ? (isEN ? 'Possible match' : 'Corrispondenza media') : (isEN ? 'Weak match' : 'Corrispondenza bassa');
+              const confidenceColor = score >= 4 ? colors.accent : score >= 2 ? colors.orange : colors.mutedInk;
+              const Icon = data.icon;
+              return (
+                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-2xl p-5 shadow-sm mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span style={{ backgroundColor: confidenceColor + '22', color: confidenceColor }} className="text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full">{confidence}</span>
+                    <span style={{ color: colors.mutedInk }} className="text-xs">{triageCandidateIndex + 1}/{triageResults.length}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div style={{ backgroundColor: colors.accentTint }} className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center">
+                      <Icon size={22} color={colors.accentDark} />
+                    </div>
+                    <div>
+                      <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="text-base font-bold">{data.label}</p>
+                      <p style={{ color: colors.mutedInk }} className="text-xs">{data.subtitle}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 mt-4">
+                    <button onClick={() => { setSelectedInjury(key); setScreen('tracker'); setEditingSetup(true); setSetupSection('gravita'); }} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus flex-1 flex items-center justify-center gap-1.5 rounded-lg py-3 text-sm font-semibold hover:opacity-90 transition-opacity">
+                      {isEN ? 'Yes, this is it' : 'Sì, è questo'}<ArrowRight size={15} />
                     </button>
-                  ))}
+                    {triageCandidateIndex < triageResults.length - 1 && (
+                      <button onClick={() => setTriageCandidateIndex(triageCandidateIndex + 1)} style={{ backgroundColor: colors.paper, color: colors.ink, border: `1px solid ${colors.hairline}` }} className="os-focus flex-1 rounded-lg py-3 text-sm font-medium hover:opacity-80 transition-opacity">
+                        {isEN ? 'Not this one' : 'Non è questo'}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <p className="flex items-center gap-2.5 mb-3">
-                  <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">2</span>
-                  <span style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Did you hear a snap or "pop"?' : 'Hai sentito uno schiocco o un "pop"?'}</span>
-                </p>
-                <div className="flex gap-2">
-                  {popOptions.map((opt) => (
-                    <button key={opt.key} onClick={() => answerTriage('pop', opt.key)}
-                      style={{ backgroundColor: triageAnswers.pop === opt.key ? colors.accent : colors.card, color: triageAnswers.pop === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.pop === opt.key ? colors.accent : colors.hairline}` }}
-                      className="os-focus flex-1 text-center px-4 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm">{opt.label}</button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="flex items-center gap-2.5 mb-3">
-                  <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">3</span>
-                  <span style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Can you put weight on the leg?' : 'Riesci ad appoggiare il peso sulla gamba?'}</span>
-                </p>
-                <div className="space-y-2">
-                  {weightOptions.map((opt) => (
-                    <button key={opt.key} onClick={() => answerTriage('weight', opt.key)}
-                      style={{ backgroundColor: triageAnswers.weight === opt.key ? colors.accent : colors.card, color: triageAnswers.weight === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.weight === opt.key ? colors.accent : colors.hairline}` }}
-                      className="os-focus w-full text-left px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">{opt.label}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
-            {triageComplete && triageRedirect && (
-              <div style={{ backgroundColor: colors.redTint }} className="rounded-xl p-4 flex gap-2.5 mt-6">
-                <AlertTriangle size={18} color={colors.red} className="flex-shrink-0 mt-0.5" />
-                <div>
-                  <p style={{ color: colors.red, fontWeight: 600 }} className="text-sm mb-1">{isEN ? 'Better to get it checked by a professional' : 'Meglio farlo vedere da un professionista'}</p>
-                  <p style={{ color: colors.red }} className="text-xs leading-relaxed mb-3">{isEN ? 'Based on what you indicated, we recommend a professional assessment before starting a recovery plan on your own.' : 'In base a quello che hai indicato, ti consigliamo una valutazione professionale prima di iniziare da soli un percorso di recupero.'}</p>
-                  <button onClick={finishTriage} style={{ color: colors.red }} className="os-focus text-xs underline">{isEN ? 'Understood, I still want to see the general information' : 'Ho capito, voglio comunque vedere le informazioni generali'}</button>
-                </div>
-              </div>
-            )}
-            {triageComplete && !triageRedirect && (
-              <button onClick={finishTriage} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 shadow-sm mt-6">
-                <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Continue' : 'Continua'}</span><ArrowRight size={16} />
-              </button>
-            )}
+            <button onClick={() => openRegion(triageRegion)} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 block mx-auto mt-2">{isEN ? 'See the full list for this area instead' : 'Vedi invece l\'elenco completo di questa zona'}</button>
           </div>
         )}
 
