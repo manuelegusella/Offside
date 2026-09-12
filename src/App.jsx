@@ -3653,26 +3653,6 @@ export default function Offside() {
       <div key={screen} className="px-5 sm:px-8 py-6 os-fadein">
         {screen === 'regions' && (
           <>
-            {!installDismissed && !(typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches) && (
-              <InstallBanner
-                isEN={isEN}
-                canInstall={!!installPromptEvent}
-                onInstallClick={async () => { if (installPromptEvent) { installPromptEvent.prompt(); await installPromptEvent.userChoice; setInstallPromptEvent(null); } }}
-                onDismiss={() => { setInstallDismissed(true); persist(snapshot({ installDismissed: true })); }}
-              />
-            )}
-
-            <button onClick={() => setScreen('physios')} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-3 rounded-2xl p-3.5 mb-5 text-left shadow-sm hover:opacity-90 transition-opacity">
-              <div style={{ backgroundColor: colors.redTint }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
-                <Stethoscope size={18} color={colors.red} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Find a physiotherapist' : 'Trova un fisioterapista'}</p>
-                <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? 'A directory of sports physiotherapists near you' : 'Un elenco di fisioterapisti sportivi vicino a te'}</p>
-              </div>
-              <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0" />
-            </button>
-
             <div style={{ backgroundColor: colors.laneBg }} className="flex gap-1 p-1 rounded-full mb-5">
               <button onClick={() => setRegionsTab('injury')} style={{ backgroundColor: regionsTab === 'injury' ? colors.card : 'transparent', color: regionsTab === 'injury' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
                 <Snowflake size={14} />{isEN ? 'Injury' : 'Infortunio'}
@@ -3684,10 +3664,6 @@ export default function Offside() {
                 {!premiumUnlocked && <Lock size={11} />}<CircleDot size={14} />{isEN ? 'Technique' : 'Tecnica'}
               </button>
             </div>
-
-            {regionsTab !== 'technique' && (
-              <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: exercises for your role AND this area' : 'Premium: esercizi per il tuo ruolo E questa zona'} />
-            )}
 
             {regionsTab === 'injury' ? (
               <>
@@ -3894,6 +3870,32 @@ export default function Offside() {
                 )}
               </>
             )}
+
+            <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="pt-5 mt-2">
+              {regionsTab !== 'technique' && (
+                <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: exercises for your role AND this area' : 'Premium: esercizi per il tuo ruolo E questa zona'} />
+              )}
+
+              <button onClick={() => setScreen('physios')} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-3 rounded-2xl p-3.5 mb-5 text-left shadow-sm hover:opacity-90 transition-opacity">
+                <div style={{ backgroundColor: colors.redTint }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
+                  <Stethoscope size={18} color={colors.red} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Find a physiotherapist' : 'Trova un fisioterapista'}</p>
+                  <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? 'A directory of sports physiotherapists near you' : 'Un elenco di fisioterapisti sportivi vicino a te'}</p>
+                </div>
+                <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0" />
+              </button>
+
+              {!installDismissed && !(typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches) && (
+                <InstallBanner
+                  isEN={isEN}
+                  canInstall={!!installPromptEvent}
+                  onInstallClick={async () => { if (installPromptEvent) { installPromptEvent.prompt(); await installPromptEvent.userChoice; setInstallPromptEvent(null); } }}
+                  onDismiss={() => { setInstallDismissed(true); persist(snapshot({ installDismissed: true })); }}
+                />
+              )}
+            </div>
 
             <button onClick={() => setScreen('cover')} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-5 block mx-auto">{isEN ? 'Back to cover' : 'Torna alla copertina'}</button>
           </>
