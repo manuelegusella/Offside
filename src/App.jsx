@@ -3262,6 +3262,30 @@ export default function Offside() {
   };
   const changePhase = (idx) => { setActivePhase(idx); setActiveVideo(null); persist(snapshot({ activePhase: idx })); };
 
+  const renderRestoreBox = () => (
+    <div className="mt-3">
+      {!showRestoreBox ? (
+        <button onClick={() => setShowRestoreBox(true)} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70">
+          {isEN ? 'Already have Premium? Restore it' : 'Hai già Premium? Ripristinalo'}
+        </button>
+      ) : (
+        <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-3.5">
+          <p style={{ color: colors.mutedInk }} className="text-xs mb-2">{isEN ? 'Enter the email you used to pay' : 'Inserisci l\'email che hai usato per pagare'}</p>
+          <div className="flex gap-2">
+            <input type="email" value={restoreEmail} onChange={(e) => { setRestoreEmail(e.target.value); setRestoreStatus('idle'); }} placeholder="email@esempio.com" style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus flex-1 min-w-0 rounded-lg px-3 py-2 text-sm" />
+            <button onClick={restorePremium} disabled={restoreStatus === 'checking'} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus px-3 py-2 rounded-lg text-xs font-semibold flex-shrink-0">
+              {restoreStatus === 'checking' ? '...' : (isEN ? 'Check' : 'Verifica')}
+            </button>
+          </div>
+          {restoreStatus === 'success' && <p style={{ color: colors.accentDark }} className="text-xs mt-2 flex items-center gap-1"><CheckCircle2 size={13} />{isEN ? 'Premium restored!' : 'Premium ripristinato!'}</p>}
+          {restoreStatus === 'notfound' && <p style={{ color: colors.red }} className="text-xs mt-2">{isEN ? 'No Premium found for this email.' : 'Nessun Premium trovato per questa email.'}</p>}
+          {restoreStatus === 'error' && <p style={{ color: colors.red }} className="text-xs mt-2">{isEN ? 'Something went wrong, try again.' : 'Qualcosa è andato storto, riprova.'}</p>}
+        </div>
+      )}
+    </div>
+  );
+
+
   const toggleExercise = (exIdx) => {
     if (!selectedInjury) return;
     const pKey = `${selectedInjury}-${activePhase}`;
@@ -3594,29 +3618,6 @@ export default function Offside() {
   }
 
   const activeInjuryKeys = Object.keys(injuryDates).filter((k) => injuryDates[k] && injuriesData[k]);
-
-  const renderRestoreBox = () => (
-    <div className="mt-3">
-      {!showRestoreBox ? (
-        <button onClick={() => setShowRestoreBox(true)} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70">
-          {isEN ? 'Already have Premium? Restore it' : 'Hai già Premium? Ripristinalo'}
-        </button>
-      ) : (
-        <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-3.5">
-          <p style={{ color: colors.mutedInk }} className="text-xs mb-2">{isEN ? 'Enter the email you used to pay' : 'Inserisci l\'email che hai usato per pagare'}</p>
-          <div className="flex gap-2">
-            <input type="email" value={restoreEmail} onChange={(e) => { setRestoreEmail(e.target.value); setRestoreStatus('idle'); }} placeholder="email@esempio.com" style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus flex-1 min-w-0 rounded-lg px-3 py-2 text-sm" />
-            <button onClick={restorePremium} disabled={restoreStatus === 'checking'} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus px-3 py-2 rounded-lg text-xs font-semibold flex-shrink-0">
-              {restoreStatus === 'checking' ? '...' : (isEN ? 'Check' : 'Verifica')}
-            </button>
-          </div>
-          {restoreStatus === 'success' && <p style={{ color: colors.accentDark }} className="text-xs mt-2 flex items-center gap-1"><CheckCircle2 size={13} />{isEN ? 'Premium restored!' : 'Premium ripristinato!'}</p>}
-          {restoreStatus === 'notfound' && <p style={{ color: colors.red }} className="text-xs mt-2">{isEN ? 'No Premium found for this email.' : 'Nessun Premium trovato per questa email.'}</p>}
-          {restoreStatus === 'error' && <p style={{ color: colors.red }} className="text-xs mt-2">{isEN ? 'Something went wrong, try again.' : 'Qualcosa è andato storto, riprova.'}</p>}
-        </div>
-      )}
-    </div>
-  );
 
   const handleBottomNav = (key) => {
     if (key === 'regions') { setScreen('regions'); }
