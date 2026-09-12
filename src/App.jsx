@@ -3098,6 +3098,18 @@ export default function Offside() {
   const [expandedSymptoms, setExpandedSymptoms] = useState(null);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('premium') === 'unlocked') {
+      setPremiumUnlocked(true);
+      persist(snapshot({ premiumUnlocked: true }));
+      trackEvent('premium_unlocked_via_redirect');
+      params.delete('premium');
+      const cleanUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '') + window.location.hash;
+      window.history.replaceState({}, '', cleanUrl);
+    }
+  }, []);
+
+  useEffect(() => {
     loadFontsOnce();
     (async () => {
       let loaded = {};
