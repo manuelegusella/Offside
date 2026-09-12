@@ -3910,6 +3910,17 @@ export default function Offside() {
                   <BodyDiagram onSelectRegion={openRegion} />
                 </div>
 
+                <button onClick={startTriage} style={{ backgroundColor: colors.card, border: `1.5px dashed ${colors.hairline}` }} className="os-focus w-full flex items-center gap-3 rounded-2xl p-4 mb-6 text-left hover:border-green-300 transition-colors">
+                  <div style={{ backgroundColor: colors.accentTint }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center">
+                    <HelpCircle size={20} color={colors.accentDark} />
+                  </div>
+                  <div className="flex-1">
+                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Not sure what it is?' : 'Non sai cosa hai?'}</p>
+                    <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? 'Answer 4 fixed questions, ranked by likelihood' : 'Rispondi a 4 domande fisse, ordinate per probabilità'}</p>
+                  </div>
+                  <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0" />
+                </button>
+
                 <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.1em' }} className="text-xs font-semibold uppercase mb-3">{isEN ? 'Or choose the area' : 'Oppure scegli il distretto'}</p>
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   {Object.entries(regions).map(([key, data]) => {
@@ -3922,17 +3933,6 @@ export default function Offside() {
                     );
                   })}
                 </div>
-
-                <button onClick={startTriage} style={{ backgroundColor: colors.card, border: `1.5px dashed ${colors.hairline}` }} className="os-focus w-full flex items-center gap-3 rounded-2xl p-4 mb-2 text-left hover:border-green-300 transition-colors">
-                  <div style={{ backgroundColor: colors.accentTint }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center">
-                    <HelpCircle size={20} color={colors.accentDark} />
-                  </div>
-                  <div className="flex-1">
-                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Not sure what it is?' : 'Non sai cosa hai?'}</p>
-                    <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? 'Answer 4 fixed questions, ranked by likelihood' : 'Rispondi a 4 domande fisse, ordinate per probabilità'}</p>
-                  </div>
-                  <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0" />
-                </button>
               </>
             ) : regionsTab === 'prevention' ? (
               <>
@@ -4835,6 +4835,18 @@ export default function Offside() {
                   <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.12em' }} className="text-[10px] font-bold uppercase mb-1">{isEN ? `Phase ${activePhase + 1} of ${injury.phases.length}` : `Fase ${activePhase + 1} di ${injury.phases.length}`}</p>
                   <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-xl font-bold uppercase mb-1.5">{phase.name}</p>
                   <p style={{ color: '#A9B7C4' }} className="text-sm">{phaseRangeLabel(activePhase, dayThresholds, isEN)} · {isEN ? 'severity' : 'gravità'} {severityLabels[severity].toLowerCase()}{premiumUnlocked && playerPosition && ` · ${playerPositions.find((p) => p.key === playerPosition)?.label}`}</p>
+                  {currentDate && (() => {
+                    const dayNum = daysSince(currentDate);
+                    const rawMinute = Math.round((dayNum / totalEstimateDays) * 90);
+                    const minuteLabel = rawMinute <= 90 ? `${rawMinute}'` : `90+${rawMinute - 90}'`;
+                    return (
+                      <div style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 mt-2">
+                        <span className="text-xs">⏱️</span>
+                        <span style={{ ...displayFont, color: '#FFFFFF' }} className="text-xs font-bold os-tabular">{minuteLabel}</span>
+                        <span style={{ color: '#A9B7C4' }} className="text-[11px]">{isEN ? 'of your match' : 'della tua partita'}</span>
+                      </div>
+                    );
+                  })()}
                   {currentDate && (
                     <div className="flex gap-1 relative pt-3">
                       {segments.map((seg, i) => (
