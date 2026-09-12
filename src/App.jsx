@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // SOSTITUISCI questo con il tuo vero Payment Link di Stripe una volta creato
-const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/SOSTITUISCI_QUESTO';
+const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/test_dRmbJ1c2K3Zt1sB8mB7IY00';
 
 function trackEvent(name, params = {}) {
   if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
@@ -2670,8 +2670,8 @@ function BottomNav({ screen, isEN, onNavigate }) {
   const items = [
     { key: 'regions', label: isEN ? 'Home' : 'Home', icon: Compass, screens: ['regions', 'triage', 'injuries', 'firstaid'] },
     { key: 'tracker', label: isEN ? 'Recovery' : 'Percorso', icon: Activity, screens: ['tracker'] },
+    { key: 'physios', label: isEN ? 'Physio' : 'Fisio', icon: Stethoscope, screens: ['physios'] },
     { key: 'premium', label: 'Premium', icon: TrendingUp, screens: ['premium'] },
-    { key: 'profile', label: isEN ? 'Profile' : 'Profilo', icon: User, screens: ['profile'] },
   ];
   return (
     <div style={{ backgroundColor: colors.card, borderTop: `1px solid ${colors.hairline}`, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} className="fixed bottom-0 left-0 right-0 flex items-stretch z-20 shadow-[0_-2px_10px_rgba(16,27,38,0.06)]">
@@ -2814,27 +2814,17 @@ function BodyDiagram({ onSelectRegion, accentColor = colors.accent, tintColor = 
 function InstallBanner({ isEN, onInstallClick, canInstall, onDismiss }) {
   const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   return (
-    <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-2xl p-3.5 mb-5 shadow-sm flex items-start gap-3">
-      <div style={{ backgroundColor: colors.accentTint }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
-        <Smartphone size={18} color={colors.accentDark} />
-      </div>
-      <div className="flex-1 min-w-0">
-        {isIOS ? (
-          <p style={{ color: colors.ink }} className="text-xs leading-relaxed">
-            {isEN ? 'Tap the Share icon, then "Add to Home Screen" — find Offside instantly next time, like a real app.' : 'Tocca l\'icona Condividi, poi "Aggiungi alla schermata Home" — ritrova Offside subito la prossima volta, come un\'app vera.'}
-          </p>
-        ) : canInstall ? (
-          <>
-            <p style={{ color: colors.ink, fontWeight: 600 }} className="text-xs mb-1.5">{isEN ? 'Add Offside to your home screen' : 'Aggiungi Offside alla schermata Home'}</p>
-            <button onClick={onInstallClick} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus text-[11px] font-semibold px-3 py-1.5 rounded-full">{isEN ? 'Install' : 'Installa'}</button>
-          </>
-        ) : (
-          <p style={{ color: colors.ink }} className="text-xs leading-relaxed">
-            {isEN ? 'Look for "Add to Home Screen" or "Install app" in your browser menu, to find Offside instantly next time.' : 'Cerca "Aggiungi a schermata Home" o "Installa app" nel menu del browser, per ritrovare Offside subito la prossima volta.'}
-          </p>
-        )}
-      </div>
-      <button onClick={onDismiss} style={{ color: colors.mutedInk }} className="os-focus flex-shrink-0 p-0.5"><X size={14} /></button>
+    <div style={{ backgroundColor: colors.accentTint }} className="flex items-center gap-2 rounded-lg px-3 py-2 mb-4">
+      <Smartphone size={14} color={colors.accentDark} className="flex-shrink-0" />
+      <p style={{ color: colors.accentDark }} className="flex-1 text-[11px] leading-snug">
+        {isIOS
+          ? (isEN ? 'Tap Share → "Add to Home Screen" to find Offside instantly' : 'Tocca Condividi → "Aggiungi a Home" per ritrovarla subito')
+          : (isEN ? 'Add Offside to your home screen' : 'Aggiungi Offside alla schermata Home')}
+      </p>
+      {canInstall && !isIOS && (
+        <button onClick={onInstallClick} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus flex-shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full">{isEN ? 'Install' : 'Installa'}</button>
+      )}
+      <button onClick={onDismiss} style={{ color: colors.accentDark }} className="os-focus flex-shrink-0"><X size={13} /></button>
     </div>
   );
 }
@@ -3154,6 +3144,10 @@ export default function Offside() {
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
+
+  useEffect(() => {
+    if (screen === 'physios') trackEvent('physio_directory_viewed');
+  }, [screen]);
 
   const persist = useCallback(async (next) => {
     try {
@@ -3580,8 +3574,8 @@ export default function Offside() {
       if (activeInjuryKeys.length > 0) resumeInjury(activeInjuryKeys[0]);
       else { setRegionsTab('injury'); setScreen('regions'); }
     }
+    else if (key === 'physios') { setScreen('physios'); }
     else if (key === 'premium') { setScreen('premium'); }
-    else if (key === 'profile') { setScreen('profile'); }
   };
 
   return (
@@ -3614,8 +3608,8 @@ export default function Offside() {
           <PlayerMascot stage={mascotStageForScreen(screen)} size={20} color={colors.accentDark} />
         </div>
         {screen !== 'profile' && (
-          <button onClick={() => setScreen('profile')} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Your profile' : 'Il tuo profilo'}>
-            <User size={15} color={colors.accentDark} />
+          <button onClick={() => setScreen('profile')} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Your profile' : 'Il tuo profilo'}>
+            <User size={17} color={colors.accentDark} />
           </button>
         )}
       </div>
@@ -3653,6 +3647,15 @@ export default function Offside() {
       <div key={screen} className="px-5 sm:px-8 py-6 os-fadein">
         {screen === 'regions' && (
           <>
+            {!installDismissed && !(typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches) && (
+              <InstallBanner
+                isEN={isEN}
+                canInstall={!!installPromptEvent}
+                onInstallClick={async () => { if (installPromptEvent) { installPromptEvent.prompt(); await installPromptEvent.userChoice; setInstallPromptEvent(null); } }}
+                onDismiss={() => { setInstallDismissed(true); persist(snapshot({ installDismissed: true })); }}
+              />
+            )}
+
             <div style={{ backgroundColor: colors.laneBg }} className="flex gap-1 p-1 rounded-full mb-5">
               <button onClick={() => setRegionsTab('injury')} style={{ backgroundColor: regionsTab === 'injury' ? colors.card : 'transparent', color: regionsTab === 'injury' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
                 <Snowflake size={14} />{isEN ? 'Injury' : 'Infortunio'}
@@ -3874,26 +3877,6 @@ export default function Offside() {
             <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="pt-5 mt-2">
               {regionsTab !== 'technique' && (
                 <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: exercises for your role AND this area' : 'Premium: esercizi per il tuo ruolo E questa zona'} />
-              )}
-
-              <button onClick={() => setScreen('physios')} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-3 rounded-2xl p-3.5 mb-5 text-left shadow-sm hover:opacity-90 transition-opacity">
-                <div style={{ backgroundColor: colors.redTint }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
-                  <Stethoscope size={18} color={colors.red} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Find a physiotherapist' : 'Trova un fisioterapista'}</p>
-                  <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? 'A directory of sports physiotherapists near you' : 'Un elenco di fisioterapisti sportivi vicino a te'}</p>
-                </div>
-                <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0" />
-              </button>
-
-              {!installDismissed && !(typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches) && (
-                <InstallBanner
-                  isEN={isEN}
-                  canInstall={!!installPromptEvent}
-                  onInstallClick={async () => { if (installPromptEvent) { installPromptEvent.prompt(); await installPromptEvent.userChoice; setInstallPromptEvent(null); } }}
-                  onDismiss={() => { setInstallDismissed(true); persist(snapshot({ installDismissed: true })); }}
-                />
               )}
             </div>
 
