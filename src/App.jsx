@@ -188,6 +188,43 @@ const injuriesDataIT = {
         ] },
     ],
   },
+  achilles_rupture: {
+    relatedInjuries: ['achilles', 'calf'], relatedReason: 'Una tendinopatia achillea trascurata è tra i principali fattori di rischio per la rottura vera e propria.',
+    label: 'Rottura del tendine d\'Achille', subtitle: 'Lacerazione completa o parziale, spesso richiede intervento', icon: Anchor, mechanismTags: ['acute'],
+    severityData: {
+      lieve: { dayThresholds: [28, 70], totalEstimateDays: 120 },
+      moderato: { dayThresholds: [56, 140], totalEstimateDays: 210 },
+      severo: { dayThresholds: [70, 168], totalEstimateDays: 280 },
+    },
+    specialRedFlags: [
+      'Senti un altro "colpo" o cedimento improvviso nella gamba operata durante la riabilitazione',
+      'Non riesci a sollevarti sulle punte nemmeno minimamente, molte settimane dopo l\'infortunio',
+      'Inizi a sentire dolore, rigidità o gonfiore anche nell\'altro tendine d\'Achille',
+    ],
+    phases: [
+      { name: 'Protezione', why: 'Nelle prime settimane il tendine riparato (chirurgicamente o no) è fragile: l\'obiettivo è proteggerlo mentre inizia a guarire, senza immobilizzarlo del tutto.',
+        exercises: [
+          { text: 'Segui esattamente i tempi di carico indicati dal chirurgo o fisioterapista (spesso tutore/stivaletto)', cat: 'rest' },
+          { text: 'Mobilità delle dita del piede e del ginocchio, senza muovere la caviglia', cat: 'stretch' },
+          { text: 'Evita qualsiasi movimento improvviso o inciampo: il rischio di ri-rottura è più alto proprio in questa fase', cat: 'rest' },
+        ] },
+      { name: 'Carico progressivo e simmetria', why: 'Il tendine risponde bene a un carico graduale e controllato. Da qui in poi conta tanto quanto la gamba infortunata guarisce, quanto quanto l\'altra gamba viene protetta: dopo una rottura, l\'Achille "sano" lavora di più per compensare e va monitorato, non dato per scontato.',
+        criteriaToAdvance: ['Riesci a camminare senza tutore su superficie piana, come indicato dal professionista', 'Il gonfiore è chiaramente diminuito'],
+        exercises: [
+          { text: 'Calf raises assistiti su due gambe, aumentando il carico sulla gamba infortunata con gradualità', cat: 'strength' },
+          { text: 'Esercizi di equilibrio su una gamba (propriocezione), non solo di forza — l\'equilibrio si perde tanto quanto il muscolo', cat: 'balance' },
+          { text: 'Conta quante volte riesci a sollevarti sulle punte per ciascuna gamba separatamente, e confronta: uno squilibrio marcato è normale all\'inizio ma va ridotto nel tempo', cat: 'strength' },
+        ] },
+      { name: 'Ritorno allo sport', why: 'Il ritorno in campo richiede non solo forza ma sicurezza nel movimento: la paura di riusare la gamba infortunata è comune e reale, e finché resta cambia il modo in cui cammini e corri, sovraccaricando l\'altra gamba senza che te ne accorga.',
+        criteriaToAdvance: ['I calf raises sulla gamba infortunata sono vicini al numero dell\'altra gamba', 'Corri, cambi direzione e salti senza esitazione o dolore'],
+        exercises: [
+          { text: 'Corsa progressiva, partendo da linea retta prima di cambi di direzione', cat: 'run' },
+          { text: 'Salti bipodalici prima, poi monopodalici su entrambe le gambe, confrontando l\'altezza/controllo', cat: 'strength' },
+          { text: 'Simulazioni di gesti specifici dello sport a intensità crescente', cat: 'run' },
+          { text: 'Se la paura di rifarti male condiziona ancora il movimento dopo mesi, parlane con un professionista: è un fattore di rischio reale, non solo mentale', cat: 'rest' },
+        ] },
+    ],
+  },
   knee: {
     relatedInjuries: ['trochanteric', 'quad'], relatedReason: 'Un\'anca debole, soprattutto il gluteo medio, è tra le cause più comuni di dolore femoro-rotuleo.',
     label: 'Dolore femoro-rotuleo', subtitle: 'Dolore anteriore al ginocchio', icon: CircleDot, mechanismTags: ['overuse'],
@@ -1101,6 +1138,43 @@ const injuriesDataEN = {
         ] },
     ],
   },
+  achilles_rupture: {
+    relatedInjuries: ['achilles', 'calf'], relatedReason: 'A neglected Achilles tendinopathy is among the main risk factors for a full rupture.',
+    label: 'Achilles tendon rupture', subtitle: 'Full or partial tear, often needs surgery', icon: Anchor, mechanismTags: ['acute'],
+    severityData: {
+      lieve: { dayThresholds: [28, 70], totalEstimateDays: 120 },
+      moderato: { dayThresholds: [56, 140], totalEstimateDays: 210 },
+      severo: { dayThresholds: [70, 168], totalEstimateDays: 280 },
+    },
+    specialRedFlags: [
+      'You feel another "pop" or sudden give in the repaired leg during rehab',
+      'You can\'t rise onto your toes at all, even slightly, many weeks after the injury',
+      'You start feeling pain, stiffness, or swelling in the other Achilles tendon too',
+    ],
+    phases: [
+      { name: 'Protection', why: 'In the first weeks the repaired tendon (surgical or not) is fragile: the goal is to protect it while it starts healing, without fully immobilizing it.',
+        exercises: [
+          { text: 'Follow the exact weight-bearing timeline given by your surgeon or physio (often a boot/brace)', cat: 'rest' },
+          { text: 'Toe and knee mobility, without moving the ankle', cat: 'stretch' },
+          { text: 'Avoid any sudden movement or trip: re-rupture risk is highest in this exact phase', cat: 'rest' },
+        ] },
+      { name: 'Progressive load and symmetry', why: 'The tendon responds well to gradual, controlled loading. From here on, how the injured leg heals matters as much as how the other leg is protected: after a rupture, the "healthy" Achilles works harder to compensate and needs monitoring, not to be taken for granted.',
+        criteriaToAdvance: ['You can walk without a brace on flat ground, as advised by your professional', 'Swelling has clearly decreased'],
+        exercises: [
+          { text: 'Assisted two-leg calf raises, gradually increasing load on the injured leg', cat: 'strength' },
+          { text: 'Single-leg balance exercises (proprioception), not just strength — balance is lost as much as muscle is', cat: 'balance' },
+          { text: 'Count how many calf raises you can do on each leg separately, and compare: a marked imbalance is normal early on but should shrink over time', cat: 'strength' },
+        ] },
+      { name: 'Return to play', why: 'Returning to the pitch takes not just strength but confidence in movement: fear of reusing the injured leg is common and real, and while it lingers it changes how you walk and run, quietly overloading the other leg.',
+        criteriaToAdvance: ['Calf raises on the injured leg are close to the other leg\'s count', 'You run, change direction, and jump without hesitation or pain'],
+        exercises: [
+          { text: 'Progressive running, starting in a straight line before changes of direction', cat: 'run' },
+          { text: 'Two-leg jumps first, then single-leg on both sides, comparing height/control', cat: 'strength' },
+          { text: 'Sport-specific movement simulations at increasing intensity', cat: 'run' },
+          { text: 'If fear of getting hurt again still affects your movement after months, talk to a professional: it\'s a real risk factor, not just a mental one', cat: 'rest' },
+        ] },
+    ],
+  },
   knee: {
     relatedInjuries: ['trochanteric', 'quad'], relatedReason: 'A weak hip, especially the glute medius, is among the most common causes of patellofemoral pain.',
     label: 'Patellofemoral pain', subtitle: 'Pain at the front of the knee', icon: CircleDot, mechanismTags: ['overuse'],
@@ -1955,7 +2029,7 @@ const injuriesDataEN = {
 const physiosData = [];
 
 const regions = {
-  ankle_foot: { label: 'Caviglia e piede', icon: Footprints, injuries: ['ankle', 'achilles', 'plantarfasciitis', 'blisters'] },
+  ankle_foot: { label: 'Caviglia e piede', icon: Footprints, injuries: ['ankle', 'achilles', 'achilles_rupture', 'plantarfasciitis', 'blisters'] },
   knee: { label: 'Ginocchio', icon: CircleDot, injuries: ['knee', 'mcl', 'lcl', 'patellar', 'meniscus', 'itband', 'osgood'] },
   thigh: { label: 'Coscia', icon: Zap, injuries: ['hamstring', 'quad', 'contusion'] },
   calf_region: { label: 'Gamba e polpaccio', icon: Activity, injuries: ['calf', 'shinsplints', 'cramps'] },
