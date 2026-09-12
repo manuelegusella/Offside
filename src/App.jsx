@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // SOSTITUISCI questo con il tuo vero Payment Link di Stripe una volta creato
-const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/test_dRmbJ1c2K3Zt1sB8mB7IY00';
+const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/SOSTITUISCI_QUESTO';
 
 function trackEvent(name, params = {}) {
   if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
@@ -16,7 +16,7 @@ import {
   Calendar, Scale, Dumbbell, Move, Wind, Timer, Pause, Pencil, Target,
   HelpCircle, PlayCircle, Flame, Share2, ClipboardCheck, Check, Gauge, Waves,
   Aperture, PersonStanding, Ruler, Sprout, RotateCw, CircleDashed, ShieldAlert,
-  Snowflake, Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, Smartphone, User, Hand, Grip
+  Snowflake, Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, Smartphone, User, Hand, Grip, MapPin, Phone, Mail, Stethoscope, ExternalLink, Search
 } from 'lucide-react';
 
 const colors = {
@@ -1949,6 +1949,11 @@ const injuriesDataEN = {
   },
 };
 
+// Elenco fisioterapisti sportivi. Vuoto per ora — aggiungi qui ogni fisioterapista reclutato, stesso formato.
+// Esempio: { id: 'mario-rossi', name: 'Mario Rossi', city: 'Vicenza', specialization: 'Riabilitazione sportiva, ginocchio', bio: 'Breve presentazione.', contactType: 'instagram', contactValue: '@mariorossifisio' }
+// contactType può essere: 'instagram' (contactValue senza @ o con, es. 'mariorossifisio'), 'email', 'phone', 'website'
+const physiosData = [];
+
 const regions = {
   ankle_foot: { label: 'Caviglia e piede', icon: Footprints, injuries: ['ankle', 'achilles', 'plantarfasciitis', 'blisters'] },
   knee: { label: 'Ginocchio', icon: CircleDot, injuries: ['knee', 'mcl', 'lcl', 'patellar', 'meniscus', 'itband', 'osgood'] },
@@ -3055,6 +3060,7 @@ export default function Offside() {
   const [setupSection, setSetupSection] = useState('gravita');
   const [injuryRecurrence, setInjuryRecurrence] = useState({});
   const [trackerSection, setTrackerSection] = useState('esercizi');
+  const [physioSearch, setPhysioSearch] = useState('');
   const [pendingDate, setPendingDate] = useState('');
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
   const [language, setLanguage] = useState('it');
@@ -3167,6 +3173,7 @@ export default function Offside() {
     else if (screen === 'firstaid') setScreen('regions');
     else if (screen === 'premium') setScreen('tracker');
     else if (screen === 'profile') setScreen('regions');
+    else if (screen === 'physios') setScreen('regions');
     else if (screen === 'regions') setScreen('cover');
   };
 
@@ -3595,7 +3602,7 @@ export default function Offside() {
             <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">Offside</p>
           </div>
           <h1 style={{ ...displayFont, color: colors.ink }} className="text-lg sm:text-xl font-semibold truncate">
-            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Where does it hurt?' : 'Dove senti il problema?')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
+            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Where does it hurt?' : 'Dove senti il problema?')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
           </h1>
         </div>
         {screen === 'tracker' && injury && (
@@ -3635,6 +3642,9 @@ export default function Offside() {
                   </ul>
                 </>
               )}
+              <button onClick={() => setScreen('physios')} style={{ backgroundColor: 'rgba(255,255,255,0.5)', color: colors.red, border: `1px solid ${colors.red}33` }} className="os-focus w-full flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold mt-3 hover:opacity-80 transition-opacity">
+                <Stethoscope size={13} />{isEN ? 'Find a physiotherapist near you' : 'Trova un fisioterapista vicino a te'}
+              </button>
             </div>
           )}
         </div>
@@ -3651,6 +3661,17 @@ export default function Offside() {
                 onDismiss={() => { setInstallDismissed(true); persist(snapshot({ installDismissed: true })); }}
               />
             )}
+
+            <button onClick={() => setScreen('physios')} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-3 rounded-2xl p-3.5 mb-5 text-left shadow-sm hover:opacity-90 transition-opacity">
+              <div style={{ backgroundColor: colors.redTint }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
+                <Stethoscope size={18} color={colors.red} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Find a physiotherapist' : 'Trova un fisioterapista'}</p>
+                <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? 'A directory of sports physiotherapists near you' : 'Un elenco di fisioterapisti sportivi vicino a te'}</p>
+              </div>
+              <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0" />
+            </button>
 
             <div style={{ backgroundColor: colors.laneBg }} className="flex gap-1 p-1 rounded-full mb-5">
               <button onClick={() => setRegionsTab('injury')} style={{ backgroundColor: regionsTab === 'injury' ? colors.card : 'transparent', color: regionsTab === 'injury' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
@@ -4050,6 +4071,82 @@ export default function Offside() {
             })()}
               </>
             )}
+          </div>
+        )}
+
+        {screen === 'physios' && (
+          <div>
+            <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-5">
+              {isEN ? 'A directory of sports physiotherapists, to make it easier to find real help nearby. This is a simple listing, not a vetted or verified recommendation — always check credentials yourself.' : 'Un elenco di fisioterapisti sportivi, per rendere più facile trovare un aiuto vero vicino a te. È un semplice elenco, non una raccomandazione verificata — controlla sempre tu le credenziali.'}
+            </p>
+
+            <div className="relative mb-5">
+              <Search size={16} color={colors.mutedInk} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={physioSearch}
+                onChange={(e) => setPhysioSearch(e.target.value)}
+                placeholder={isEN ? 'Search by city...' : 'Cerca per città...'}
+                style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }}
+                className="os-focus w-full rounded-xl pl-10 pr-4 py-3 text-sm"
+              />
+            </div>
+
+            {(() => {
+              const filtered = physiosData.filter((p) => !physioSearch.trim() || p.city.toLowerCase().includes(physioSearch.trim().toLowerCase()));
+              if (physiosData.length === 0) {
+                return (
+                  <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-2xl p-6 text-center shadow-sm">
+                    <div style={{ backgroundColor: colors.accentTint }} className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Stethoscope size={26} color={colors.accentDark} />
+                    </div>
+                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="text-base font-bold mb-2">{isEN ? 'Coming soon' : 'Arriva presto'}</p>
+                    <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed">{isEN ? 'We\'re building this list one physiotherapist at a time. Check back soon.' : 'Stiamo costruendo questo elenco un fisioterapista alla volta. Torna a trovarci presto.'}</p>
+                  </div>
+                );
+              }
+              if (filtered.length === 0) {
+                return (
+                  <p style={{ color: colors.mutedInk }} className="text-sm text-center py-8">{isEN ? 'No physiotherapists found for this city yet.' : 'Nessun fisioterapista trovato per questa città, per ora.'}</p>
+                );
+              }
+              return (
+                <div className="space-y-3">
+                  {filtered.map((p) => {
+                    const href = p.contactType === 'instagram' ? `https://instagram.com/${p.contactValue.replace('@', '')}` : p.contactType === 'email' ? `mailto:${p.contactValue}` : p.contactType === 'phone' ? `tel:${p.contactValue}` : p.contactValue;
+                    const ContactIcon = p.contactType === 'email' ? Mail : p.contactType === 'phone' ? Phone : ExternalLink;
+                    return (
+                      <div key={p.id} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 shadow-sm">
+                        <div className="flex items-start gap-3 mb-2.5">
+                          <div style={{ backgroundColor: colors.accentTint }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center">
+                            <Stethoscope size={20} color={colors.accentDark} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="text-sm font-bold">{p.name}</p>
+                            <p style={{ color: colors.mutedInk }} className="text-xs flex items-center gap-1"><MapPin size={11} />{p.city}</p>
+                          </div>
+                        </div>
+                        <span style={{ backgroundColor: colors.paper, color: colors.ink }} className="text-xs font-medium px-2.5 py-1 rounded-full inline-block mb-2.5">{p.specialization}</span>
+                        {p.bio && <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-3">{p.bio}</p>}
+                        <a
+                          href={href}
+                          target={p.contactType === 'instagram' || p.contactType === 'website' ? '_blank' : undefined}
+                          rel="noopener noreferrer"
+                          style={{ backgroundColor: colors.accent, color: '#FFFFFF' }}
+                          className="os-focus w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold hover:opacity-90 transition-opacity"
+                        >
+                          <ContactIcon size={13} />{isEN ? 'Contact' : 'Contatta'}
+                        </a>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+            <a href="mailto:manuelegusella@icloud.com?subject=Fisioterapista%20-%20Offside" style={{ color: colors.accentDark, borderTop: `1px solid ${colors.hairline}` }} className="os-focus flex items-center justify-center gap-1.5 mt-6 pt-4 text-xs font-medium hover:underline">
+              <Stethoscope size={13} />{isEN ? 'Are you a sports physiotherapist? Get in touch to be listed' : 'Sei un fisioterapista sportivo? Scrivimi per essere inserito'}
+            </a>
           </div>
         )}
 
