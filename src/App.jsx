@@ -3051,6 +3051,9 @@ export default function Offside() {
   const [injuryRecurrence, setInjuryRecurrence] = useState({});
   const [trackerSection, setTrackerSection] = useState('esercizi');
   const [physioSearch, setPhysioSearch] = useState('');
+  const [restoreEmail, setRestoreEmail] = useState('');
+  const [restoreStatus, setRestoreStatus] = useState('idle');
+  const [showRestoreBox, setShowRestoreBox] = useState(false);
   const [pendingDate, setPendingDate] = useState('');
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
   const [language, setLanguage] = useState('it');
@@ -3235,6 +3238,28 @@ export default function Offside() {
   };
 
   const skipDate = () => { setEditingSetup(false); setPendingDate(''); };
+
+  const restorePremium = async () => {
+    if (!restoreEmail.trim() || !restoreEmail.includes('@')) { setRestoreStatus('error'); return; }
+    setRestoreStatus('checking');
+    try {
+      const res = await fetch('/api/verify-premium', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: restoreEmail }),
+      });
+      const data = await res.json();
+      if (data.premium) {
+        setPremiumUnlocked(true);
+        persist(snapshot({ premiumUnlocked: true }));
+        setRestoreStatus('success');
+      } else {
+        setRestoreStatus('notfound');
+      }
+    } catch (err) {
+      setRestoreStatus('error');
+    }
+  };
   const changePhase = (idx) => { setActivePhase(idx); setActiveVideo(null); persist(snapshot({ activePhase: idx })); };
 
   const toggleExercise = (exIdx) => {
@@ -3508,6 +3533,8 @@ export default function Offside() {
           >
             <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Start your recovery' : 'Inizia il tuo percorso'}</span><ArrowRight size={16} />
           </button>
+
+          <div className="text-center mt-3">{renderRestoreBox()}</div>
         </div>
       </div>
     );
@@ -3567,6 +3594,29 @@ export default function Offside() {
   }
 
   const activeInjuryKeys = Object.keys(injuryDates).filter((k) => injuryDates[k] && injuriesData[k]);
+
+  const renderRestoreBox = () => (
+    <div className="mt-3">
+      {!showRestoreBox ? (
+        <button onClick={() => setShowRestoreBox(true)} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70">
+          {isEN ? 'Already have Premium? Restore it' : 'Hai già Premium? Ripristinalo'}
+        </button>
+      ) : (
+        <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-3.5">
+          <p style={{ color: colors.mutedInk }} className="text-xs mb-2">{isEN ? 'Enter the email you used to pay' : 'Inserisci l\'email che hai usato per pagare'}</p>
+          <div className="flex gap-2">
+            <input type="email" value={restoreEmail} onChange={(e) => { setRestoreEmail(e.target.value); setRestoreStatus('idle'); }} placeholder="email@esempio.com" style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus flex-1 min-w-0 rounded-lg px-3 py-2 text-sm" />
+            <button onClick={restorePremium} disabled={restoreStatus === 'checking'} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus px-3 py-2 rounded-lg text-xs font-semibold flex-shrink-0">
+              {restoreStatus === 'checking' ? '...' : (isEN ? 'Check' : 'Verifica')}
+            </button>
+          </div>
+          {restoreStatus === 'success' && <p style={{ color: colors.accentDark }} className="text-xs mt-2 flex items-center gap-1"><CheckCircle2 size={13} />{isEN ? 'Premium restored!' : 'Premium ripristinato!'}</p>}
+          {restoreStatus === 'notfound' && <p style={{ color: colors.red }} className="text-xs mt-2">{isEN ? 'No Premium found for this email.' : 'Nessun Premium trovato per questa email.'}</p>}
+          {restoreStatus === 'error' && <p style={{ color: colors.red }} className="text-xs mt-2">{isEN ? 'Something went wrong, try again.' : 'Qualcosa è andato storto, riprova.'}</p>}
+        </div>
+      )}
+    </div>
+  );
 
   const handleBottomNav = (key) => {
     if (key === 'regions') { setScreen('regions'); }
@@ -3910,6 +3960,7 @@ export default function Offside() {
                 <a href={STRIPE_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('premium_unlock_clicked')} style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity">
                   <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
                 </a>
+                <div className="text-center mt-3">{renderRestoreBox()}</div>
               </>
             ) : (
               <>
