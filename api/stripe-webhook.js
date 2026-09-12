@@ -47,12 +47,18 @@ export default async function handler(req, res) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
     const email = session.customer_details?.email || session.customer_email;
+    const customerId = session.customer;
 
     if (email) {
       const normalizedEmail = email.trim().toLowerCase();
       try {
         await redis.set(`premium:${normalizedEmail}`, true);
         console.log(`Premium sbloccato per: ${normalizedEmail}`);
+        // Salviamo anche il collegamento cliente -> email, ci serve quando l'abbonamento finisce
+        // (l'evento di cancellazione ci dà solo l'ID cliente, non l'email direttamente).
+        if (customerId) {
+          await redis.set(`customer:${customerId}`, normalizedEmail);
+        }
       } catch (err) {
         console.error('Errore nel salvare su Redis:', err);
         // Rispondiamo comunque 200 a Stripe: il pagamento è andato a buon fine,
@@ -60,6 +66,25 @@ export default async function handler(req, res) {
       }
     } else {
       console.warn('Pagamento completato ma nessuna email trovata nella sessione.');
+    }
+  }
+
+  if (event.type === 'customer.subscription.deleted') {
+    const subscription = event.data.object;
+    const customerId = subscription.customer;
+
+    if (customerId) {
+      try {
+        const email = await redis.get(`customer:${customerId}`);
+        if (email) {
+          await redis.del(`premium:${email}`);
+          console.log(`Premium tolto per: ${email} (abbonamento terminato)`);
+        } else {
+          console.warn(`Abbonamento terminato per cliente ${customerId}, ma non trovo l'email collegata.`);
+        }
+      } catch (err) {
+        console.error('Errore nel togliere Premium su Redis:', err);
+      }
     }
   }
 
