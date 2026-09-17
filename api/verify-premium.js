@@ -3,12 +3,7 @@
 // prova a "ripristinare" Premium su un nuovo dispositivo inserendo la sua email.
 // Questo file va messo in una cartella "api" nella RADICE del progetto (a fianco di "src", non dentro).
 
-import { Redis } from '@upstash/redis';
-
-const redis = new Redis({
-  url: process.env.OFFSIDE_KV_REST_API_URL,
-  token: process.env.OFFSIDE_KV_REST_API_TOKEN,
-});
+import { redis } from './_lib/redis.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

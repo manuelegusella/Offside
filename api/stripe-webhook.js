@@ -1,14 +1,16 @@
 // /api/stripe-webhook.js
-// Riceve gli eventi da Stripe. Quando un pagamento va a buon fine, segna l'email come Premium nel database.
+// Riceve gli eventi da Stripe. Quando un pagamento va a buon fine, segna l'email come Premium
+// (individuale) o attiva l'abbonamento della squadra, a seconda dell'importo pagato.
 // Questo file va messo in una cartella "api" nella RADICE del progetto (a fianco di "src", non dentro).
 
-import { Redis } from '@upstash/redis';
 import Stripe from 'stripe';
+import { redis } from './_lib/redis.js';
+import { normalizeEmail, parseJsonMaybe } from './_lib/team.js';
 
-const redis = new Redis({
-  url: process.env.OFFSIDE_KV_REST_API_URL,
-  token: process.env.OFFSIDE_KV_REST_API_TOKEN,
-});
+// Distingue un pagamento "Offside Squadre" (50$/mese) da un Premium individuale (3,99€/mese):
+// usiamo l'importo perché sono due Payment Link diversi con prezzi molto distanti.
+// Se in futuro cambi i prezzi, aggiorna questa soglia (in centesimi) di conseguenza.
+const TEAM_PLAN_MIN_CENTS = 1000;
 
 // Stripe ha bisogno del corpo della richiesta "grezzo" per verificare la firma, quindi disattiviamo il parsing automatico.
 export const config = {
@@ -48,16 +50,31 @@ export default async function handler(req, res) {
     const session = event.data.object;
     const email = session.customer_details?.email || session.customer_email;
     const customerId = session.customer;
+    const isTeamPlan = (session.amount_total || 0) >= TEAM_PLAN_MIN_CENTS;
 
     if (email) {
-      const normalizedEmail = email.trim().toLowerCase();
+      const normalizedEmail = normalizeEmail(email);
       try {
-        await redis.set(`premium:${normalizedEmail}`, true);
-        console.log(`Premium sbloccato per: ${normalizedEmail}`);
-        // Salviamo anche il collegamento cliente -> email, ci serve quando l'abbonamento finisce
-        // (l'evento di cancellazione ci dà solo l'ID cliente, non l'email direttamente).
+        // Salviamo il collegamento cliente -> email in ogni caso, ci serve quando l'abbonamento
+        // finisce (l'evento di cancellazione ci dà solo l'ID cliente, non l'email direttamente).
         if (customerId) {
           await redis.set(`customer:${customerId}`, normalizedEmail);
+        }
+
+        if (isTeamPlan) {
+          const teamId = await redis.get(`teamemail:${normalizedEmail}`);
+          if (teamId) {
+            const team = parseJsonMaybe(await redis.get(`team:${teamId}`));
+            if (team) {
+              await redis.set(`team:${teamId}`, { ...team, subscriptionActive: true });
+              console.log(`Abbonamento Squadre attivato per: ${normalizedEmail}`);
+            }
+          } else {
+            console.warn(`Pagamento Squadre ricevuto per ${normalizedEmail} ma nessuna squadra registrata con questa email.`);
+          }
+        } else {
+          await redis.set(`premium:${normalizedEmail}`, true);
+          console.log(`Premium sbloccato per: ${normalizedEmail}`);
         }
       } catch (err) {
         console.error('Errore nel salvare su Redis:', err);
@@ -77,8 +94,17 @@ export default async function handler(req, res) {
       try {
         const email = await redis.get(`customer:${customerId}`);
         if (email) {
-          await redis.del(`premium:${email}`);
-          console.log(`Premium tolto per: ${email} (abbonamento terminato)`);
+          const teamId = await redis.get(`teamemail:${email}`);
+          if (teamId) {
+            const team = parseJsonMaybe(await redis.get(`team:${teamId}`));
+            if (team) {
+              await redis.set(`team:${teamId}`, { ...team, subscriptionActive: false });
+              console.log(`Abbonamento Squadre disattivato per: ${email}`);
+            }
+          } else {
+            await redis.del(`premium:${email}`);
+            console.log(`Premium tolto per: ${email} (abbonamento terminato)`);
+          }
         } else {
           console.warn(`Abbonamento terminato per cliente ${customerId}, ma non trovo l'email collegata.`);
         }
