@@ -4,6 +4,19 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 // SOSTITUISCI questo con il tuo vero Payment Link di Stripe una volta creato
 const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/dRmbJ1c2K3Zt1sB8mB7IY00';
 
+// Payment Link per l'abbonamento "Offside Squadre" (50$/mese) — da creare su Stripe come
+// prodotto separato e incollare qui. Finché resta questo placeholder, il bottone di
+// attivazione nella schermata Squadre non farà nulla di reale.
+const STRIPE_TEAM_PAYMENT_LINK = 'https://buy.stripe.com/dRm8wP9UC3Zt1sB1Yd7IY01';
+
+const TEAM_SCREENS = ['teamLanding', 'teamRegister', 'teamLogin', 'teamDashboard'];
+const TEAM_ROLE_OPTIONS = [
+  { key: 'fisioterapista', labelIT: 'Fisioterapista', labelEN: 'Physiotherapist' },
+  { key: 'preparatore', labelIT: 'Preparatore atletico', labelEN: 'Athletic trainer' },
+  { key: 'allenatore', labelIT: 'Allenatore / Mister', labelEN: 'Coach' },
+  { key: 'altro', labelIT: 'Altro membro dello staff', labelEN: 'Other staff member' },
+];
+
 function trackEvent(name, params = {}) {
   if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
     window.gtag('event', name, params);
@@ -16,7 +29,8 @@ import {
   Calendar, Scale, Dumbbell, Move, Wind, Timer, Pause, Pencil, Target,
   HelpCircle, PlayCircle, Flame, Share2, ClipboardCheck, Check, Gauge, Waves,
   Aperture, PersonStanding, Ruler, Sprout, RotateCw, CircleDashed, ShieldAlert,
-  Snowflake, Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, Smartphone, User, Hand, Grip, MapPin, Phone, Mail, Stethoscope, ExternalLink, Search
+  Snowflake, Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, Smartphone, User, Hand, Grip, MapPin, Phone, Mail, Stethoscope, ExternalLink, Search,
+  Users, LogOut, Copy, UserPlus, Building2, Eye, EyeOff
 } from 'lucide-react';
 
 const colors = {
@@ -3125,7 +3139,7 @@ function mascotStageForScreen(screen) {
     regions: 1,
     triage: 2, injuries: 2, firstaid: 2,
     tracker: 3, profile: 3,
-    premium: 4,
+    premium: 4, teamLanding: 4, teamRegister: 4, teamLogin: 4, teamDashboard: 4,
   };
   return stages[screen] ?? 1;
 }
@@ -3201,6 +3215,7 @@ export default function Offside() {
   const regionLabels = isEN ? regionLabelsEN : regionLabelsIT;
   const [shareCopied, setShareCopied] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [confirmingTeamRevoke, setConfirmingTeamRevoke] = useState(false);
   const [deletingKey, setDeletingKey] = useState(null);
   const [playerPosition, setPlayerPosition] = useState(null);
   const [activeVideo, setActiveVideo] = useState(null);
@@ -3209,6 +3224,24 @@ export default function Offside() {
   const [preventionProgress, setPreventionProgress] = useState({});
   const [expandedPreventionTip, setExpandedPreventionTip] = useState(null);
   const [expandedSymptoms, setExpandedSymptoms] = useState(null);
+
+  // --- Offside Squadre: stato del responsabile (fisio/preparatore) ---
+  const [teamAuth, setTeamAuth] = useState(null); // { token, teamId, teamName, responsibleName, responsibleRole, inviteCode, subscriptionActive }
+  const [teamForm, setTeamForm] = useState({ teamName: '', responsibleName: '', responsibleRole: 'fisioterapista', email: '', password: '', confirmPassword: '', minorConsentAttested: false });
+  const [teamFormStatus, setTeamFormStatus] = useState('idle'); // idle | submitting | error
+  const [teamFormError, setTeamFormError] = useState('');
+  const [showTeamPassword, setShowTeamPassword] = useState(false);
+  const [teamDashboardData, setTeamDashboardData] = useState(null);
+  const [teamDashboardLoading, setTeamDashboardLoading] = useState(false);
+  const [teamInviteCopied, setTeamInviteCopied] = useState(false);
+
+  // --- Offside Squadre: stato del giocatore che aderisce a una squadra ---
+  const [myTeamMembership, setMyTeamMembership] = useState(null); // { playerId, teamId, teamName, playerName, consentedAt }
+  const [showJoinTeamBox, setShowJoinTeamBox] = useState(false);
+  const [joinTeamCode, setJoinTeamCode] = useState('');
+  const [joinTeamPlayerName, setJoinTeamPlayerName] = useState('');
+  const [joinTeamConsent, setJoinTeamConsent] = useState(false);
+  const [joinTeamStatus, setJoinTeamStatus] = useState('idle'); // idle | submitting | error | notfound
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -3249,6 +3282,8 @@ export default function Offside() {
           setUserProfile(loaded.userProfile || { age: '', weight: '', height: '', sex: '', level: '' });
           setOnboardingProfileDone(!!loaded.onboardingProfileDone);
           setInjuryRecurrence(loaded.injuryRecurrence || {});
+          setTeamAuth(loaded.teamAuth || null);
+          setMyTeamMembership(loaded.myTeamMembership || null);
         }
       } catch (err) {} finally {
         setLoading(false);
@@ -3286,7 +3321,7 @@ export default function Offside() {
     }
   }, []);
 
-  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, onboardingProfileDone, injuryRecurrence, ...overrides });
+  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, onboardingProfileDone, injuryRecurrence, teamAuth, myTeamMembership, ...overrides });
 
   const goBack = () => {
     if (screen === 'tracker') setScreen('injuries');
@@ -3297,6 +3332,10 @@ export default function Offside() {
     else if (screen === 'premium') setScreen('tracker');
     else if (screen === 'profile') setScreen('regions');
     else if (screen === 'physios') setScreen('regions');
+    else if (screen === 'teamLanding') setScreen('premium');
+    else if (screen === 'teamRegister') setScreen('teamLanding');
+    else if (screen === 'teamLogin') setScreen('teamLanding');
+    else if (screen === 'teamDashboard') setScreen('premium');
     else if (screen === 'regions') setScreen('cover');
   };
 
@@ -3387,6 +3426,222 @@ export default function Offside() {
     }
   };
   const changePhase = (idx) => { setActivePhase(idx); setActiveVideo(null); persist(snapshot({ activePhase: idx })); };
+
+  // --- Offside Squadre: giocatore che aderisce a una squadra ---
+  const joinTeam = async () => {
+    if (!joinTeamCode.trim() || !joinTeamPlayerName.trim() || !joinTeamConsent) { setJoinTeamStatus('error'); return; }
+    setJoinTeamStatus('submitting');
+    try {
+      const res = await fetch('/api/team-join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteCode: joinTeamCode.trim(), playerName: joinTeamPlayerName.trim(), consent: true }),
+      });
+      const data = await res.json();
+      if (res.ok && data.playerId) {
+        const membership = { playerId: data.playerId, teamId: data.teamId, teamName: data.teamName, playerName: joinTeamPlayerName.trim(), consentedAt: new Date().toISOString() };
+        setMyTeamMembership(membership);
+        persist(snapshot({ myTeamMembership: membership }));
+        trackEvent('team_joined');
+        setJoinTeamStatus('idle');
+        setJoinTeamCode(''); setJoinTeamPlayerName(''); setJoinTeamConsent(false); setShowJoinTeamBox(false);
+      } else {
+        setJoinTeamStatus('notfound');
+      }
+    } catch (err) {
+      setJoinTeamStatus('error');
+    }
+  };
+
+  const revokeTeamConsent = async () => {
+    if (!myTeamMembership) return;
+    const playerId = myTeamMembership.playerId;
+    setMyTeamMembership(null);
+    persist(snapshot({ myTeamMembership: null }));
+    trackEvent('team_consent_revoked');
+    try {
+      await fetch('/api/team-player-revoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId }),
+      });
+    } catch (err) {}
+  };
+
+  // Tiene sincronizzato il riepilogo condiviso con la squadra (mai il diario) ogni volta
+  // che qualcosa di rilevante cambia. Se il giocatore non ha aderito a nessuna squadra, non fa nulla.
+  useEffect(() => {
+    if (!myTeamMembership || !myTeamMembership.playerId) return;
+    const syncTeamStatus = async () => {
+      let statusPayload = null;
+      const inj = selectedInjury ? injuriesData[selectedInjury] : null;
+      if (inj) {
+        const sev = injurySeverities[selectedInjury] || 'moderato';
+        const sevData = inj.severityData ? inj.severityData[sev] : null;
+        const date = injuryDates[selectedInjury];
+        const dayOfRecovery = date ? daysSince(date) : null;
+        const phaseIdx = (dayOfRecovery !== null && sevData) ? suggestPhase(dayOfRecovery, sevData.dayThresholds) : activePhase;
+        statusPayload = {
+          injuryLabel: inj.label,
+          phaseLabel: (inj.phases && inj.phases[phaseIdx]) ? inj.phases[phaseIdx].name : null,
+          phaseIndex: phaseIdx,
+          totalPhases: inj.phases ? inj.phases.length : null,
+          dayOfRecovery,
+          estimateDays: sevData ? sevData.totalEstimateDays : null,
+          severity: sev,
+          needsAttention: !!(dayOfRecovery !== null && sevData && dayOfRecovery > sevData.totalEstimateDays),
+        };
+      }
+      try {
+        await fetch('/api/team-player-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerId: myTeamMembership.playerId, status: statusPayload }),
+        });
+      } catch (err) {
+        // Sync silenzioso: se fallisce ora, riparte al prossimo cambiamento rilevante.
+      }
+    };
+    syncTeamStatus();
+  }, [myTeamMembership, selectedInjury, injurySeverities, injuryDates]);
+
+  // --- Offside Squadre: responsabile (fisio/preparatore) ---
+  const submitTeamRegister = async () => {
+    const f = teamForm;
+    if (!f.teamName.trim() || !f.responsibleName.trim() || !f.email.includes('@') || f.password.length < 8) {
+      setTeamFormStatus('error');
+      setTeamFormError(isEN ? 'Fill in all fields (password: at least 8 characters).' : 'Compila tutti i campi (password: almeno 8 caratteri).');
+      return;
+    }
+    if (f.password !== f.confirmPassword) {
+      setTeamFormStatus('error');
+      setTeamFormError(isEN ? "Passwords don't match." : 'Le due password non coincidono.');
+      return;
+    }
+    if (!f.minorConsentAttested) {
+      setTeamFormStatus('error');
+      setTeamFormError(isEN ? 'You need to confirm the statement about minors to continue.' : 'Devi confermare la dichiarazione sui minorenni per continuare.');
+      return;
+    }
+    setTeamFormStatus('submitting');
+    try {
+      const res = await fetch('/api/team-register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamName: f.teamName.trim(), responsibleName: f.responsibleName.trim(), responsibleRole: f.responsibleRole,
+          email: f.email.trim(), password: f.password, minorConsentAttested: true,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.token) {
+        const auth = { token: data.token, teamId: data.teamId, teamName: data.teamName, responsibleName: f.responsibleName.trim(), responsibleRole: f.responsibleRole, email: f.email.trim(), inviteCode: data.inviteCode, subscriptionActive: false };
+        setTeamAuth(auth);
+        persist(snapshot({ teamAuth: auth }));
+        trackEvent('team_registered');
+        setTeamFormStatus('idle');
+        setTeamForm({ teamName: '', responsibleName: '', responsibleRole: 'fisioterapista', email: '', password: '', confirmPassword: '', minorConsentAttested: false });
+        setScreen('teamDashboard');
+      } else {
+        setTeamFormStatus('error');
+        setTeamFormError(data.error || (isEN ? 'Something went wrong.' : 'Qualcosa è andato storto.'));
+      }
+    } catch (err) {
+      setTeamFormStatus('error');
+      setTeamFormError(isEN ? 'Something went wrong, try again.' : 'Qualcosa è andato storto, riprova.');
+    }
+  };
+
+  const submitTeamLogin = async () => {
+    const f = teamForm;
+    if (!f.email.includes('@') || !f.password) {
+      setTeamFormStatus('error');
+      setTeamFormError(isEN ? 'Enter your email and password.' : 'Inserisci email e password.');
+      return;
+    }
+    setTeamFormStatus('submitting');
+    try {
+      const res = await fetch('/api/team-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: f.email.trim(), password: f.password }),
+      });
+      const data = await res.json();
+      if (res.ok && data.token) {
+        const auth = { token: data.token, teamId: data.teamId, teamName: data.teamName, responsibleName: data.responsibleName, responsibleRole: data.responsibleRole, email: f.email.trim(), inviteCode: data.inviteCode, subscriptionActive: !!data.subscriptionActive };
+        setTeamAuth(auth);
+        persist(snapshot({ teamAuth: auth }));
+        setTeamFormStatus('idle');
+        setTeamForm({ teamName: '', responsibleName: '', responsibleRole: 'fisioterapista', email: '', password: '', confirmPassword: '', minorConsentAttested: false });
+        setScreen('teamDashboard');
+      } else {
+        setTeamFormStatus('error');
+        setTeamFormError(data.error || (isEN ? 'Incorrect email or password.' : 'Email o password non corretti.'));
+      }
+    } catch (err) {
+      setTeamFormStatus('error');
+      setTeamFormError(isEN ? 'Something went wrong, try again.' : 'Qualcosa è andato storto, riprova.');
+    }
+  };
+
+  const shareTeamInviteCode = async () => {
+    if (!teamAuth) return;
+    const text = isEN
+      ? `Join our team on Offside to share your injury updates: code ${teamAuth.inviteCode} — offside.app`
+      : `Unisciti alla nostra squadra su Offside per condividere gli aggiornamenti sui tuoi infortuni: codice ${teamAuth.inviteCode} — myoffside.com`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ text });
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(teamAuth.inviteCode);
+        setTeamInviteCopied(true);
+        setTimeout(() => setTeamInviteCopied(false), 2000);
+      }
+    } catch (err) {}
+  };
+
+  const logoutTeam = () => {
+    setTeamAuth(null);
+    setTeamDashboardData(null);
+    persist(snapshot({ teamAuth: null }));
+    setScreen('premium');
+  };
+
+  const loadTeamDashboard = useCallback(async () => {
+    if (!teamAuth || !teamAuth.token) return;
+    setTeamDashboardLoading(true);
+    try {
+      const res = await fetch('/api/team-dashboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: teamAuth.token }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTeamDashboardData(data);
+        if (data.subscriptionActive !== teamAuth.subscriptionActive) {
+          const nextAuth = { ...teamAuth, subscriptionActive: data.subscriptionActive };
+          setTeamAuth(nextAuth);
+          persist(snapshot({ teamAuth: nextAuth }));
+        }
+      } else if (res.status === 401) {
+        setTeamAuth(null);
+        persist(snapshot({ teamAuth: null }));
+        setScreen('teamLogin');
+      }
+    } catch (err) {
+      // Sync silenzioso: la dashboard resta con i dati dell'ultimo caricamento riuscito.
+    } finally {
+      setTeamDashboardLoading(false);
+    }
+  }, [teamAuth]);
+
+  useEffect(() => {
+    if (screen === 'teamDashboard' && teamAuth) {
+      loadTeamDashboard();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
 
   const renderRestoreBox = () => (
     <div className="mt-3">
@@ -3788,7 +4043,7 @@ export default function Offside() {
             <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">Offside</p>
           </div>
           <h1 style={{ ...displayFont, color: colors.ink }} className="text-lg sm:text-xl font-semibold truncate">
-            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Where does it hurt?' : 'Dove senti il problema?')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'triageResults' ? (isEN ? 'Most likely matches' : 'Probabilmente è questo') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
+            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Where does it hurt?' : 'Dove senti il problema?')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'triageResults' ? (isEN ? 'Most likely matches' : 'Probabilmente è questo') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'teamLanding' ? 'Offside Squadre' : screen === 'teamRegister' ? (isEN ? 'Register your team' : 'Registra la squadra') : screen === 'teamLogin' ? (isEN ? 'Team login' : 'Accedi alla squadra') : screen === 'teamDashboard' ? (teamAuth?.teamName || 'Offside Squadre') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
           </h1>
         </div>
         {screen === 'tracker' && injury && (
@@ -3799,9 +4054,14 @@ export default function Offside() {
         <div className="flex-shrink-0" style={{ width: 20 }}>
           <PlayerMascot stage={mascotStageForScreen(screen)} size={20} color={colors.accentDark} />
         </div>
-        {screen !== 'profile' && (
+        {screen !== 'profile' && !TEAM_SCREENS.includes(screen) && (
           <button onClick={() => setScreen('profile')} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Your profile' : 'Il tuo profilo'}>
             <User size={17} color={colors.accentDark} />
+          </button>
+        )}
+        {screen === 'teamDashboard' && teamAuth && (
+          <button onClick={logoutTeam} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Log out' : 'Esci'}>
+            <LogOut size={16} color={colors.accentDark} />
           </button>
         )}
       </div>
@@ -4249,6 +4509,217 @@ export default function Offside() {
             })()}
               </>
             )}
+
+            <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="pt-5 mt-6">
+              {teamAuth ? (
+                <button onClick={() => setScreen('teamDashboard')} style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}40` }} className="os-focus w-full flex items-center gap-3 rounded-xl p-4 text-left hover:opacity-90 transition-opacity">
+                  <div style={{ backgroundColor: colors.preventionTint }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
+                    <Users size={18} color={colors.preventionDark} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Your team' : 'La tua squadra'}: {teamAuth.teamName}</p>
+                    <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? 'Go to the team dashboard' : 'Vai alla dashboard della squadra'}</p>
+                  </div>
+                  <ChevronRight size={16} color={colors.mutedInk} />
+                </button>
+              ) : (
+                <button onClick={() => { trackEvent('team_landing_viewed'); setScreen('teamLanding'); }} style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}40` }} className="os-focus w-full flex items-center gap-3 rounded-xl p-4 text-left hover:opacity-90 transition-opacity">
+                  <div style={{ backgroundColor: colors.preventionTint }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
+                    <Users size={18} color={colors.preventionDark} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Are you a physio or athletic trainer?' : 'Sei un fisioterapista o un preparatore?'}</p>
+                    <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? 'Discover Offside for Teams' : 'Scopri Offside Squadre'}</p>
+                  </div>
+                  <ChevronRight size={16} color={colors.mutedInk} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {screen === 'teamLanding' && (
+          <div>
+            <div style={{ background: 'linear-gradient(135deg, #0F766E, #0B4440)', border: `1px solid ${colors.prevention}40` }} className="rounded-2xl p-6 mb-5 text-center">
+              <Users size={32} color="#5EEAD4" className="mx-auto mb-3" />
+              <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-lg font-bold mb-2">{isEN ? 'One dashboard for the whole squad' : 'Una dashboard per tutta la squadra'}</p>
+              <p style={{ color: '#BFE9E3' }} className="text-sm leading-relaxed">{isEN ? 'See every consenting player\'s injury, recovery phase and indicative return time — all in one place.' : 'Vedi infortunio, fase di recupero e rientro indicativo di ogni giocatore che ha dato il consenso — tutto in un posto.'}</p>
+            </div>
+            <div className="space-y-3 mb-6">
+              {[
+                isEN ? 'Real injury name and indicative recovery time for every player who joins' : 'Nome vero dell\'infortunio e tempi di recupero indicativi di ogni giocatore che aderisce',
+                isEN ? 'A clear signal when a player\'s recovery is taking longer than typical' : 'Un segnale chiaro quando il recupero di un giocatore richiede più tempo del previsto',
+                isEN ? 'Players decide themselves whether to share, and can revoke consent any time' : 'Sono i giocatori a scegliere se condividere, e possono revocare il consenso quando vogliono',
+                isEN ? 'Their daily journal and personal notes are never visible to the team' : 'Il loro diario giornaliero e le note personali non sono mai visibili alla squadra',
+              ].map((text, i) => (
+                <div key={i} className="flex gap-3 items-start">
+                  <CheckCircle2 size={18} color={colors.preventionDark} className="flex-shrink-0 mt-0.5" />
+                  <p style={{ color: colors.ink }} className="text-sm leading-snug">{text}</p>
+                </div>
+              ))}
+            </div>
+            <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}40` }} className="rounded-xl p-4 mb-6 text-center">
+              <p style={{ ...displayFont, color: colors.preventionDark }} className="text-2xl font-bold">$50<span style={{ color: colors.mutedInk }} className="text-sm font-medium">/{isEN ? 'month per team' : 'mese a squadra'}</span></p>
+            </div>
+            <button onClick={() => { setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamRegister'); }} style={{ backgroundColor: colors.prevention, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
+              <Building2 size={16} /><span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Register your team' : 'Registra la tua squadra'}</span>
+            </button>
+            <button onClick={() => { setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamLogin'); }} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">
+              {isEN ? 'Already have an account? Log in' : 'Hai già un account? Accedi'}
+            </button>
+          </div>
+        )}
+
+        {screen === 'teamRegister' && (
+          <div>
+            <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">{isEN ? 'One account per team. You choose who on your staff manages it.' : 'Un account per squadra. Scegliete voi chi dello staff lo gestisce.'}</p>
+
+            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Team name' : 'Nome squadra'}</label>
+            <input type="text" value={teamForm.teamName} onChange={(e) => setTeamForm({ ...teamForm, teamName: e.target.value })} placeholder={isEN ? 'e.g. ASD Real Offside' : 'es. ASD Real Offside'} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-sm mb-3.5" />
+
+            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Your name' : 'Il tuo nome'}</label>
+            <input type="text" value={teamForm.responsibleName} onChange={(e) => setTeamForm({ ...teamForm, responsibleName: e.target.value })} placeholder={isEN ? 'Full name' : 'Nome e cognome'} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-sm mb-3.5" />
+
+            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Your role' : 'Il tuo ruolo'}</label>
+            <div className="flex flex-wrap gap-2 mb-3.5">
+              {TEAM_ROLE_OPTIONS.map((opt) => (
+                <button key={opt.key} onClick={() => setTeamForm({ ...teamForm, responsibleRole: opt.key })} style={{ backgroundColor: teamForm.responsibleRole === opt.key ? colors.prevention : colors.card, color: teamForm.responsibleRole === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${teamForm.responsibleRole === opt.key ? colors.prevention : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                  {isEN ? opt.labelEN : opt.labelIT}
+                </button>
+              ))}
+            </div>
+            <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-3.5">{isEN ? 'Not a restriction — just so players know who they\'re sharing with. The team decides.' : 'Non è un vincolo — serve solo a far sapere ai giocatori con chi condividono. Decide la squadra.'}</p>
+
+            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Email</label>
+            <input type="email" value={teamForm.email} onChange={(e) => setTeamForm({ ...teamForm, email: e.target.value })} placeholder="email@esempio.com" style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-sm mb-3.5" />
+            <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-3.5 -mt-2.5">{isEN ? 'Use the same email when you pay, so the subscription activates automatically.' : 'Usa la stessa email al momento del pagamento, così l\'abbonamento si attiva in automatico.'}</p>
+
+            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Password</label>
+            <div className="relative mb-3.5">
+              <input type={showTeamPassword ? 'text' : 'password'} value={teamForm.password} onChange={(e) => setTeamForm({ ...teamForm, password: e.target.value })} placeholder={isEN ? 'At least 8 characters' : 'Almeno 8 caratteri'} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg pl-3 pr-10 py-2.5 text-sm" />
+              <button type="button" onClick={() => setShowTeamPassword(!showTeamPassword)} className="os-focus absolute right-3 top-1/2 -translate-y-1/2" aria-label={showTeamPassword ? (isEN ? 'Hide password' : 'Nascondi password') : (isEN ? 'Show password' : 'Mostra password')}>
+                {showTeamPassword ? <EyeOff size={16} color={colors.mutedInk} /> : <Eye size={16} color={colors.mutedInk} />}
+              </button>
+            </div>
+
+            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Confirm password' : 'Conferma password'}</label>
+            <input type={showTeamPassword ? 'text' : 'password'} value={teamForm.confirmPassword} onChange={(e) => setTeamForm({ ...teamForm, confirmPassword: e.target.value })} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-sm mb-4" />
+
+            <button onClick={() => setTeamForm({ ...teamForm, minorConsentAttested: !teamForm.minorConsentAttested })} role="checkbox" aria-checked={teamForm.minorConsentAttested} className="os-focus w-full flex items-start gap-2.5 mb-5 text-left">
+              <div style={{ backgroundColor: teamForm.minorConsentAttested ? colors.prevention : colors.card, border: `1.5px solid ${teamForm.minorConsentAttested ? colors.prevention : colors.hairline}` }} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5">
+                {teamForm.minorConsentAttested && <Check size={13} color="#FFFFFF" strokeWidth={3} />}
+              </div>
+              <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'I confirm that, if the team includes players under 18, the club has obtained parental consent to use Offside for Teams for health-related data.' : 'Confermo che, se la squadra include giocatori minorenni, la società ha ottenuto il consenso dei genitori all\'uso di Offside Squadre per i dati sulla salute.'}</p>
+            </button>
+
+            {teamFormStatus === 'error' && <p style={{ color: colors.red }} className="text-xs mb-3">{teamFormError}</p>}
+
+            <button onClick={submitTeamRegister} disabled={teamFormStatus === 'submitting'} style={{ backgroundColor: colors.prevention, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
+              <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{teamFormStatus === 'submitting' ? '...' : (isEN ? 'Create account' : 'Crea account')}</span>
+            </button>
+            <button onClick={() => { setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamLogin'); }} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">
+              {isEN ? 'Already have an account? Log in' : 'Hai già un account? Accedi'}
+            </button>
+          </div>
+        )}
+
+        {screen === 'teamLogin' && (
+          <div>
+            <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">{isEN ? 'Log in with the email and password you used to register your team.' : 'Accedi con l\'email e la password usate per registrare la squadra.'}</p>
+
+            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Email</label>
+            <input type="email" value={teamForm.email} onChange={(e) => setTeamForm({ ...teamForm, email: e.target.value })} placeholder="email@esempio.com" style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-sm mb-3.5" />
+
+            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Password</label>
+            <div className="relative mb-5">
+              <input type={showTeamPassword ? 'text' : 'password'} value={teamForm.password} onChange={(e) => setTeamForm({ ...teamForm, password: e.target.value })} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg pl-3 pr-10 py-2.5 text-sm" />
+              <button type="button" onClick={() => setShowTeamPassword(!showTeamPassword)} className="os-focus absolute right-3 top-1/2 -translate-y-1/2" aria-label={showTeamPassword ? (isEN ? 'Hide password' : 'Nascondi password') : (isEN ? 'Show password' : 'Mostra password')}>
+                {showTeamPassword ? <EyeOff size={16} color={colors.mutedInk} /> : <Eye size={16} color={colors.mutedInk} />}
+              </button>
+            </div>
+
+            {teamFormStatus === 'error' && <p style={{ color: colors.red }} className="text-xs mb-3">{teamFormError}</p>}
+
+            <button onClick={submitTeamLogin} disabled={teamFormStatus === 'submitting'} style={{ backgroundColor: colors.prevention, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
+              <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{teamFormStatus === 'submitting' ? '...' : (isEN ? 'Log in' : 'Accedi')}</span>
+            </button>
+            <button onClick={() => { setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamRegister'); }} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">
+              {isEN ? "Don't have an account? Register your team" : 'Non hai un account? Registra la squadra'}
+            </button>
+          </div>
+        )}
+
+        {screen === 'teamDashboard' && (
+          <div>
+            {teamDashboardLoading && !teamDashboardData ? (
+              <p style={{ color: colors.mutedInk }} className="text-sm text-center py-10">{isEN ? 'Loading...' : 'Caricamento...'}</p>
+            ) : !teamDashboardData ? (
+              <p style={{ color: colors.mutedInk }} className="text-sm text-center py-10">{isEN ? 'Something went wrong loading the dashboard.' : 'Qualcosa è andato storto nel caricare la dashboard.'}</p>
+            ) : !teamDashboardData.subscriptionActive ? (
+              <>
+                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
+                  <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold mb-1">{isEN ? 'Team code' : 'Codice squadra'}</p>
+                  <p style={{ ...displayFont, color: colors.preventionDark, letterSpacing: '0.15em' }} className="text-2xl font-bold mb-1">{teamDashboardData.inviteCode}</p>
+                  <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'You can already share this with your players — the roster unlocks once the subscription is active.' : 'Puoi già condividerlo con i tuoi giocatori — la rubrica si sblocca appena l\'abbonamento è attivo.'}</p>
+                </div>
+                <div style={{ background: 'linear-gradient(135deg, #0F766E, #0B4440)', border: `1px solid ${colors.prevention}40` }} className="rounded-2xl p-5 text-center mb-4">
+                  <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-bold mb-2">{isEN ? 'Activate the subscription to unlock the dashboard' : 'Attiva l\'abbonamento per sbloccare la dashboard'}</p>
+                  <p style={{ color: '#BFE9E3' }} className="text-xs leading-relaxed mb-4">{isEN ? `Pay with the same email you registered with (${teamAuth?.email}) so it activates automatically.` : `Paga con la stessa email della registrazione (${teamAuth?.email}) così si attiva in automatico.`}</p>
+                  <a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked')} style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium shadow-sm hover:opacity-90 transition-opacity">
+                    <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Activate — $50/month' : 'Attiva — 50$/mese'}</span>
+                  </a>
+                </div>
+                <button onClick={loadTeamDashboard} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">{isEN ? 'I already paid — refresh' : 'Ho già pagato — aggiorna'}</button>
+              </>
+            ) : (
+              <>
+                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase mb-1">{isEN ? 'Invite code' : 'Codice invito'}</p>
+                    <p style={{ ...displayFont, color: colors.preventionDark, letterSpacing: '0.15em' }} className="text-xl font-bold">{teamDashboardData.inviteCode}</p>
+                  </div>
+                  <button onClick={shareTeamInviteCode} style={{ backgroundColor: colors.preventionTint, color: colors.preventionDark }} className="os-focus flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity">
+                    {teamInviteCopied ? <Check size={13} /> : <Copy size={13} />}{teamInviteCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Share' : 'Condividi')}
+                  </button>
+                </div>
+
+                {(!teamDashboardData.players || teamDashboardData.players.length === 0) ? (
+                  <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-5 text-center">
+                    <UserPlus size={22} color={colors.mutedInk} className="mx-auto mb-2" />
+                    <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed">{isEN ? 'No players yet. Share the code above — each player enters it from their own Profile screen and chooses to share.' : 'Ancora nessun giocatore. Condividi il codice sopra — ogni giocatore lo inserisce dal proprio Profilo e sceglie di condividere.'}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {teamDashboardData.players.map((p) => (
+                      <div key={p.playerId} style={{ backgroundColor: colors.card, border: `1px solid ${p.status?.needsAttention ? colors.orange : colors.hairline}` }} className="rounded-xl p-4 shadow-sm">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{p.name}</p>
+                          {p.status?.needsAttention && (
+                            <span style={{ backgroundColor: '#FDECD8', color: colors.orange }} className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full flex items-center gap-1"><AlertTriangle size={10} />{isEN ? 'Taking longer' : 'Recupero lungo'}</span>
+                          )}
+                        </div>
+                        {!p.status || !p.status.injuryLabel ? (
+                          <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? 'No active injury right now.' : 'Nessun infortunio attivo al momento.'}</p>
+                        ) : (
+                          <>
+                            <p style={{ color: colors.ink }} className="text-sm mb-1">{p.status.injuryLabel}</p>
+                            <p style={{ color: colors.mutedInk }} className="text-xs mb-1">
+                              {isEN ? 'Phase' : 'Fase'} {(p.status.phaseIndex ?? 0) + 1}{p.status.totalPhases ? ` ${isEN ? 'of' : 'di'} ${p.status.totalPhases}` : ''}{p.status.phaseLabel ? ` — ${p.status.phaseLabel}` : ''}
+                            </p>
+                            {p.status.dayOfRecovery != null && (
+                              <p style={{ color: colors.mutedInk }} className="text-xs">
+                                {isEN ? 'Day' : 'Giorno'} {p.status.dayOfRecovery}{p.status.estimateDays ? ` ${isEN ? 'of an estimated' : 'su una stima di'} ${p.status.estimateDays} ${isEN ? 'days' : 'giorni'}` : ''}
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    ))}
+                    <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed text-center pt-2">{isEN ? 'Recovery times are estimates based on typical cases, not a promise — every body heals differently.' : 'I tempi di recupero sono stime basate su casi tipici, non una promessa — ogni corpo guarisce a modo suo.'}</p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -4394,6 +4865,68 @@ export default function Offside() {
               </div>
             )}
             <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">{isEN ? 'Used for role-specific training in Premium, and for return-to-play tips in your recovery.' : 'Usato per l\'allenamento per ruolo in Premium, e per i consigli sul rientro nel tuo percorso.'}</p>
+
+            <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="pt-5 mt-6">
+              <div className="flex items-center gap-2 mb-2.5">
+                <Users size={14} color={colors.ink} />
+                <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Team' : 'Squadra'}</p>
+              </div>
+
+              {myTeamMembership ? (
+                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-3.5">
+                  <p style={{ color: colors.ink }} className="text-sm font-medium mb-1">{isEN ? 'Connected to' : 'Collegato a'}: {myTeamMembership.teamName}</p>
+                  <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed mb-3">{isEN ? `Sharing as "${myTeamMembership.playerName}": your injury name, phase and estimated recovery time. Your daily journal and feelings are never shared.` : `Stai condividendo come "${myTeamMembership.playerName}": nome dell'infortunio, fase e stima di recupero. Il tuo diario giornaliero e le tue sensazioni non vengono mai condivisi.`}</p>
+                  <button
+                    onClick={() => { if (confirmingTeamRevoke) { revokeTeamConsent(); setConfirmingTeamRevoke(false); } else { setConfirmingTeamRevoke(true); } }}
+                    onBlur={() => setConfirmingTeamRevoke(false)}
+                    style={{ color: confirmingTeamRevoke ? colors.red : colors.mutedInk }}
+                    className="os-focus text-xs font-medium underline hover:opacity-70"
+                  >
+                    {confirmingTeamRevoke ? (isEN ? 'Tap to confirm' : 'Tocca per confermare') : (isEN ? 'Revoke consent' : 'Revoca consenso')}
+                  </button>
+                </div>
+              ) : !showJoinTeamBox ? (
+                <button onClick={() => setShowJoinTeamBox(true)} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70">
+                  {isEN ? 'Followed by a team physio or trainer? Enter the code' : 'Fai parte di una squadra seguita da un fisio o preparatore? Inserisci il codice'}
+                </button>
+              ) : (
+                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-3.5">
+                  <input type="text" value={joinTeamCode} onChange={(e) => { setJoinTeamCode(e.target.value.toUpperCase()); setJoinTeamStatus('idle'); }} placeholder={isEN ? 'Team code' : 'Codice squadra'} style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink, letterSpacing: '0.08em' }} className="os-focus w-full rounded-lg px-3 py-2.5 text-sm mb-2 uppercase" />
+                  <input type="text" value={joinTeamPlayerName} onChange={(e) => { setJoinTeamPlayerName(e.target.value); setJoinTeamStatus('idle'); }} placeholder={isEN ? 'Your name or nickname' : 'Il tuo nome o soprannome'} maxLength={40} style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-sm mb-3" />
+
+                  <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-3 mb-3">
+                    <p style={{ color: colors.ink }} className="text-xs font-semibold mb-1.5">{isEN ? 'What gets shared with your team:' : 'Cosa viene condiviso con la squadra:'}</p>
+                    <ul className="mb-2">
+                      {[isEN ? 'Injury name' : 'Nome dell\'infortunio', isEN ? 'Recovery phase' : 'Fase di recupero', isEN ? 'Indicative recovery estimate' : 'Stima indicativa di recupero'].map((t, i) => (
+                        <li key={i} style={{ color: colors.mutedInk }} className="text-xs flex items-start gap-1.5 mb-1"><CheckCircle2 size={12} color={colors.accentDark} className="flex-shrink-0 mt-0.5" />{t}</li>
+                      ))}
+                    </ul>
+                    <p style={{ color: colors.ink }} className="text-xs font-semibold mb-1.5">{isEN ? 'Never shared:' : 'Mai condiviso:'}</p>
+                    <ul>
+                      {[isEN ? 'Your daily journal and feelings' : 'Il tuo diario giornaliero e le sensazioni', isEN ? 'Personal notes' : 'Note personali'].map((t, i) => (
+                        <li key={i} style={{ color: colors.mutedInk }} className="text-xs flex items-start gap-1.5 mb-1"><X size={12} color={colors.red} className="flex-shrink-0 mt-0.5" />{t}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <button onClick={() => setJoinTeamConsent(!joinTeamConsent)} role="checkbox" aria-checked={joinTeamConsent} className="os-focus w-full flex items-start gap-2.5 mb-3 text-left">
+                    <div style={{ backgroundColor: joinTeamConsent ? colors.accent : colors.card, border: `1.5px solid ${joinTeamConsent ? colors.accent : colors.hairline}` }} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5">
+                      {joinTeamConsent && <Check size={13} color="#FFFFFF" strokeWidth={3} />}
+                    </div>
+                    <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'I agree to share this summary with my team\'s physio/trainer. I can revoke this at any time.' : 'Accetto di condividere questo riepilogo con il fisio/preparatore della squadra. Posso revocarlo in qualsiasi momento.'}</p>
+                  </button>
+
+                  <div className="flex gap-2">
+                    <button onClick={joinTeam} disabled={joinTeamStatus === 'submitting'} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus flex-1 rounded-lg py-2.5 text-xs font-semibold">
+                      {joinTeamStatus === 'submitting' ? '...' : (isEN ? 'Confirm' : 'Conferma')}
+                    </button>
+                    <button onClick={() => { setShowJoinTeamBox(false); setJoinTeamStatus('idle'); }} style={{ color: colors.mutedInk }} className="os-focus px-3 text-xs">{isEN ? 'Cancel' : 'Annulla'}</button>
+                  </div>
+                  {joinTeamStatus === 'notfound' && <p style={{ color: colors.red }} className="text-xs mt-2">{isEN ? 'Invalid code. Check it with your physio/trainer.' : 'Codice non valido. Controlla con il tuo fisio/preparatore.'}</p>}
+                  {joinTeamStatus === 'error' && <p style={{ color: colors.red }} className="text-xs mt-2">{isEN ? 'Enter the code, your name, and confirm consent.' : 'Inserisci il codice, il tuo nome e conferma il consenso.'}</p>}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -5167,7 +5700,7 @@ export default function Offside() {
         </a>
       </div>
 
-      <BottomNav screen={screen} isEN={isEN} onNavigate={handleBottomNav} />
+      {!TEAM_SCREENS.includes(screen) && <BottomNav screen={screen} isEN={isEN} onNavigate={handleBottomNav} />}
     </div>
   );
 }
