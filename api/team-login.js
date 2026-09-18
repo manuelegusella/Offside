@@ -49,6 +49,8 @@ export default async function handler(req, res) {
       inviteCode: team.inviteCode,
       subscriptionActive: access.hasAccess,
       isPaid: access.isPaid,
+      seasonPassActive: access.seasonPassActive,
+      paidUntil: access.paidUntil,
       trialActive: access.trialActive,
       trialDaysLeft: access.trialDaysLeft,
     });

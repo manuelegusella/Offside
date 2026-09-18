@@ -9,6 +9,15 @@ const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/dRmbJ1c2K3Zt1sB8mB7IY00';
 // attivazione nella schermata Squadre non farà nulla di reale.
 const STRIPE_TEAM_PAYMENT_LINK = 'https://buy.stripe.com/dRm8wP9UC3Zt1sB1Yd7IY01';
 
+// Payment Link per il "Pass Stagionale" Squadre — pagamento UNICO (non ricorrente, non mensile)
+// da creare su Stripe come prodotto a parte, valido fino a fine stagione. Finché resta questo
+// placeholder, il bottone del Pass Stagionale non farà nulla di reale.
+const STRIPE_TEAM_SEASON_PAYMENT_LINK = 'https://buy.stripe.com/14A5kDc2KcvZ2wFdGV7IY02';
+// Prezzo pieno = mesi rimanenti fino a fine stagione x 50€/mese. Prezzo Pass Stagionale = scontato.
+// Aggiorna questi due numeri (e il Payment Link sopra) se cambi l'offerta o l'anno.
+const TEAM_SEASON_FULL_PRICE = 450;
+const TEAM_SEASON_PASS_PRICE = 350;
+
 const TEAM_SCREENS = ['teamRegister', 'teamLogin', 'teamDashboard'];
 const TEAM_ROLE_OPTIONS = [
   { key: 'fisioterapista', labelIT: 'Fisioterapista', labelEN: 'Physiotherapist' },
@@ -3310,6 +3319,17 @@ export default function Offside() {
         } catch (err) {}
         window.history.replaceState({}, '', window.location.pathname);
       }
+
+      // Ritorno da un pagamento Squadre riuscito (mensile o Pass Stagionale): torna dritti alla
+      // dashboard, che si aggiorna da sola non appena "screen" e "teamAuth" sono pronti (vedi
+      // l'useEffect più sotto che chiama loadTeamDashboard quando entrambi sono impostati).
+      if (params.get('team') === 'activated' && loaded.teamAuth) {
+        trackEvent('team_payment_redirect');
+        setScreen('teamDashboard');
+        params.delete('team');
+        const cleanUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '') + window.location.hash;
+        window.history.replaceState({}, '', cleanUrl);
+      }
     })();
   }, []);
 
@@ -4582,9 +4602,20 @@ export default function Offside() {
                         </div>
                       ))}
                     </div>
-                    <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}40` }} className="rounded-xl p-4 mb-6 text-center">
-                      <p style={{ ...displayFont, color: colors.preventionDark }} className="text-2xl font-bold">50€<span style={{ color: colors.mutedInk }} className="text-sm font-medium">/{isEN ? 'month per team' : 'mese a squadra'}</span></p>
-                      <p style={{ color: colors.preventionDark }} className="text-xs font-semibold mt-1.5">{isEN ? 'First month free for new teams' : 'Primo mese gratis per le nuove squadre'}</p>
+                    <div className="space-y-2.5 mb-6">
+                      <div style={{ backgroundColor: colors.preventionPaper, border: `2px solid ${colors.prevention}` }} className="rounded-xl p-4 pt-5 text-center relative">
+                        <span style={{ backgroundColor: colors.prevention, color: '#FFFFFF' }} className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full whitespace-nowrap">{isEN ? `Save €${TEAM_SEASON_FULL_PRICE - TEAM_SEASON_PASS_PRICE}` : `Risparmi ${TEAM_SEASON_FULL_PRICE - TEAM_SEASON_PASS_PRICE}€`}</span>
+                        <p style={{ color: colors.mutedInk }} className="text-[11px] font-medium mb-1">{isEN ? 'Season Pass — one payment' : 'Pass Stagionale — un pagamento unico'}</p>
+                        <p style={{ ...displayFont, color: colors.preventionDark }} className="text-2xl font-bold">
+                          <span style={{ textDecoration: 'line-through' }} className="text-base font-medium mr-1.5 opacity-60">{TEAM_SEASON_FULL_PRICE}€</span>{TEAM_SEASON_PASS_PRICE}€
+                        </p>
+                        <p style={{ color: colors.preventionDark }} className="text-xs font-semibold mt-1">{isEN ? 'Valid until end of season (May)' : 'Valido fino a fine stagione (maggio)'}</p>
+                      </div>
+                      <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-3 text-center">
+                        <p style={{ ...displayFont, color: colors.ink }} className="text-lg font-bold">50€<span style={{ color: colors.mutedInk }} className="text-xs font-medium">/{isEN ? 'month per team' : 'mese a squadra'}</span></p>
+                        <p style={{ color: colors.mutedInk }} className="text-[11px] mt-0.5">{isEN ? 'or pay month by month' : 'oppure paga mese per mese'}</p>
+                      </div>
+                      <p style={{ color: colors.preventionDark }} className="text-xs font-semibold text-center pt-1">{isEN ? 'First month free for new teams, either way' : 'Primo mese gratis per le nuove squadre, in entrambi i casi'}</p>
                     </div>
                     <button onClick={() => { trackEvent('team_register_clicked'); setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamRegister'); }} style={{ backgroundColor: colors.prevention, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
                       <Building2 size={16} /><span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Register your team' : 'Registra la tua squadra'}</span>
@@ -4695,9 +4726,13 @@ export default function Offside() {
                 </div>
                 <div style={{ background: 'linear-gradient(135deg, #0F766E, #0B4440)', border: `1px solid ${colors.prevention}40` }} className="rounded-2xl p-5 text-center mb-4">
                   <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-bold mb-2">{isEN ? 'Your free trial has ended' : 'Il mese di prova è terminato'}</p>
-                  <p style={{ color: '#BFE9E3' }} className="text-xs leading-relaxed mb-4">{isEN ? `Activate the subscription to keep using the dashboard. Pay with the same email you registered with (${teamAuth?.email}) so it activates automatically.` : `Attiva l'abbonamento per continuare a usare la dashboard. Paga con la stessa email della registrazione (${teamAuth?.email}) così si attiva in automatico.`}</p>
-                  <a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked')} style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium shadow-sm hover:opacity-90 transition-opacity">
-                    <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Activate — €50/month' : 'Attiva — 50€/mese'}</span>
+                  <p style={{ color: '#BFE9E3' }} className="text-xs leading-relaxed mb-4">{isEN ? `Activate to keep using the dashboard. Pay with the same email you registered with (${teamAuth?.email}) so it activates automatically.` : `Attiva per continuare a usare la dashboard. Paga con la stessa email della registrazione (${teamAuth?.email}) così si attiva in automatico.`}</p>
+                  <a href={STRIPE_TEAM_SEASON_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_season_pass_clicked')} style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="os-focus w-full flex flex-col items-center justify-center gap-0.5 rounded-xl py-3 font-medium shadow-sm hover:opacity-90 transition-opacity mb-2.5">
+                    <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? `Season Pass — ${TEAM_SEASON_PASS_PRICE}€` : `Pass Stagionale — ${TEAM_SEASON_PASS_PRICE}€`}</span>
+                    <span className="text-[10px] font-medium opacity-80">{isEN ? `instead of ${TEAM_SEASON_FULL_PRICE}€ — valid until end of season` : `invece di ${TEAM_SEASON_FULL_PRICE}€ — valido fino a fine stagione`}</span>
+                  </a>
+                  <a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked')} style={{ backgroundColor: 'transparent', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.35)' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3 font-medium hover:opacity-90 transition-opacity">
+                    <span style={displayFont} className="uppercase tracking-wide text-xs font-semibold">{isEN ? 'Or pay monthly — €50/month' : 'Oppure mese per mese — 50€/mese'}</span>
                   </a>
                 </div>
                 <button onClick={loadTeamDashboard} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">{isEN ? 'I already paid — refresh' : 'Ho già pagato — aggiorna'}</button>
@@ -4736,18 +4771,34 @@ export default function Offside() {
                 )}
 
                 {teamDashboardData.trialActive && !teamDashboardData.isPaid && (
-                  <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}40` }} className="rounded-xl p-3.5 mb-5 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p style={{ ...displayFont, color: colors.preventionDark }} className="text-xs font-semibold mb-0.5">{isEN ? 'Free trial' : 'Mese di prova'}</p>
-                      <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">
-                        {isEN
-                          ? `${teamDashboardData.trialDaysLeft} ${teamDashboardData.trialDaysLeft === 1 ? 'day' : 'days'} left, then €50/month.`
-                          : `${teamDashboardData.trialDaysLeft} ${teamDashboardData.trialDaysLeft === 1 ? 'giorno rimasto' : 'giorni rimasti'}, poi 50€/mese.`}
-                      </p>
+                  <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}40` }} className="rounded-xl p-3.5 mb-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p style={{ ...displayFont, color: colors.preventionDark }} className="text-xs font-semibold mb-0.5">{isEN ? 'Free trial' : 'Mese di prova'}</p>
+                        <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">
+                          {isEN
+                            ? `${teamDashboardData.trialDaysLeft} ${teamDashboardData.trialDaysLeft === 1 ? 'day' : 'days'} left, then €50/month.`
+                            : `${teamDashboardData.trialDaysLeft} ${teamDashboardData.trialDaysLeft === 1 ? 'giorno rimasto' : 'giorni rimasti'}, poi 50€/mese.`}
+                        </p>
+                      </div>
+                      <a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked_early')} style={{ color: colors.preventionDark }} className="os-focus flex-shrink-0 text-xs font-semibold underline hover:opacity-70">
+                        {isEN ? 'Activate now' : 'Attiva ora'}
+                      </a>
                     </div>
-                    <a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked_early')} style={{ color: colors.preventionDark }} className="os-focus flex-shrink-0 text-xs font-semibold underline hover:opacity-70">
-                      {isEN ? 'Activate now' : 'Attiva ora'}
+                    <a href={STRIPE_TEAM_SEASON_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_season_pass_clicked_early')} style={{ color: colors.preventionDark }} className="os-focus block mt-1.5 text-[11px] font-semibold underline hover:opacity-70">
+                      {isEN ? `Or save with the Season Pass — ${TEAM_SEASON_PASS_PRICE}€ instead of ${TEAM_SEASON_FULL_PRICE}€` : `Oppure risparmia col Pass Stagionale — ${TEAM_SEASON_PASS_PRICE}€ invece di ${TEAM_SEASON_FULL_PRICE}€`}
                     </a>
+                  </div>
+                )}
+
+                {teamDashboardData.seasonPassActive && (
+                  <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}40` }} className="rounded-xl p-3.5 mb-5">
+                    <p style={{ ...displayFont, color: colors.preventionDark }} className="text-xs font-semibold mb-0.5">{isEN ? 'Season Pass active' : 'Pass Stagionale attivo'}</p>
+                    <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">
+                      {isEN
+                        ? `Covered until ${new Date(teamDashboardData.paidUntil).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} — no further action needed.`
+                        : `Coperti fino al ${new Date(teamDashboardData.paidUntil).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })} — nessuna azione da fare.`}
+                    </p>
                   </div>
                 )}
 

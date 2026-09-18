@@ -5,12 +5,17 @@
 
 import Stripe from 'stripe';
 import { redis } from './_lib/redis.js';
-import { normalizeEmail, parseJsonMaybe } from './_lib/team.js';
+import { normalizeEmail, parseJsonMaybe, TEAM_SEASON_PASS_END } from './_lib/team.js';
 
 // Distingue un pagamento "Offside Squadre" (50€/mese) da un Premium individuale (3,99€/mese):
 // usiamo l'importo perché sono due Payment Link diversi con prezzi molto distanti.
 // Se in futuro cambi i prezzi, aggiorna questa soglia (in centesimi) di conseguenza.
 const TEAM_PLAN_MIN_CENTS = 1000;
+
+// Il Pass Stagionale è un Payment Link a pagamento UNICO (non ricorrente): lo riconosciamo da
+// session.mode === 'payment' (i due piani mensili sono invece 'subscription'), più questa soglia
+// come controllo di sicurezza in caso in futuro nascano altri prodotti one-time di importo basso.
+const TEAM_SEASON_MIN_CENTS = 20000; // 200€
 
 // Stripe ha bisogno del corpo della richiesta "grezzo" per verificare la firma, quindi disattiviamo il parsing automatico.
 export const config = {
@@ -50,7 +55,10 @@ export default async function handler(req, res) {
     const session = event.data.object;
     const email = session.customer_details?.email || session.customer_email;
     const customerId = session.customer;
-    const isTeamPlan = (session.amount_total || 0) >= TEAM_PLAN_MIN_CENTS;
+    const amount = session.amount_total || 0;
+    const isOneTime = session.mode === 'payment';
+    const isSeasonPass = isOneTime && amount >= TEAM_SEASON_MIN_CENTS;
+    const isTeamPlan = !isSeasonPass && amount >= TEAM_PLAN_MIN_CENTS;
 
     if (email) {
       const normalizedEmail = normalizeEmail(email);
@@ -61,7 +69,18 @@ export default async function handler(req, res) {
           await redis.set(`customer:${customerId}`, normalizedEmail);
         }
 
-        if (isTeamPlan) {
+        if (isSeasonPass) {
+          const teamId = await redis.get(`teamemail:${normalizedEmail}`);
+          if (teamId) {
+            const team = parseJsonMaybe(await redis.get(`team:${teamId}`));
+            if (team) {
+              await redis.set(`team:${teamId}`, { ...team, paidUntil: TEAM_SEASON_PASS_END });
+              console.log(`Pass Stagionale attivato per: ${normalizedEmail} (valido fino a ${TEAM_SEASON_PASS_END})`);
+            }
+          } else {
+            console.warn(`Pagamento Pass Stagionale ricevuto per ${normalizedEmail} ma nessuna squadra registrata con questa email.`);
+          }
+        } else if (isTeamPlan) {
           const teamId = await redis.get(`teamemail:${normalizedEmail}`);
           if (teamId) {
             const team = parseJsonMaybe(await redis.get(`team:${teamId}`));

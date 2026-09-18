@@ -25,6 +25,8 @@ export default async function handler(req, res) {
       return res.status(200).json({
         subscriptionActive: false,
         isPaid: access.isPaid,
+        seasonPassActive: access.seasonPassActive,
+        paidUntil: access.paidUntil,
         trialActive: access.trialActive,
         trialDaysLeft: access.trialDaysLeft,
         teamName: team.teamName,
@@ -76,6 +78,8 @@ export default async function handler(req, res) {
     return res.status(200).json({
       subscriptionActive: true,
       isPaid: access.isPaid,
+      seasonPassActive: access.seasonPassActive,
+      paidUntil: access.paidUntil,
       trialActive: access.trialActive,
       trialDaysLeft: access.trialDaysLeft,
       teamName: team.teamName,
