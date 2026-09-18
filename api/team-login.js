@@ -3,7 +3,7 @@
 
 import bcrypt from 'bcryptjs';
 import { redis } from './_lib/redis.js';
-import { generateSessionToken, normalizeEmail, parseJsonMaybe, TEAM_SESSION_TTL_SECONDS } from './_lib/team.js';
+import { computeTeamAccess, generateSessionToken, normalizeEmail, parseJsonMaybe, TEAM_SESSION_TTL_SECONDS } from './_lib/team.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -38,6 +38,8 @@ export default async function handler(req, res) {
     const token = generateSessionToken();
     await redis.set(`teamsession:${token}`, teamId, { ex: TEAM_SESSION_TTL_SECONDS });
 
+    const access = computeTeamAccess(team);
+
     return res.status(200).json({
       token,
       teamId,
@@ -45,7 +47,10 @@ export default async function handler(req, res) {
       responsibleName: team.responsibleName,
       responsibleRole: team.responsibleRole,
       inviteCode: team.inviteCode,
-      subscriptionActive: !!team.subscriptionActive,
+      subscriptionActive: access.hasAccess,
+      isPaid: access.isPaid,
+      trialActive: access.trialActive,
+      trialDaysLeft: access.trialDaysLeft,
     });
   } catch (err) {
     console.error('Errore nel login squadra:', err);

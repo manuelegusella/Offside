@@ -4,7 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 // SOSTITUISCI questo con il tuo vero Payment Link di Stripe una volta creato
 const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/dRmbJ1c2K3Zt1sB8mB7IY00';
 
-// Payment Link per l'abbonamento "Offside Squadre" (50$/mese) — da creare su Stripe come
+// Payment Link per l'abbonamento "Offside Squadre" (50€/mese) — da creare su Stripe come
 // prodotto separato e incollare qui. Finché resta questo placeholder, il bottone di
 // attivazione nella schermata Squadre non farà nulla di reale.
 const STRIPE_TEAM_PAYMENT_LINK = 'https://buy.stripe.com/SOSTITUISCI_CON_IL_LINK_SQUADRE';
@@ -4562,7 +4562,8 @@ export default function Offside() {
                       ))}
                     </div>
                     <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}40` }} className="rounded-xl p-4 mb-6 text-center">
-                      <p style={{ ...displayFont, color: colors.preventionDark }} className="text-2xl font-bold">$50<span style={{ color: colors.mutedInk }} className="text-sm font-medium">/{isEN ? 'month per team' : 'mese a squadra'}</span></p>
+                      <p style={{ ...displayFont, color: colors.preventionDark }} className="text-2xl font-bold">50€<span style={{ color: colors.mutedInk }} className="text-sm font-medium">/{isEN ? 'month per team' : 'mese a squadra'}</span></p>
+                      <p style={{ color: colors.preventionDark }} className="text-xs font-semibold mt-1.5">{isEN ? 'First month free for new teams' : 'Primo mese gratis per le nuove squadre'}</p>
                     </div>
                     <button onClick={() => { trackEvent('team_register_clicked'); setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamRegister'); }} style={{ backgroundColor: colors.prevention, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
                       <Building2 size={16} /><span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Register your team' : 'Registra la tua squadra'}</span>
@@ -4621,6 +4622,8 @@ export default function Offside() {
 
             {teamFormStatus === 'error' && <p style={{ color: colors.red }} className="text-xs mb-3">{teamFormError}</p>}
 
+            <p style={{ color: colors.preventionDark }} className="text-xs font-semibold text-center mb-3">{isEN ? 'First month free — no card required to start' : 'Primo mese gratis — nessuna carta richiesta per iniziare'}</p>
+
             <button onClick={submitTeamRegister} disabled={teamFormStatus === 'submitting'} style={{ backgroundColor: colors.prevention, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
               <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{teamFormStatus === 'submitting' ? '...' : (isEN ? 'Create account' : 'Crea account')}</span>
             </button>
@@ -4667,13 +4670,13 @@ export default function Offside() {
                 <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
                   <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold mb-1">{isEN ? 'Team code' : 'Codice squadra'}</p>
                   <p style={{ ...displayFont, color: colors.preventionDark, letterSpacing: '0.15em' }} className="text-2xl font-bold mb-1">{teamDashboardData.inviteCode}</p>
-                  <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'You can already share this with your players — the roster unlocks once the subscription is active.' : 'Puoi già condividerlo con i tuoi giocatori — la rubrica si sblocca appena l\'abbonamento è attivo.'}</p>
+                  <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'Your code and players are safe — the roster becomes visible again as soon as you activate.' : 'Il codice e i giocatori restano al sicuro — la rubrica torna visibile appena riattivi l\'abbonamento.'}</p>
                 </div>
                 <div style={{ background: 'linear-gradient(135deg, #0F766E, #0B4440)', border: `1px solid ${colors.prevention}40` }} className="rounded-2xl p-5 text-center mb-4">
-                  <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-bold mb-2">{isEN ? 'Activate the subscription to unlock the dashboard' : 'Attiva l\'abbonamento per sbloccare la dashboard'}</p>
-                  <p style={{ color: '#BFE9E3' }} className="text-xs leading-relaxed mb-4">{isEN ? `Pay with the same email you registered with (${teamAuth?.email}) so it activates automatically.` : `Paga con la stessa email della registrazione (${teamAuth?.email}) così si attiva in automatico.`}</p>
+                  <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-bold mb-2">{isEN ? 'Your free trial has ended' : 'Il mese di prova è terminato'}</p>
+                  <p style={{ color: '#BFE9E3' }} className="text-xs leading-relaxed mb-4">{isEN ? `Activate the subscription to keep using the dashboard. Pay with the same email you registered with (${teamAuth?.email}) so it activates automatically.` : `Attiva l'abbonamento per continuare a usare la dashboard. Paga con la stessa email della registrazione (${teamAuth?.email}) così si attiva in automatico.`}</p>
                   <a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked')} style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium shadow-sm hover:opacity-90 transition-opacity">
-                    <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Activate — $50/month' : 'Attiva — 50$/mese'}</span>
+                    <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Activate — €50/month' : 'Attiva — 50€/mese'}</span>
                   </a>
                 </div>
                 <button onClick={loadTeamDashboard} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">{isEN ? 'I already paid — refresh' : 'Ho già pagato — aggiorna'}</button>
@@ -4689,6 +4692,22 @@ export default function Offside() {
                     {teamInviteCopied ? <Check size={13} /> : <Copy size={13} />}{teamInviteCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Share' : 'Condividi')}
                   </button>
                 </div>
+
+                {teamDashboardData.trialActive && !teamDashboardData.isPaid && (
+                  <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}40` }} className="rounded-xl p-3.5 mb-5 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p style={{ ...displayFont, color: colors.preventionDark }} className="text-xs font-semibold mb-0.5">{isEN ? 'Free trial' : 'Mese di prova'}</p>
+                      <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">
+                        {isEN
+                          ? `${teamDashboardData.trialDaysLeft} ${teamDashboardData.trialDaysLeft === 1 ? 'day' : 'days'} left, then €50/month.`
+                          : `${teamDashboardData.trialDaysLeft} ${teamDashboardData.trialDaysLeft === 1 ? 'giorno rimasto' : 'giorni rimasti'}, poi 50€/mese.`}
+                      </p>
+                    </div>
+                    <a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked_early')} style={{ color: colors.preventionDark }} className="os-focus flex-shrink-0 text-xs font-semibold underline hover:opacity-70">
+                      {isEN ? 'Activate now' : 'Attiva ora'}
+                    </a>
+                  </div>
+                )}
 
                 {(!teamDashboardData.players || teamDashboardData.players.length === 0) ? (
                   <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-5 text-center">

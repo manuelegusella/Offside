@@ -3,7 +3,7 @@
 // fase e stima di recupero indicativa di ogni giocatore che ha dato consenso. Mai il diario.
 
 import { redis } from './_lib/redis.js';
-import { getTeamBySessionToken, parseJsonMaybe } from './_lib/team.js';
+import { computeTeamAccess, getTeamBySessionToken, parseJsonMaybe } from './_lib/team.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -19,9 +19,14 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Sessione scaduta, rifai il login' });
     }
 
-    if (!team.subscriptionActive) {
+    const access = computeTeamAccess(team);
+
+    if (!access.hasAccess) {
       return res.status(200).json({
         subscriptionActive: false,
+        isPaid: access.isPaid,
+        trialActive: access.trialActive,
+        trialDaysLeft: access.trialDaysLeft,
         teamName: team.teamName,
         inviteCode: team.inviteCode,
       });
@@ -40,6 +45,9 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       subscriptionActive: true,
+      isPaid: access.isPaid,
+      trialActive: access.trialActive,
+      trialDaysLeft: access.trialDaysLeft,
       teamName: team.teamName,
       inviteCode: team.inviteCode,
       responsibleName: team.responsibleName,

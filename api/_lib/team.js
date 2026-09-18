@@ -30,6 +30,26 @@ export function normalizeEmail(email) {
 
 export const TEAM_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 giorni
 
+// Primo mese di prova gratuito per le nuove squadre.
+export const TEAM_TRIAL_DAYS = 30;
+
+// Calcola se una squadra ha accesso alla dashboard: o ha un abbonamento attivo,
+// o è ancora dentro il mese di prova gratuito. Se "trialEndsAt" manca (squadre create
+// prima di questa funzione), lo calcoliamo da "createdAt" così nessuna squadra esistente
+// resta bloccata per errore.
+export function computeTeamAccess(team) {
+  const isPaid = !!(team && team.subscriptionActive);
+  const fallbackTrialEndsAt = team && team.createdAt
+    ? new Date(new Date(team.createdAt).getTime() + TEAM_TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString()
+    : null;
+  const trialEndsAt = (team && team.trialEndsAt) || fallbackTrialEndsAt;
+  const trialActive = !isPaid && !!trialEndsAt && new Date(trialEndsAt).getTime() > Date.now();
+  const trialDaysLeft = trialActive
+    ? Math.max(1, Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
+    : 0;
+  return { isPaid, trialActive, trialDaysLeft, trialEndsAt, hasAccess: isPaid || trialActive };
+}
+
 // Carica il team associato a un token di sessione valido, o null se assente/scaduto.
 export async function getTeamBySessionToken(token) {
   if (!token || typeof token !== 'string') return null;

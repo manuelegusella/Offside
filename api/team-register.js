@@ -4,7 +4,7 @@
 
 import bcrypt from 'bcryptjs';
 import { redis } from './_lib/redis.js';
-import { generateId, generateInviteCode, generateSessionToken, normalizeEmail, TEAM_SESSION_TTL_SECONDS } from './_lib/team.js';
+import { computeTeamAccess, generateId, generateInviteCode, generateSessionToken, normalizeEmail, TEAM_SESSION_TTL_SECONDS, TEAM_TRIAL_DAYS } from './_lib/team.js';
 
 const ALLOWED_ROLES = ['fisioterapista', 'preparatore', 'allenatore', 'altro'];
 
@@ -63,6 +63,7 @@ export default async function handler(req, res) {
       passwordHash,
       inviteCode,
       subscriptionActive: false,
+      trialEndsAt: new Date(Date.now() + TEAM_TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
       minorConsentAttested: true,
       minorConsentAttestedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
@@ -75,12 +76,17 @@ export default async function handler(req, res) {
     const token = generateSessionToken();
     await redis.set(`teamsession:${token}`, teamId, { ex: TEAM_SESSION_TTL_SECONDS });
 
+    const access = computeTeamAccess(team);
+
     return res.status(200).json({
       token,
       teamId,
       teamName: team.teamName,
       inviteCode,
-      subscriptionActive: false,
+      subscriptionActive: access.hasAccess,
+      isPaid: access.isPaid,
+      trialActive: access.trialActive,
+      trialDaysLeft: access.trialDaysLeft,
     });
   } catch (err) {
     console.error('Errore nella registrazione squadra:', err);

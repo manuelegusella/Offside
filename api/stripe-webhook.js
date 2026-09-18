@@ -7,7 +7,7 @@ import Stripe from 'stripe';
 import { redis } from './_lib/redis.js';
 import { normalizeEmail, parseJsonMaybe } from './_lib/team.js';
 
-// Distingue un pagamento "Offside Squadre" (50$/mese) da un Premium individuale (3,99€/mese):
+// Distingue un pagamento "Offside Squadre" (50€/mese) da un Premium individuale (3,99€/mese):
 // usiamo l'importo perché sono due Payment Link diversi con prezzi molto distanti.
 // Se in futuro cambi i prezzi, aggiorna questa soglia (in centesimi) di conseguenza.
 const TEAM_PLAN_MIN_CENTS = 1000;
