@@ -34,14 +34,44 @@ export default async function handler(req, res) {
 
     const playerIds = await redis.smembers(`teamplayers:${team.teamId}`);
     const players = [];
+    // Statistiche di squadra: SOLO aggregate/anonime (mai il nome del giocatore), calcolate qui
+    // sul server a partire dallo storico infortuni di ciascuno, e mai esposte per singolo giocatore.
+    const statsByLabel = {};
+    let totalEpisodes = 0;
+    const resolvedDurations = [];
     if (playerIds && playerIds.length) {
       const records = await Promise.all(playerIds.map((id) => redis.get(`player:${id}`)));
       for (const raw of records) {
         const p = parseJsonMaybe(raw);
-        if (p) players.push({ playerId: p.playerId, name: p.name, consentedAt: p.consentedAt, status: p.status || null });
+        if (!p) continue;
+        players.push({ playerId: p.playerId, name: p.name, consentedAt: p.consentedAt, status: p.status || null });
+
+        const history = Array.isArray(p.injuryHistory) ? p.injuryHistory : [];
+        for (const episode of history) {
+          if (!episode || !episode.label) continue;
+          statsByLabel[episode.label] = (statsByLabel[episode.label] || 0) + 1;
+          totalEpisodes++;
+          if (episode.resolvedAt && episode.startedAt) {
+            const days = Math.round((new Date(episode.resolvedAt).getTime() - new Date(episode.startedAt).getTime()) / (24 * 60 * 60 * 1000));
+            if (Number.isFinite(days) && days >= 0) resolvedDurations.push(days);
+          }
+        }
       }
     }
     players.sort((a, b) => a.name.localeCompare(b.name));
+
+    const topInjuries = Object.entries(statsByLabel)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([label, count]) => ({ label, count }));
+
+    const teamStats = {
+      totalEpisodes,
+      topInjuries,
+      avgResolvedDays: resolvedDurations.length
+        ? Math.round(resolvedDurations.reduce((a, b) => a + b, 0) / resolvedDurations.length)
+        : null,
+    };
 
     return res.status(200).json({
       subscriptionActive: true,
@@ -52,6 +82,7 @@ export default async function handler(req, res) {
       inviteCode: team.inviteCode,
       responsibleName: team.responsibleName,
       players,
+      teamStats,
     });
   } catch (err) {
     console.error('Errore nel caricare la dashboard squadra:', err);

@@ -3077,6 +3077,16 @@ function suggestPhase(dayCount, thresholds) {
   if (dayCount <= thresholds[1]) return 1;
   return 2;
 }
+// Classifica la disponibilità di un giocatore per la prossima partita, in modo puramente
+// indicativo a partire dai dati già condivisi: la decisione finale spetta sempre allo staff medico.
+function classifyPlayerAvailability(player) {
+  const s = player && player.status;
+  if (!s || !s.injuryLabel) return 'available';
+  if (Number.isFinite(s.phaseIndex) && Number.isFinite(s.totalPhases) && s.phaseIndex >= s.totalPhases - 1) {
+    return 'doubtful';
+  }
+  return 'out';
+}
 function phaseRangeLabel(index, thresholds, isEN) {
   if (index === 0) return isEN ? `Day 1 – ${thresholds[0]}` : `Giorno 1 – ${thresholds[0]}`;
   if (index === 1) return isEN ? `Day ${thresholds[0] + 1} – ${thresholds[1]}` : `Giorno ${thresholds[0] + 1} – ${thresholds[1]}`;
@@ -3483,6 +3493,7 @@ export default function Offside() {
         const phaseIdx = (dayOfRecovery !== null && sevData) ? suggestPhase(dayOfRecovery, sevData.dayThresholds) : activePhase;
         statusPayload = {
           injuryLabel: inj.label,
+          injuryKey: selectedInjury,
           phaseLabel: (inj.phases && inj.phases[phaseIdx]) ? inj.phases[phaseIdx].name : null,
           phaseIndex: phaseIdx,
           totalPhases: inj.phases ? inj.phases.length : null,
@@ -4014,6 +4025,14 @@ export default function Offside() {
   }
 
   const activeInjuryKeys = Object.keys(injuryDates).filter((k) => injuryDates[k] && injuriesData[k]);
+
+  // Riepilogo disponibilità per la dashboard squadra: quanti giocatori disponibili / in dubbio / fuori.
+  const teamAvailabilityCounts = (teamDashboardData && teamDashboardData.players)
+    ? teamDashboardData.players.reduce((acc, p) => {
+        acc[classifyPlayerAvailability(p)]++;
+        return acc;
+      }, { available: 0, doubtful: 0, out: 0 })
+    : { available: 0, doubtful: 0, out: 0 };
 
   const handleBottomNav = (key) => {
     if (key === 'regions') { setScreen('regions'); }
@@ -4551,6 +4570,8 @@ export default function Offside() {
                     <div className="space-y-3 mb-6">
                       {[
                         isEN ? 'Real injury name and indicative recovery time for every player who joins' : 'Nome vero dell\'infortunio e tempi di recupero indicativi di ogni giocatore che aderisce',
+                        isEN ? 'Who\'s available, doubtful or out for your next match, at a glance' : 'Chi è disponibile, in dubbio o fuori per la prossima partita, a colpo d\'occhio',
+                        isEN ? 'Team-wide stats: where your squad gets injured most, over time' : 'Statistiche di squadra: dove si infortura di più il gruppo nel tempo',
                         isEN ? 'A clear signal when a player\'s recovery is taking longer than typical' : 'Un segnale chiaro quando il recupero di un giocatore richiede più tempo del previsto',
                         isEN ? 'Players decide themselves whether to share, and can revoke consent any time' : 'Sono i giocatori a scegliere se condividere, e possono revocare il consenso quando vogliono',
                         isEN ? 'Their daily journal and personal notes are never visible to the team' : 'Il loro diario giornaliero e le note personali non sono mai visibili alla squadra',
@@ -4693,6 +4714,27 @@ export default function Offside() {
                   </button>
                 </div>
 
+                {teamDashboardData.players && teamDashboardData.players.length > 0 && (
+                  <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
+                    <p style={{ ...displayFont, color: colors.ink }} className="text-[10px] font-semibold uppercase tracking-wide mb-3">{isEN ? 'Availability for the next match' : 'Disponibilità per la prossima partita'}</p>
+                    <div className="grid grid-cols-3 gap-2 mb-2.5">
+                      <div className="text-center">
+                        <p style={{ ...displayFont, color: colors.prevention }} className="text-2xl font-bold">{teamAvailabilityCounts.available}</p>
+                        <p style={{ color: colors.mutedInk }} className="text-[10px] uppercase font-semibold">{isEN ? 'Available' : 'Disponibili'}</p>
+                      </div>
+                      <div className="text-center">
+                        <p style={{ ...displayFont, color: colors.orange }} className="text-2xl font-bold">{teamAvailabilityCounts.doubtful}</p>
+                        <p style={{ color: colors.mutedInk }} className="text-[10px] uppercase font-semibold">{isEN ? 'Doubtful' : 'In dubbio'}</p>
+                      </div>
+                      <div className="text-center">
+                        <p style={{ ...displayFont, color: colors.red }} className="text-2xl font-bold">{teamAvailabilityCounts.out}</p>
+                        <p style={{ color: colors.mutedInk }} className="text-[10px] uppercase font-semibold">{isEN ? 'Out' : 'Fuori'}</p>
+                      </div>
+                    </div>
+                    <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">{isEN ? 'Indicative only — the medical staff always makes the final call.' : 'Solo indicativo — la decisione finale spetta sempre allo staff medico.'}</p>
+                  </div>
+                )}
+
                 {teamDashboardData.trialActive && !teamDashboardData.isPaid && (
                   <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}40` }} className="rounded-xl p-3.5 mb-5 flex items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -4716,7 +4758,12 @@ export default function Offside() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {teamDashboardData.players.map((p) => (
+                    {teamDashboardData.players.map((p) => {
+                      const injData = p.status && p.status.injuryKey ? injuriesData[p.status.injuryKey] : null;
+                      const phaseDetail = (injData && Array.isArray(injData.phases) && Number.isFinite(p.status.phaseIndex))
+                        ? injData.phases[p.status.phaseIndex] || null
+                        : null;
+                      return (
                       <div key={p.playerId} style={{ backgroundColor: colors.card, border: `1px solid ${p.status?.needsAttention ? colors.orange : colors.hairline}` }} className="rounded-xl p-4 shadow-sm">
                         <div className="flex items-center justify-between mb-1.5">
                           <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{p.name}</p>
@@ -4737,11 +4784,46 @@ export default function Offside() {
                                 {isEN ? 'Day' : 'Giorno'} {p.status.dayOfRecovery}{p.status.estimateDays ? ` ${isEN ? 'of an estimated' : 'su una stima di'} ${p.status.estimateDays} ${isEN ? 'days' : 'giorni'}` : ''}
                               </p>
                             )}
+                            {phaseDetail && (
+                              <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-2.5 mt-2">
+                                <p style={{ color: colors.ink }} className="text-xs leading-relaxed mb-1.5">{phaseDetail.why}</p>
+                                {Array.isArray(phaseDetail.exercises) && phaseDetail.exercises.length > 0 && (
+                                  <ul>
+                                    {phaseDetail.exercises.slice(0, 2).map((ex, i) => (
+                                      <li key={i} style={{ color: colors.mutedInk }} className="text-[11px] leading-snug flex items-start gap-1.5 mb-0.5">
+                                        <span style={{ color: colors.preventionDark }}>•</span>{ex.text}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            )}
                           </>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                     <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed text-center pt-2">{isEN ? 'Recovery times are estimates based on typical cases, not a promise — every body heals differently.' : 'I tempi di recupero sono stime basate su casi tipici, non una promessa — ogni corpo guarisce a modo suo.'}</p>
+
+                    {teamDashboardData.teamStats && teamDashboardData.teamStats.totalEpisodes > 0 && (
+                      <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4">
+                        <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold mb-3">{isEN ? 'Team stats' : 'Statistiche di squadra'}</p>
+                        <div className="space-y-2 mb-2.5">
+                          {teamDashboardData.teamStats.topInjuries.map((item, i) => (
+                            <div key={i} className="flex items-center justify-between gap-3">
+                              <p style={{ color: colors.ink }} className="text-xs">{item.label}</p>
+                              <p style={{ ...displayFont, color: colors.preventionDark }} className="text-xs font-bold flex-shrink-0">{item.count}</p>
+                            </div>
+                          ))}
+                        </div>
+                        {teamDashboardData.teamStats.avgResolvedDays != null && (
+                          <p style={{ color: colors.mutedInk, borderTop: `1px solid ${colors.hairline}` }} className="text-xs leading-relaxed pt-2.5 mb-2">
+                            {isEN ? `Average recovery time so far: ${teamDashboardData.teamStats.avgResolvedDays} days.` : `Tempo medio di recupero finora: ${teamDashboardData.teamStats.avgResolvedDays} giorni.`}
+                          </p>
+                        )}
+                        <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">{isEN ? 'Aggregated across the whole squad — never tied to a single player.' : 'Dati aggregati su tutta la squadra — mai riconducibili al singolo giocatore.'}</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </>
@@ -4933,6 +5015,7 @@ export default function Offside() {
                         <li key={i} style={{ color: colors.mutedInk }} className="text-xs flex items-start gap-1.5 mb-1"><X size={12} color={colors.red} className="flex-shrink-0 mt-0.5" />{t}</li>
                       ))}
                     </ul>
+                    <p style={{ color: colors.mutedInk, borderTop: `1px solid ${colors.hairline}` }} className="text-[11px] leading-relaxed mt-2 pt-2">{isEN ? 'This also feeds anonymous, team-wide statistics (e.g. "3 ankle injuries this season") — never attributed to your name.' : 'Questi dati alimentano anche statistiche aggregate e anonime della squadra (es. "3 infortuni alla caviglia in stagione") — mai attribuite al tuo nome.'}</p>
                   </div>
 
                   <button onClick={() => setJoinTeamConsent(!joinTeamConsent)} role="checkbox" aria-checked={joinTeamConsent} className="os-focus w-full flex items-start gap-2.5 mb-3 text-left">
