@@ -7,7 +7,7 @@ const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/dRmbJ1c2K3Zt1sB8mB7IY00';
 // Payment Link per l'abbonamento "Offside Squadre" (50€/mese) — da creare su Stripe come
 // prodotto separato e incollare qui. Finché resta questo placeholder, il bottone di
 // attivazione nella schermata Squadre non farà nulla di reale.
-const STRIPE_TEAM_PAYMENT_LINK = 'https://buy.stripe.com/SOSTITUISCI_CON_IL_LINK_SQUADRE';
+const STRIPE_TEAM_PAYMENT_LINK = 'https://buy.stripe.com/dRm8wP9UC3Zt1sB1Yd7IY01';
 
 const TEAM_SCREENS = ['teamRegister', 'teamLogin', 'teamDashboard'];
 const TEAM_ROLE_OPTIONS = [
