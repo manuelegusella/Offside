@@ -4128,7 +4128,7 @@ export default function Offside() {
           <div className="flex-1 flex flex-col justify-center mb-8">
             <div className="flex items-center justify-between">
               <div>
-                <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.16em' }} className="text-[11px] font-bold uppercase mb-2">{isEN ? 'For amateur footballers' : 'Per il calcio amatoriale'}</p>
+                <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.16em' }} className="text-[11px] font-bold uppercase mb-2">{isEN ? 'For players and teams' : 'Per giocatori e squadre'}</p>
                 <h1 style={{ ...displayFont, letterSpacing: '0.01em' }} className="text-[64px] sm:text-[80px] font-bold leading-[0.95] mb-1">
                   <span style={{ color: colors.ink }}>OFF</span><span style={{ color: colors.accent }}>SIDE</span>
                 </h1>

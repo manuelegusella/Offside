@@ -1,7 +1,7 @@
 {
   "name": "Offside — Recovery Tracker",
   "short_name": "Offside",
-  "description": "Il percorso di recupero pensato per il calcio amatoriale",
+  "description": "Il percorso di recupero pensato per giocatori e squadre di calcio",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#101B26",
