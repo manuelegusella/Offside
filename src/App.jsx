@@ -52,6 +52,10 @@ const colors = {
 
 const STORAGE_KEY = 'injury-recovery-progress-v3';
 
+// Scelta dell'utente sul banner cookie/consenso analytics: null = non ancora scelto,
+// 'granted' o 'denied'. Letta/scritta solo su questo dispositivo (localStorage).
+const COOKIE_CONSENT_KEY = 'offside-cookie-consent';
+
 const catIcons = { balance: Scale, strength: Dumbbell, stretch: Move, run: Wind, hold: Timer, rest: Pause };
 // Un video di riferimento generale per categoria, da fonti verificate (fisioterapisti/professionisti veri).
 // "run" ha una fonte meno consolidata delle altre, verificarla prima di fidarsene al 100%. "rest" non ha un video adatto, resta il link di ricerca.
@@ -2822,6 +2826,47 @@ function BottomNav({ screen, isEN, onNavigate }) {
   );
 }
 
+// Banner di consenso cookie/analytics, mostrato finché l'utente non fa una scelta.
+// Google Analytics parte in modalità "denied" di default (vedi index.html): qui l'utente
+// può accettare o rifiutare la misurazione. La scelta resta solo su questo dispositivo.
+function CookieBanner({ isEN, onChoice }) {
+  return (
+    <div
+      role="dialog"
+      aria-label={isEN ? 'Cookie preferences' : 'Preferenze cookie'}
+      style={{ backgroundColor: colors.ink, paddingBottom: 'calc(14px + env(safe-area-inset-bottom, 0px))' }}
+      className="fixed bottom-0 left-0 right-0 z-40 px-5 pt-4 sm:px-8 shadow-[0_-4px_16px_rgba(16,27,38,0.25)]"
+    >
+      <div className="max-w-md mx-auto">
+        <p style={{ color: '#EEF3F8', fontFamily: "'Inter', sans-serif" }} className="text-xs leading-relaxed mb-3">
+          {isEN
+            ? 'We use Google Analytics to understand how the app is used. Your recovery diary and personal notes are never included. '
+            : 'Usiamo Google Analytics per capire come viene usata l\'app. Il tuo diario di recupero e le tue note personali non vengono mai inclusi. '}
+          <a href="/privacy.html" style={{ color: colors.accent }} className="underline font-medium">
+            {isEN ? 'Privacy Policy' : 'Leggi la Privacy Policy'}
+          </a>
+        </p>
+        <div className="flex gap-2.5">
+          <button
+            onClick={() => onChoice(false)}
+            style={{ backgroundColor: 'transparent', color: '#EEF3F8', border: '1px solid rgba(255,255,255,0.3)' }}
+            className="os-focus flex-1 rounded-lg py-2.5 text-xs font-semibold hover:opacity-80 transition-opacity"
+          >
+            {isEN ? 'Decline' : 'Rifiuta'}
+          </button>
+          <button
+            onClick={() => onChoice(true)}
+            style={{ backgroundColor: colors.accent, color: '#FFFFFF' }}
+            className="os-focus flex-1 rounded-lg py-2.5 text-xs font-semibold hover:opacity-90 transition-opacity"
+          >
+            {isEN ? 'Accept' : 'Accetta'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PlayerMascot({ stage = 0, size = 28, color = colors.accent }) {
   const poses = [
     // 0 — in piedi, pronto
@@ -3207,6 +3252,9 @@ export default function Offside() {
   const [installDismissed, setInstallDismissed] = useState(false);
   const [userProfile, setUserProfile] = useState({ age: '', weight: '', height: '', sex: '', level: '' });
   const [onboardingProfileDone, setOnboardingProfileDone] = useState(false);
+  const [cookieChoice, setCookieChoice] = useState(() => {
+    try { return localStorage.getItem(COOKIE_CONSENT_KEY); } catch (err) { return null; }
+  });
   const isEN = language === 'en';
   const injuriesData = isEN ? injuriesDataEN : injuriesDataIT;
   const preventionData = isEN ? preventionDataEN : preventionDataIT;
@@ -3342,6 +3390,23 @@ export default function Offside() {
   useEffect(() => {
     if (screen === 'physios') trackEvent('physio_directory_viewed');
   }, [screen]);
+
+  // Sincronizza la scelta cookie con Google Consent Mode: in index.html il consenso
+  // di default è "denied", quindi ad ogni caricamento riapplichiamo la scelta salvata
+  // (se l'utente aveva già accettato/rifiutato in una visita precedente).
+  useEffect(() => {
+    if (!cookieChoice) return;
+    if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+      window.gtag('consent', 'update', { analytics_storage: cookieChoice === 'granted' ? 'granted' : 'denied' });
+    }
+  }, [cookieChoice]);
+
+  const handleCookieChoice = (accepted) => {
+    const value = accepted ? 'granted' : 'denied';
+    try { localStorage.setItem(COOKIE_CONSENT_KEY, value); } catch (err) {}
+    setCookieChoice(value);
+    if (accepted) trackEvent('cookie_consent_granted');
+  };
 
   const persist = useCallback(async (next) => {
     try {
@@ -3986,7 +4051,13 @@ export default function Offside() {
           </button>
 
           <div className="text-center mt-3">{renderRestoreBox()}</div>
+          <p className="text-center mt-4">
+            <a href="/privacy.html" style={{ color: colors.mutedInk }} className="os-focus text-[11px] underline hover:opacity-70">
+              {isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}
+            </a>
+          </p>
         </div>
+        {!cookieChoice && <CookieBanner isEN={isEN} onChoice={handleCookieChoice} />}
       </div>
     );
   }
@@ -4040,6 +4111,7 @@ export default function Offside() {
           </button>
           <p style={{ color: colors.mutedInk }} className="text-[11px] text-center">{isEN ? 'You can unlock Premium anytime from your profile.' : 'Puoi sbloccare Premium quando vuoi dal tuo profilo.'}</p>
         </div>
+        {!cookieChoice && <CookieBanner isEN={isEN} onChoice={handleCookieChoice} />}
       </div>
     );
   }
@@ -4412,6 +4484,10 @@ export default function Offside() {
                 <a href={STRIPE_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('premium_unlock_clicked')} style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity">
                   <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
                 </a>
+                <p style={{ color: colors.mutedInk }} className="text-[10.5px] text-center mt-2.5">
+                  {isEN ? 'Payments handled securely by Stripe. ' : 'Pagamenti gestiti in sicurezza da Stripe. '}
+                  <a href="/privacy.html" style={{ color: colors.mutedInk }} className="underline hover:opacity-70">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>
+                </p>
                 <div className="text-center mt-3">{renderRestoreBox()}</div>
               </>
             ) : (
@@ -4672,6 +4748,11 @@ export default function Offside() {
               <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'I confirm that, if the team includes players under 18, the club has obtained parental consent to use Offside for Teams for health-related data.' : 'Confermo che, se la squadra include giocatori minorenni, la società ha ottenuto il consenso dei genitori all\'uso di Offside Squadre per i dati sulla salute.'}</p>
             </button>
 
+            <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-4 -mt-2">
+              {isEN ? 'By creating an account you accept our ' : 'Creando un account accetti la nostra '}
+              <a href="/privacy.html" style={{ color: colors.preventionDark }} className="os-focus underline font-medium hover:opacity-70">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>.
+            </p>
+
             {teamFormStatus === 'error' && <p style={{ color: colors.red }} className="text-xs mb-3">{teamFormError}</p>}
 
             <p style={{ color: colors.preventionDark }} className="text-xs font-semibold text-center mb-3">{isEN ? 'First month free — no card required to start' : 'Primo mese gratis — nessuna carta richiesta per iniziare'}</p>
@@ -4734,6 +4815,10 @@ export default function Offside() {
                   <a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked')} style={{ backgroundColor: 'transparent', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.35)' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3 font-medium hover:opacity-90 transition-opacity">
                     <span style={displayFont} className="uppercase tracking-wide text-xs font-semibold">{isEN ? 'Or pay monthly — €50/month' : 'Oppure mese per mese — 50€/mese'}</span>
                   </a>
+                  <p style={{ color: 'rgba(255,255,255,0.55)' }} className="text-[10.5px] text-center mt-2.5">
+                    {isEN ? 'Payments handled securely by Stripe. ' : 'Pagamenti gestiti in sicurezza da Stripe. '}
+                    <a href="/privacy.html" style={{ color: 'rgba(255,255,255,0.8)' }} className="underline hover:opacity-100">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>
+                  </p>
                 </div>
                 <button onClick={loadTeamDashboard} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">{isEN ? 'I already paid — refresh' : 'Ho già pagato — aggiorna'}</button>
               </>
@@ -5858,9 +5943,13 @@ export default function Offside() {
         <a href="mailto:manuelegusella@icloud.com?subject=Feedback%20Offside" style={{ color: colors.accentDark }} className="os-focus flex items-center justify-center gap-1.5 mt-3 hover:underline">
           <Share2 size={11} />{isEN ? 'Found a problem or have a suggestion? Let me know' : 'Hai trovato un problema o hai un suggerimento? Scrivimelo'}
         </a>
+        <a href="/privacy.html" style={{ color: colors.mutedInk }} className="os-focus block mt-2 underline hover:opacity-70">
+          {isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}
+        </a>
       </div>
 
       {!TEAM_SCREENS.includes(screen) && <BottomNav screen={screen} isEN={isEN} onNavigate={handleBottomNav} />}
+      {!cookieChoice && <CookieBanner isEN={isEN} onChoice={handleCookieChoice} />}
     </div>
   );
 }
