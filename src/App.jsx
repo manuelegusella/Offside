@@ -31,16 +31,21 @@ function trackEvent(name, params = {}) {
     window.gtag('event', name, params);
   }
 }
+// Icone: Phosphor Icons (peso "bold" impostato globalmente in main.jsx via IconContext),
+// aliasate ai nomi Lucide originali così tutto il resto del file resta invariato.
 import {
-  Footprints, Zap, CircleDot, Activity, ArrowLeftRight, Shield, Anchor,
-  ShieldCheck, Disc, TrendingUp, Compass, AlertTriangle, CheckCircle2,
-  Circle, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Info, RotateCcw, X,
-  Calendar, Scale, Dumbbell, Move, Wind, Timer, Pause, Pencil, Target,
-  HelpCircle, PlayCircle, Flame, Share2, ClipboardCheck, Check, Gauge, Waves,
-  Aperture, PersonStanding, Ruler, Sprout, RotateCw, CircleDashed, ShieldAlert,
-  Snowflake, Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, Smartphone, User, Hand, Grip, MapPin, Phone, Mail, Stethoscope, ExternalLink, Search,
-  Users, LogOut, Copy, UserPlus, Building2, Eye, EyeOff
-} from 'lucide-react';
+  Footprints, Lightning as Zap, DotOutline as CircleDot, Pulse as Activity,
+  ArrowsLeftRight as ArrowLeftRight, Shield, Anchor, ShieldCheck,
+  Disc, TrendUp as TrendingUp, Compass, Warning as AlertTriangle, CheckCircle as CheckCircle2,
+  Circle, CaretRight as ChevronRight, CaretDown as ChevronDown, ArrowLeft, ArrowRight, Info,
+  ArrowCounterClockwise as RotateCcw, X,
+  Calendar, Scales as Scale, Barbell as Dumbbell, ArrowsOutCardinal as Move, Wind, Timer, Pause, Pencil, Target,
+  Question as HelpCircle, PlayCircle, Flame, ShareNetwork as Share2, ListChecks as ClipboardCheck, Check, Gauge, Waves,
+  Aperture, PersonSimple as PersonStanding, Ruler, Plant as Sprout, ArrowClockwise as RotateCw, CircleDashed, ShieldWarning as ShieldAlert,
+  Snowflake, Bandaids as Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, DeviceMobile as Smartphone,
+  User, Hand, DotsSixVertical as Grip, MapPin, Phone, Envelope as Mail, Stethoscope, ArrowSquareOut as ExternalLink, MagnifyingGlass as Search,
+  Users, SignOut as LogOut, Copy, UserPlus, Buildings as Building2, Eye, EyeSlash as EyeOff
+} from '@phosphor-icons/react';
 
 const colors = {
   paper: '#EEF3F8', card: '#FFFFFF', hairline: '#D7E1EA', ink: '#101B26',
