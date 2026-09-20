@@ -2931,7 +2931,7 @@ function BottomNav({ screen, isEN, onNavigate }) {
         return (
           <button key={item.key} onClick={() => onNavigate(item.key)} className="os-focus flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5" style={{ color: isActive ? colors.accentDark : colors.mutedInk }}>
             <Icon size={20} strokeWidth={isActive ? 2.4 : 1.8} />
-            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: isActive ? 700 : 500 }} className="text-[10px]">{item.label}</span>
+            <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: isActive ? 700 : 500 }} className="text-[10px]">{item.label}</span>
           </button>
         );
       })}
@@ -2951,7 +2951,7 @@ function CookieBanner({ isEN, onChoice }) {
       className="fixed bottom-0 left-0 right-0 z-40 px-5 pt-4 sm:px-8 shadow-[0_-4px_16px_rgba(16,27,38,0.25)]"
     >
       <div className="max-w-md mx-auto">
-        <p style={{ color: '#EEF3F8', fontFamily: "'Inter', sans-serif" }} className="text-xs leading-relaxed mb-3">
+        <p style={{ color: '#EEF3F8', fontFamily: "'Public Sans', sans-serif" }} className="text-xs leading-relaxed mb-3">
           {isEN
             ? 'We use Google Analytics to understand how the app is used. Your recovery diary and personal notes are never included. '
             : 'Usiamo Google Analytics per capire come viene usata l\'app. Il tuo diario di recupero e le tue note personali non vengono mai inclusi. '}
@@ -3129,7 +3129,7 @@ function SetupSection({ id, currentSection, onToggle, icon: Icon, label, badge, 
         <div style={{ backgroundColor: gold ? colors.premiumGoldTint : colors.accentTint }} className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center">
           <Icon size={16} color={gold ? colors.premiumGold : colors.accentDark} />
         </div>
-        <span style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="flex-1 text-sm font-semibold">{label}</span>
+        <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: colors.ink }} className="flex-1 text-sm font-semibold">{label}</span>
         {badge}
         <ChevronDown size={16} color={colors.mutedInk} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }} />
       </button>
@@ -3145,7 +3145,7 @@ function PremiumBanner({ text, onClick }) {
         <TrendingUp size={22} color={colors.premiumGold} />
       </div>
       <div className="flex-1 min-w-0">
-        <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#FFFFFF' }} className="text-sm font-semibold leading-snug">{text}</p>
+        <p style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: '#FFFFFF' }} className="text-sm font-semibold leading-snug">{text}</p>
       </div>
       <ChevronRight size={18} color={colors.premiumGold} className="flex-shrink-0" />
     </button>
@@ -3217,7 +3217,7 @@ function loadFontsOnce() {
   const link = document.createElement('link');
   link.id = 'os-fonts';
   link.rel = 'stylesheet';
-  link.href = 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap';
+  link.href = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Public+Sans:wght@400..700&display=swap';
   document.head.appendChild(link);
 }
 
@@ -4015,8 +4015,8 @@ export default function Offside() {
     setScreen('triageResults');
   };
 
-  const displayFont = { fontFamily: "'Space Grotesk', sans-serif" };
-  const bodyFont = { fontFamily: "'Inter', sans-serif" };
+  const displayFont = { fontFamily: "'Bricolage Grotesque', sans-serif" };
+  const bodyFont = { fontFamily: "'Public Sans', sans-serif" };
 
   const injury = selectedInjury && injuriesData[selectedInjury] ? injuriesData[selectedInjury] : null;
   const severity = injury && selectedInjury ? (injurySeverities[selectedInjury] || 'moderato') : 'moderato';
@@ -4076,7 +4076,7 @@ export default function Offside() {
   if (loading) {
     const browserIsEN = typeof navigator !== 'undefined' && !navigator.language?.toLowerCase().startsWith('it');
     return (
-      <div style={{ background: 'linear-gradient(160deg, #16283A 0%, #101B26 60%)', color: '#A9B7C4', fontFamily: "'Inter', sans-serif" }} className="w-full min-h-[100dvh] flex items-center justify-center">
+      <div style={{ background: 'linear-gradient(160deg, #16283A 0%, #101B26 60%)', color: '#A9B7C4', fontFamily: "'Public Sans', sans-serif" }} className="w-full min-h-[100dvh] flex items-center justify-center">
         <p className="text-sm">{browserIsEN ? 'Loading your data…' : 'Carico i tuoi dati…'}</p>
       </div>
     );
@@ -4087,15 +4087,15 @@ export default function Offside() {
     .os-focus:focus-visible { outline: 2px solid ${colors.accent}; outline-offset: 2px; }
     .os-tabular { font-variant-numeric: tabular-nums; }
     .os-fill { transition: width 0.4s ease; }
-    input[type="date"].os-date { font-family: 'Inter', sans-serif; color-scheme: light; }
+    input[type="date"].os-date { font-family: 'Public Sans', sans-serif; color-scheme: light; }
     @keyframes os-fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     .os-fadein { animation: os-fadein 0.25s ease-out; }
     .os-print-only { display: none; }
     @media print {
       body * { visibility: hidden; }
       .os-print-only, .os-print-only * { visibility: visible; }
-      .os-print-only { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 24px; font-family: 'Inter', sans-serif; color: #101B26; }
-      .os-print-only h1 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin-bottom: 16px; }
+      .os-print-only { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 24px; font-family: 'Public Sans', sans-serif; color: #101B26; }
+      .os-print-only h1 { font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; margin-bottom: 16px; }
       .os-print-only p { font-size: 13px; line-height: 1.5; margin-bottom: 8px; }
       .os-print-only ul { margin: 4px 0 12px 20px; font-size: 13px; }
       .os-print-only table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
@@ -4410,7 +4410,7 @@ export default function Offside() {
                     <HelpCircle size={20} color={colors.accentDark} />
                   </div>
                   <div className="flex-1">
-                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Not sure what it is?' : 'Non sai cosa hai?'}</p>
+                    <p style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Not sure what it is?' : 'Non sai cosa hai?'}</p>
                     <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? 'Answer 4 fixed questions, ranked by likelihood' : 'Rispondi a 4 domande fisse, ordinate per probabilità'}</p>
                   </div>
                   <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0" />
@@ -5117,7 +5117,7 @@ export default function Offside() {
                     <div style={{ backgroundColor: colors.accentTint }} className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3">
                       <Stethoscope size={26} color={colors.accentDark} />
                     </div>
-                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="text-base font-bold mb-2">{isEN ? 'Coming soon' : 'Arriva presto'}</p>
+                    <p style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: colors.ink }} className="text-base font-bold mb-2">{isEN ? 'Coming soon' : 'Arriva presto'}</p>
                     <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed">{isEN ? 'We\'re building this list one physiotherapist at a time. Check back soon.' : 'Stiamo costruendo questo elenco un fisioterapista alla volta. Torna a trovarci presto.'}</p>
                   </div>
                 );
@@ -5139,7 +5139,7 @@ export default function Offside() {
                             <Stethoscope size={20} color={colors.accentDark} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="text-sm font-bold">{p.name}</p>
+                            <p style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: colors.ink }} className="text-sm font-bold">{p.name}</p>
                             <p style={{ color: colors.mutedInk }} className="text-xs flex items-center gap-1"><MapPin size={11} />{p.city}</p>
                           </div>
                         </div>
@@ -5456,7 +5456,7 @@ export default function Offside() {
                       <Icon size={22} color={colors.accentDark} />
                     </div>
                     <div>
-                      <p style={{ fontFamily: "'Space Grotesk', sans-serif", color: colors.ink }} className="text-base font-bold">{data.label}</p>
+                      <p style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: colors.ink }} className="text-base font-bold">{data.label}</p>
                       <p style={{ color: colors.mutedInk }} className="text-xs">{data.subtitle}</p>
                     </div>
                   </div>
@@ -5725,7 +5725,7 @@ export default function Offside() {
                 </SetupSection>
 
                 <button onClick={skipDate} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium shadow-sm hover:opacity-90 transition-opacity mt-2">
-                  <span style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Go to my recovery' : 'Vai al mio percorso'}</span><ArrowRight size={16} />
+                  <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Go to my recovery' : 'Vai al mio percorso'}</span><ArrowRight size={16} />
                 </button>
               </div>
             ) : (
