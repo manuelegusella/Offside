@@ -3022,6 +3022,28 @@ function LogoMark({ size = 32, color = colors.accent, strokeWidth = 3 }) {
   );
 }
 
+// Anello di progresso circolare stile "recovery ring" (Whoop/Apple Fitness):
+// il numero al centro è il vero protagonista, l'anello è il contorno che gli dà peso.
+function ProgressRing({ percent = 0, size = 96, stroke = 9, color = colors.accent, trackColor = 'rgba(255,255,255,0.12)', children }) {
+  const clamped = Math.max(0, Math.min(100, percent));
+  const r = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference * (1 - clamped / 100);
+  return (
+    <div style={{ width: size, height: size }} className="relative flex-shrink-0">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={trackColor} strokeWidth={stroke} />
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+          strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset}
+          style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">{children}</div>
+    </div>
+  );
+}
+
 const bodyZones = [
   { region: 'lower_back', label: 'Schiena', shape: 'rect', center: { cx: 100, cy: 108 }, props: { x: 72, y: 96, width: 56, height: 24, rx: 12 } },
   { region: 'hip_groin', label: 'Anca/inguine', shape: 'rect', center: { cx: 100, cy: 138 }, props: { x: 74, y: 130, width: 52, height: 16, rx: 8 } },
@@ -4369,29 +4391,48 @@ export default function Offside() {
                         ? (activeInjuryKeys.length === 1 ? 'Your recovery' : `Your recoveries (${activeInjuryKeys.length})`)
                         : (activeInjuryKeys.length === 1 ? 'Il tuo percorso' : `I tuoi percorsi (${activeInjuryKeys.length})`)}
                     </p>
-                    <div className="space-y-2">
-                      {activeInjuryKeys.map((key) => (
-                        <div key={key} style={{ backgroundColor: colors.ink }} className="flex items-stretch rounded-2xl overflow-hidden shadow-sm">
-                          <button onClick={() => resumeInjury(key)} className="os-focus flex-1 flex items-center gap-3 px-4 py-3.5 text-left hover:opacity-90 transition-opacity min-w-0">
-                            <PlayCircle size={20} color={colors.accent} className="flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p style={{ color: '#FFFFFF' }} className="text-sm font-medium truncate">{injuriesData[key].label}</p>
-                              <p style={{ color: '#A9B7C4' }} className="text-xs">{isEN ? 'Day' : 'Giorno'} {daysSince(injuryDates[key])}</p>
-                            </div>
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (deletingKey === key) deleteInjuryData(key);
-                              else { setDeletingKey(key); setTimeout(() => setDeletingKey((k) => (k === key ? null : k)), 3000); }
-                            }}
-                            style={{ backgroundColor: deletingKey === key ? colors.red : 'rgba(255,255,255,0.05)' }}
-                            className="os-focus flex-shrink-0 w-12 flex items-center justify-center transition-colors"
-                            aria-label={deletingKey === key ? (isEN ? 'Confirm deletion' : 'Conferma eliminazione') : (isEN ? 'Delete this recovery' : 'Elimina questo percorso')}
-                          >
-                            <X size={16} color={deletingKey === key ? "#FFFFFF" : colors.mutedInk} />
-                          </button>
-                        </div>
-                      ))}
+                    <div className="space-y-2.5">
+                      {activeInjuryKeys.map((key) => {
+                        const inj = injuriesData[key];
+                        const sev = injurySeverities[key] || 'moderato';
+                        const sevData = inj.severityData[sev];
+                        const dayNum = daysSince(injuryDates[key]);
+                        const phaseIdx = suggestPhase(dayNum, sevData.dayThresholds);
+                        const ringPercent = Math.min(100, (dayNum / sevData.totalEstimateDays) * 100);
+                        const rawMinute = Math.round((dayNum / sevData.totalEstimateDays) * 90);
+                        const ringNumber = Math.min(rawMinute, 90);
+                        const overtime = rawMinute > 90;
+                        return (
+                          <div key={key} style={{ background: 'linear-gradient(150deg, #203954 0%, #101B26 75%)' }} className="rounded-2xl shadow-md relative overflow-hidden">
+                            <div style={{ background: `radial-gradient(circle at 100% 0%, ${colors.accent}22, transparent 60%)` }} className="absolute inset-0 pointer-events-none" />
+                            <button
+                              onClick={() => {
+                                if (deletingKey === key) deleteInjuryData(key);
+                                else { setDeletingKey(key); setTimeout(() => setDeletingKey((k) => (k === key ? null : k)), 3000); }
+                              }}
+                              style={{ backgroundColor: deletingKey === key ? colors.red : 'rgba(255,255,255,0.1)' }}
+                              className="os-focus absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/20 active:scale-90 transition-all z-10"
+                              aria-label={deletingKey === key ? (isEN ? 'Confirm deletion' : 'Conferma eliminazione') : (isEN ? 'Delete this recovery' : 'Elimina questo percorso')}
+                            >
+                              <X size={14} color={deletingKey === key ? "#FFFFFF" : colors.accent} />
+                            </button>
+                            <button onClick={() => resumeInjury(key)} className="os-focus w-full text-left p-5 hover:opacity-90 transition-opacity relative">
+                              <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.14em' }} className="text-[11px] font-bold uppercase mb-3 pr-10">
+                                {isEN ? `Phase ${phaseIdx + 1} of ${inj.phases.length}` : `Fase ${phaseIdx + 1} di ${inj.phases.length}`}
+                              </p>
+                              <div className="flex items-center gap-4">
+                                <ProgressRing percent={ringPercent} size={76} stroke={7} color={colors.accent}>
+                                  <span style={{ ...displayFont, color: '#FFFFFF', letterSpacing: '-0.03em' }} className="text-lg font-bold os-tabular">{ringNumber}{overtime && '+'}<span className="text-[10px] align-top">'</span></span>
+                                </ProgressRing>
+                                <div className="flex-1 min-w-0">
+                                  <p style={{ ...displayFont, color: '#FFFFFF', letterSpacing: '-0.01em' }} className="text-base font-bold uppercase leading-[1.2] mb-1 line-clamp-2">{inj.label}</p>
+                                  <p style={{ color: '#8CA0B3' }} className="text-[12px] leading-snug">{phaseRangeLabel(phaseIdx, sevData.dayThresholds, isEN)} · {isEN ? 'day' : 'giorno'} {dayNum}</p>
+                                </div>
+                              </div>
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -5735,29 +5776,44 @@ export default function Offside() {
               </div>
             ) : (
               <>
-                <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-3 shadow-sm relative">
-                  <button onClick={() => setEditingSetup(true)} style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} className="os-focus absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors" aria-label={isEN ? 'Edit severity, date and more' : 'Modifica gravità, data e altro'}>
-                    <Pencil size={13} color={colors.accent} />
+                <div style={{ background: 'linear-gradient(150deg, #203954 0%, #101B26 75%)' }} className="rounded-2xl p-5 mb-3 shadow-md relative overflow-hidden">
+                  <div style={{ background: `radial-gradient(circle at 100% 0%, ${colors.accent}22, transparent 60%)` }} className="absolute inset-0 pointer-events-none" />
+                  <button onClick={() => setEditingSetup(true)} style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} className="os-focus absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/20 active:scale-90 transition-all z-10" aria-label={isEN ? 'Edit severity, date and more' : 'Modifica gravità, data e altro'}>
+                    <Pencil size={14} color={colors.accent} />
                   </button>
-                  <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.12em' }} className="text-[10px] font-bold uppercase mb-1">{isEN ? `Phase ${activePhase + 1} of ${injury.phases.length}` : `Fase ${activePhase + 1} di ${injury.phases.length}`}</p>
-                  <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-xl font-bold uppercase mb-1.5">{phase.name}</p>
-                  <p style={{ color: '#A9B7C4' }} className="text-sm">{phaseRangeLabel(activePhase, dayThresholds, isEN)} · {isEN ? 'severity' : 'gravità'} {severityLabels[severity].toLowerCase()}{premiumUnlocked && playerPosition && ` · ${playerPositions.find((p) => p.key === playerPosition)?.label}`}</p>
-                  {currentDate && (() => {
-                    const dayNum = daysSince(currentDate);
-                    const rawMinute = Math.round((dayNum / totalEstimateDays) * 90);
-                    const minuteLabel = rawMinute <= 90 ? `${rawMinute}'` : `90+${rawMinute - 90}'`;
-                    return (
-                      <div style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 mt-2">
-                        <span className="text-xs">⏱️</span>
-                        <span style={{ ...displayFont, color: '#FFFFFF' }} className="text-xs font-bold os-tabular">{minuteLabel}</span>
-                        <span style={{ color: '#A9B7C4' }} className="text-[11px]">{isEN ? 'of your match' : 'della tua partita'}</span>
-                      </div>
-                    );
-                  })()}
+                  <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.14em' }} className="text-[11px] font-bold uppercase mb-3 relative">{isEN ? `Phase ${activePhase + 1} of ${injury.phases.length}` : `Fase ${activePhase + 1} di ${injury.phases.length}`}</p>
+
+                  <div className="flex items-center gap-4 relative">
+                    {currentDate ? (() => {
+                      const dayNum = daysSince(currentDate);
+                      const rawMinute = Math.round((dayNum / totalEstimateDays) * 90);
+                      const ringNumber = Math.min(rawMinute, 90);
+                      const overtime = rawMinute > 90;
+                      const ringPercent = Math.min(100, (dayNum / totalEstimateDays) * 100);
+                      return (
+                        <ProgressRing percent={ringPercent} size={100} stroke={8} color={colors.accent}>
+                          <div className="flex flex-col items-center leading-none">
+                            <span style={{ ...displayFont, color: '#FFFFFF', letterSpacing: '-0.03em' }} className="text-[26px] font-bold os-tabular">{ringNumber}{overtime && '+'}<span className="text-sm align-top">'</span></span>
+                            <span style={{ color: '#8CA0B3' }} className="text-[8px] uppercase tracking-wide mt-1 font-semibold">{isEN ? 'match min' : 'min. partita'}</span>
+                          </div>
+                        </ProgressRing>
+                      );
+                    })() : (
+                      <ProgressRing percent={0} size={100} stroke={8} color={colors.accent}>
+                        <Trophy size={30} color={colors.accent} />
+                      </ProgressRing>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p style={{ ...displayFont, color: '#FFFFFF', letterSpacing: '-0.01em' }} className="text-2xl font-bold uppercase leading-[1.1] mb-1.5">{phase.name}</p>
+                      <p style={{ color: '#8CA0B3' }} className="text-[13px] leading-snug">{phaseRangeLabel(activePhase, dayThresholds, isEN)} · {isEN ? 'severity' : 'gravità'} {severityLabels[severity].toLowerCase()}</p>
+                      {premiumUnlocked && playerPosition && <p style={{ ...displayFont, color: colors.premiumGold }} className="text-[11px] font-bold mt-1.5">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>}
+                    </div>
+                  </div>
+
                   {currentDate && (
-                    <div className="flex gap-1 relative pt-3">
+                    <div className="flex gap-1 relative pt-4">
                       {segments.map((seg, i) => (
-                        <div key={i} className="relative h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.15)', flexGrow: seg.span, flexBasis: 0 }}>
+                        <div key={i} className="relative h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.15)', flexGrow: seg.span, flexBasis: 0 }}>
                           <div className="os-fill absolute inset-y-0 left-0 rounded-full" style={{ width: `${seg.fill}%`, backgroundColor: colors.accent }} />
                         </div>
                       ))}
