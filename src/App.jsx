@@ -3557,6 +3557,13 @@ export default function Offside() {
     if (screen === 'physios') trackEvent('physio_directory_viewed');
   }, [screen]);
 
+  // Ogni cambio di schermata parte dall'alto: senza questo, lo scroll della schermata
+  // precedente resta invariato e si "eredita" su quella nuova (es. entrare nel tracker
+  // già a metà pagina se prima si era scrollato in basso in Home).
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [screen]);
+
   // Sincronizza la scelta cookie con Google Consent Mode: in index.html il consenso
   // di default è "denied", quindi ad ogni caricamento riapplichiamo la scelta salvata
   // (se l'utente aveva già accettato/rifiutato in una visita precedente).
