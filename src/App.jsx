@@ -3444,6 +3444,52 @@ function computeStreak(log) {
   }
   return { count: streak, graceUsed };
 }
+// Livelli di carico ordinabili, usati solo per confrontare "quanto" un giorno rispetto a un altro.
+const WELLNESS_LOAD_ORDER = { riposo: 0, leggero: 1, normale: 2, intenso: 3 };
+
+// Calcola un segnale settimanale di attenzione (verde/giallo/rosso) dagli ultimi check-in di
+// benessere completi (sonno + indolenzimento + carico, tutti e tre compilati per quel giorno).
+// È volutamente una regola semplice e leggibile, non un modello predittivo: incrocia solo
+// pattern noti in letteratura sportiva di base (sonno scarso + indolenzimento persistente,
+// picco di carico dopo giorni di scarico, accumulo senza mai scaricare). Serve a suggerire
+// allo staff chi vale la pena chiedere come sta — non è una diagnosi né una previsione.
+// Richiede almeno 3 giornate complete negli ultimi 7 giorni disponibili, altrimenti i dati
+// non bastano per dire nulla di sensato.
+function computeWellnessRisk(checkins) {
+  const days = [];
+  for (let i = 0; i < 7 && days.length < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const entry = checkins[toISODate(d)];
+    if (entry && entry.sleep && entry.soreness && entry.load) days.push(entry);
+  }
+  // days[0] è la giornata completa più recente, in ordine decrescente nel tempo.
+  if (days.length < 3) return { level: 'insufficiente', daysTracked: days.length };
+
+  const last3 = days.slice(0, 3);
+  const badSleepStreak = last3.filter((d) => d.sleep === 'male').length;
+  const highSorenessStreak = last3.filter((d) => d.soreness === 'molto').length;
+
+  // Picco di carico: la giornata più recente è "intenso" dopo almeno 2 giornate di scarico/leggero.
+  const last4Loads = days.slice(0, 4).map((d) => d.load);
+  const loadSpike = last4Loads.length >= 3 && last4Loads[0] === 'intenso'
+    && last4Loads.slice(1, 3).every((l) => WELLNESS_LOAD_ORDER[l] <= 1);
+
+  // Accumulo senza scarico: 4 giornate di fila tutte "normale" o "intenso", mai sotto.
+  const noOffloadStreak = last4Loads.length === 4 && last4Loads.every((l) => WELLNESS_LOAD_ORDER[l] >= 2);
+
+  const today = days[0];
+  const todayDoubleSignal = today.sleep === 'male' && today.soreness === 'molto';
+
+  if ((badSleepStreak >= 2 && highSorenessStreak >= 2) || loadSpike || todayDoubleSignal) {
+    return { level: 'rosso', daysTracked: days.length };
+  }
+  if (badSleepStreak >= 2 || highSorenessStreak >= 2 || noOffloadStreak) {
+    return { level: 'giallo', daysTracked: days.length };
+  }
+  return { level: 'verde', daysTracked: days.length };
+}
+
 function downloadRecoveryReminders(isEN) {
   const pad = (n) => String(n).padStart(2, '0');
   const fmt = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
@@ -3505,6 +3551,12 @@ export default function Offside() {
   const [injuryDates, setInjuryDates] = useState({});
   const [injurySeverities, setInjurySeverities] = useState({});
   const [dailyLog, setDailyLog] = useState({});
+  // Check-in di benessere giornaliero (sonno/indolenzimento/carico), separato dal diario
+  // di recupero: esiste anche per chi non ha nessun infortunio attivo, perché serve a
+  // prevenire — non solo a monitorare un infortunio già in corso. Le risposte grezze
+  // restano SEMPRE solo su questo dispositivo (vedi computeWellnessRisk più sotto):
+  // alla squadra arriva solo un livello sintetico calcolato, mai i singoli valori.
+  const [wellnessCheckins, setWellnessCheckins] = useState({});
   const [showRedFlags, setShowRedFlags] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [editingSetup, setEditingSetup] = useState(false);
@@ -3613,6 +3665,7 @@ export default function Offside() {
           setInjuryDates(loaded.injuryDates || {});
           setInjurySeverities(loaded.injurySeverities || {});
           setDailyLog(loaded.dailyLog || {});
+          setWellnessCheckins(loaded.wellnessCheckins || {});
           setPlayerPosition(loaded.playerPosition || null);
           setPreventionProgress(loaded.preventionProgress || {});
           setLanguage(loaded.language || 'it');
@@ -3696,7 +3749,7 @@ export default function Offside() {
     }
   }, []);
 
-  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, onboardingProfileDone, injuryRecurrence, teamAuth, myTeamMembership, ...overrides });
+  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, wellnessCheckins, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, onboardingProfileDone, injuryRecurrence, teamAuth, myTeamMembership, ...overrides });
 
   const goBack = () => {
     if (screen === 'tracker') setScreen('injuries');
@@ -3867,18 +3920,22 @@ export default function Offside() {
           needsAttention: !!(dayOfRecovery !== null && sevData && dayOfRecovery > sevData.totalEstimateDays),
         };
       }
+      // Solo il livello calcolato (verde/giallo/rosso/insufficiente) lascia il dispositivo:
+      // le risposte del check-in restano in wellnessCheckins, mai incluse in questo payload.
+      const wellnessPayload = computeWellnessRisk(wellnessCheckins);
+
       try {
         await fetch('/api/team-player-sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ playerId: myTeamMembership.playerId, status: statusPayload }),
+          body: JSON.stringify({ playerId: myTeamMembership.playerId, status: statusPayload, wellness: wellnessPayload }),
         });
       } catch (err) {
         // Sync silenzioso: se fallisce ora, riparte al prossimo cambiamento rilevante.
       }
     };
     syncTeamStatus();
-  }, [myTeamMembership, selectedInjury, injurySeverities, injuryDates]);
+  }, [myTeamMembership, selectedInjury, injurySeverities, injuryDates, wellnessCheckins]);
 
   // --- Offside Squadre: responsabile (fisio/preparatore) ---
   const submitTeamRegister = async () => {
@@ -4108,6 +4165,22 @@ export default function Offside() {
     const nextLog = { ...dailyLog, [selectedInjury]: nextForInjury };
     setDailyLog(nextLog);
     persist(snapshot({ dailyLog: nextLog }));
+  };
+
+  // Aggiorna la risposta di oggi per un campo del check-in di benessere (sonno/soreness/carico).
+  // Un solo check-in al giorno: se richiami di nuovo lo stesso giorno, sovrascrive quello di oggi.
+  const setTodayWellness = (field, value) => {
+    const today = todayKey();
+    const current = wellnessCheckins[today] || {};
+    const nextEntry = { ...current, [field]: value };
+    // Tiene solo le ultime 28 giornate: basta e avanza per il calcolo del segnale settimanale,
+    // e non serve accumulare mesi di dati grezzi solo sul dispositivo.
+    const dates = Object.keys(wellnessCheckins).sort();
+    const nextLog = { ...wellnessCheckins, [today]: nextEntry };
+    while (Object.keys(nextLog).length > 28) delete nextLog[dates.shift()];
+    setWellnessCheckins(nextLog);
+    persist(snapshot({ wellnessCheckins: nextLog }));
+    trackEvent('wellness_checkin_field', { field });
   };
 
   const resetInjury = () => {
@@ -4405,6 +4478,14 @@ export default function Offside() {
       }, { available: 0, doubtful: 0, out: 0 })
     : { available: 0, doubtful: 0, out: 0 };
 
+  // Giocatori da segnalare allo staff per il check-in di benessere: rosso prima, poi giallo.
+  const wellnessOrder = { rosso: 0, giallo: 1 };
+  const wellnessToWatch = (teamDashboardData && teamDashboardData.players)
+    ? teamDashboardData.players
+        .filter((p) => p.wellness && (p.wellness.level === 'rosso' || p.wellness.level === 'giallo'))
+        .sort((a, b) => wellnessOrder[a.wellness.level] - wellnessOrder[b.wellness.level])
+    : [];
+
   const handleBottomNav = (key) => {
     if (key === 'regions') { setScreen('regions'); }
     else if (key === 'tracker') {
@@ -4497,6 +4578,68 @@ export default function Offside() {
                 onDismiss={() => { setInstallDismissed(true); persist(snapshot({ installDismissed: true })); }}
               />
             )}
+
+            {myTeamMembership && (() => {
+              const todayW = wellnessCheckins[todayKey()] || {};
+              const wellnessDone = !!(todayW.sleep && todayW.soreness && todayW.load);
+              const sleepOptions = [
+                { key: 'male', it: 'Male', en: 'Bad' },
+                { key: 'cosi', it: 'Così così', en: 'So-so' },
+                { key: 'bene', it: 'Bene', en: 'Good' },
+              ];
+              const sorenessOptions = [
+                { key: 'poco', it: 'Per niente', en: 'Not at all' },
+                { key: 'medio', it: 'Un po\'', en: 'A bit' },
+                { key: 'molto', it: 'Molto', en: 'A lot' },
+              ];
+              const loadOptions = [
+                { key: 'riposo', it: 'Riposo', en: 'Rest' },
+                { key: 'leggero', it: 'Leggero', en: 'Light' },
+                { key: 'normale', it: 'Normale', en: 'Normal' },
+                { key: 'intenso', it: 'Intenso', en: 'Intense' },
+              ];
+              const wellnessRow = (label, field, options, activeColor) => (
+                <div className="flex items-center gap-2">
+                  <span style={{ color: colors.mutedInk }} className="text-[11px] font-medium flex-shrink-0 w-16">{label}</span>
+                  <div className="flex-1 flex gap-1.5">
+                    {options.map((opt) => (
+                      <button
+                        key={opt.key}
+                        onClick={() => setTodayWellness(field, opt.key)}
+                        style={{ backgroundColor: todayW[field] === opt.key ? activeColor : colors.paper, color: todayW[field] === opt.key ? '#FFFFFF' : colors.ink }}
+                        className="os-focus flex-1 py-1.5 rounded-lg text-[10.5px] font-medium transition-colors"
+                      >
+                        {isEN ? opt.en : opt.it}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+              return (
+                <div style={{ backgroundColor: wellnessDone ? colors.accentTint : colors.card, border: `1px solid ${wellnessDone ? colors.accent : colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm transition-colors">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <Gauge size={14} color={wellnessDone ? colors.accentDark : colors.ink} />
+                      <p style={{ ...displayFont, color: wellnessDone ? colors.accentDark : colors.ink }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? "Today's check-in" : 'Check-in di oggi'}</p>
+                    </div>
+                    {wellnessDone && <CheckCircle2 size={16} color={colors.accentDark} />}
+                  </div>
+                  <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-3">
+                    {isEN
+                      ? 'Half a minute, so your staff knows when it\'s worth checking in with you. Only a summary signal is ever shared — never your answers.'
+                      : 'Mezzo minuto, così il tuo staff sa quando vale la pena chiederti come stai. Viene condiviso solo un segnale riassuntivo — mai le tue risposte.'}
+                  </p>
+                  <div className="space-y-2.5">
+                    {wellnessRow(isEN ? 'Sleep' : 'Sonno', 'sleep', sleepOptions, colors.accent)}
+                    {wellnessRow(isEN ? 'Soreness' : 'Dolori', 'soreness', sorenessOptions, colors.orange)}
+                    {wellnessRow(isEN ? 'Session' : 'Sessione', 'load', loadOptions, colors.preventionDark)}
+                  </div>
+                  <p style={{ color: colors.mutedInk }} className="text-[10px] leading-relaxed mt-2.5">
+                    {isEN ? '"Session" = your most recent training or match, whenever it was.' : '"Sessione" = il tuo ultimo allenamento o partita, qualunque giorno sia stato.'}
+                  </p>
+                </div>
+              );
+            })()}
 
             <div style={{ backgroundColor: colors.laneBg }} className="flex gap-1 p-1 rounded-full mb-5">
               <button onClick={() => setRegionsTab('injury')} style={{ backgroundColor: regionsTab === 'injury' ? colors.card : 'transparent', color: regionsTab === 'injury' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
@@ -4981,6 +5124,7 @@ export default function Offside() {
                       {[
                         isEN ? 'Real injury name and indicative recovery time for every player who joins' : 'Nome vero dell\'infortunio e tempi di recupero indicativi di ogni giocatore che aderisce',
                         isEN ? 'Who\'s available, doubtful or out for your next match, at a glance' : 'Chi è disponibile, in dubbio o fuori per la prossima partita, a colpo d\'occhio',
+                        isEN ? 'A weekly wellness signal (sleep, soreness, training load) flagging who\'s worth checking in with — before an injury happens, not after' : 'Un segnale settimanale di benessere (sonno, indolenzimento, carico) che segnala a chi vale la pena chiedere come sta — prima che si faccia male, non dopo',
                         isEN ? 'Team-wide stats: where your squad gets injured most, over time' : 'Statistiche di squadra: dove si infortura di più il gruppo nel tempo',
                         isEN ? 'A clear signal when a player\'s recovery is taking longer than typical' : 'Un segnale chiaro quando il recupero di un giocatore richiede più tempo del previsto',
                         isEN ? 'Players decide themselves whether to share, and can revoke consent any time' : 'Sono i giocatori a scegliere se condividere, e possono revocare il consenso quando vogliono',
@@ -5169,6 +5313,42 @@ export default function Offside() {
                   </div>
                 )}
 
+                {teamDashboardData.wellnessSummary && (teamDashboardData.wellnessSummary.rosso + teamDashboardData.wellnessSummary.giallo + teamDashboardData.wellnessSummary.verde) > 0 && (
+                  <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <Gauge size={13} color={colors.ink} />
+                      <p style={{ ...displayFont, color: colors.ink }} className="text-[10px] font-semibold uppercase tracking-wide">{isEN ? 'Weekly wellness signal' : 'Monitoraggio settimanale'}</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div className="text-center">
+                        <p style={{ ...displayFont, color: colors.red }} className="text-2xl font-bold">{teamDashboardData.wellnessSummary.rosso}</p>
+                        <p style={{ color: colors.mutedInk }} className="text-[10px] uppercase font-semibold">{isEN ? 'To watch' : 'Da monitorare'}</p>
+                      </div>
+                      <div className="text-center">
+                        <p style={{ ...displayFont, color: colors.orange }} className="text-2xl font-bold">{teamDashboardData.wellnessSummary.giallo}</p>
+                        <p style={{ color: colors.mutedInk }} className="text-[10px] uppercase font-semibold">{isEN ? 'Attention' : 'Attenzione'}</p>
+                      </div>
+                      <div className="text-center">
+                        <p style={{ ...displayFont, color: colors.accent }} className="text-2xl font-bold">{teamDashboardData.wellnessSummary.verde}</p>
+                        <p style={{ color: colors.mutedInk }} className="text-[10px] uppercase font-semibold">{isEN ? 'OK' : 'OK'}</p>
+                      </div>
+                    </div>
+                    {wellnessToWatch.length > 0 && (
+                      <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-2.5 mb-2.5">
+                        <p style={{ color: colors.ink }} className="text-xs leading-relaxed">
+                          {isEN ? 'Worth checking in with: ' : 'Vale la pena chiedere come stanno a: '}
+                          <strong>{wellnessToWatch.map((p) => p.name).join(', ')}</strong>
+                        </p>
+                      </div>
+                    )}
+                    <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">
+                      {isEN
+                        ? 'Based on each player\'s optional daily check-in (sleep, soreness, training load) — a signal to ask how someone is doing, never a diagnosis.'
+                        : 'Basato sul check-in giornaliero facoltativo di ognuno (sonno, indolenzimento, carico) — un segnale per chiedere come sta qualcuno, mai una diagnosi.'}
+                    </p>
+                  </div>
+                )}
+
                 {teamDashboardData.trialActive && !teamDashboardData.isPaid && (
                   <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}40` }} className="rounded-xl p-3.5 mb-5">
                     <div className="flex items-center justify-between gap-3">
@@ -5216,7 +5396,16 @@ export default function Offside() {
                       return (
                       <div key={p.playerId} style={{ backgroundColor: colors.card, border: `1px solid ${p.status?.needsAttention ? colors.orange : colors.hairline}` }} className="rounded-xl p-4 shadow-sm">
                         <div className="flex items-center justify-between mb-1.5">
-                          <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{p.name}</p>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {p.wellness && (p.wellness.level === 'rosso' || p.wellness.level === 'giallo') && (
+                              <span
+                                title={isEN ? 'Worth checking in with them' : 'Vale la pena chiedere come sta'}
+                                style={{ backgroundColor: p.wellness.level === 'rosso' ? colors.red : colors.orange }}
+                                className="flex-shrink-0 w-2 h-2 rounded-full"
+                              />
+                            )}
+                            <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold truncate">{p.name}</p>
+                          </div>
                           {p.status?.needsAttention && (
                             <span style={{ backgroundColor: '#FDECD8', color: colors.orange }} className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full flex items-center gap-1"><AlertTriangle size={10} />{isEN ? 'Taking longer' : 'Recupero lungo'}</span>
                           )}
@@ -5433,7 +5622,7 @@ export default function Offside() {
               {myTeamMembership ? (
                 <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-3.5">
                   <p style={{ color: colors.ink }} className="text-sm font-medium mb-1">{isEN ? 'Connected to' : 'Collegato a'}: {myTeamMembership.teamName}</p>
-                  <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed mb-3">{isEN ? `Sharing as "${myTeamMembership.playerName}": your injury name, phase and estimated recovery time. Your daily journal and feelings are never shared.` : `Stai condividendo come "${myTeamMembership.playerName}": nome dell'infortunio, fase e stima di recupero. Il tuo diario giornaliero e le tue sensazioni non vengono mai condivisi.`}</p>
+                  <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed mb-3">{isEN ? `Sharing as "${myTeamMembership.playerName}": your injury name, phase, estimated recovery time and — only if you fill in the daily check-in above — a summary wellness level (green/amber/red). Your daily journal, feelings and check-in answers are never shared.` : `Stai condividendo come "${myTeamMembership.playerName}": nome dell'infortunio, fase, stima di recupero e — solo se compili il check-in giornaliero qui sopra — un livello di benessere riassuntivo (verde/giallo/rosso). Il tuo diario giornaliero, le tue sensazioni e le risposte del check-in non vengono mai condivisi.`}</p>
                   <button
                     onClick={() => { if (confirmingTeamRevoke) { revokeTeamConsent(); setConfirmingTeamRevoke(false); } else { setConfirmingTeamRevoke(true); } }}
                     onBlur={() => setConfirmingTeamRevoke(false)}
@@ -5455,13 +5644,13 @@ export default function Offside() {
                   <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-3 mb-3">
                     <p style={{ color: colors.ink }} className="text-xs font-semibold mb-1.5">{isEN ? 'What gets shared with your team:' : 'Cosa viene condiviso con la squadra:'}</p>
                     <ul className="mb-2">
-                      {[isEN ? 'Injury name' : 'Nome dell\'infortunio', isEN ? 'Recovery phase' : 'Fase di recupero', isEN ? 'Indicative recovery estimate' : 'Stima indicativa di recupero'].map((t, i) => (
+                      {[isEN ? 'Injury name' : 'Nome dell\'infortunio', isEN ? 'Recovery phase' : 'Fase di recupero', isEN ? 'Indicative recovery estimate' : 'Stima indicativa di recupero', isEN ? 'A summary wellness level (green/amber/red), only if you use the daily check-in' : 'Un livello di benessere riassuntivo (verde/giallo/rosso), solo se usi il check-in giornaliero'].map((t, i) => (
                         <li key={i} style={{ color: colors.mutedInk }} className="text-xs flex items-start gap-1.5 mb-1"><CheckCircle2 size={12} color={colors.accentDark} className="flex-shrink-0 mt-0.5" />{t}</li>
                       ))}
                     </ul>
                     <p style={{ color: colors.ink }} className="text-xs font-semibold mb-1.5">{isEN ? 'Never shared:' : 'Mai condiviso:'}</p>
                     <ul>
-                      {[isEN ? 'Your daily journal and feelings' : 'Il tuo diario giornaliero e le sensazioni', isEN ? 'Personal notes' : 'Note personali'].map((t, i) => (
+                      {[isEN ? 'Your daily journal and feelings' : 'Il tuo diario giornaliero e le sensazioni', isEN ? 'Your check-in answers (sleep, soreness, training load)' : 'Le tue risposte al check-in (sonno, indolenzimento, carico)', isEN ? 'Personal notes' : 'Note personali'].map((t, i) => (
                         <li key={i} style={{ color: colors.mutedInk }} className="text-xs flex items-start gap-1.5 mb-1"><X size={12} color={colors.red} className="flex-shrink-0 mt-0.5" />{t}</li>
                       ))}
                     </ul>

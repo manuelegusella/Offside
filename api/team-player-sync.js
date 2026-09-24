@@ -22,6 +22,17 @@ function sanitizeStatus(status) {
   return s;
 }
 
+// Check-in di benessere: il client manda SOLO il livello già calcolato sul dispositivo
+// (vedi computeWellnessRisk in App.jsx), mai le risposte grezze (sonno/indolenzimento/carico).
+// Qui validiamo comunque il valore contro una whitelist rigida, senza fidarci del client.
+const WELLNESS_LEVELS = new Set(['verde', 'giallo', 'rosso', 'insufficiente']);
+function sanitizeWellness(wellness) {
+  if (!wellness || typeof wellness !== 'object') return null;
+  if (typeof wellness.level !== 'string' || !WELLNESS_LEVELS.has(wellness.level)) return null;
+  const daysTracked = Number.isFinite(wellness.daysTracked) ? Math.max(0, Math.min(7, Math.round(wellness.daysTracked))) : 0;
+  return { level: wellness.level, daysTracked, lastUpdated: new Date().toISOString() };
+}
+
 // Confronta lo stato precedente con quello nuovo e aggiorna lo storico infortuni del giocatore,
 // che serve solo a calcolare statistiche di squadra AGGREGATE (mai per singolo nome, vedi team-dashboard.js).
 // Tiene solo gli ultimi 30 episodi per giocatore.
@@ -58,7 +69,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Metodo non permesso' });
   }
 
-  const { playerId, status } = req.body || {};
+  const { playerId, status, wellness } = req.body || {};
 
   if (!playerId || typeof playerId !== 'string') {
     return res.status(400).json({ error: 'Richiesta non valida' });
@@ -73,7 +84,11 @@ export default async function handler(req, res) {
 
     const clean = sanitizeStatus(status);
     const injuryHistory = updateInjuryHistory(player.injuryHistory, player.status, clean);
+    const cleanWellness = sanitizeWellness(wellness);
     const updated = { ...player, status: clean, injuryHistory };
+    // Il giocatore potrebbe non usare (ancora) il check-in: in quel caso non manda "wellness"
+    // affatto, e non tocchiamo il campo esistente invece di cancellarlo per errore.
+    if (cleanWellness) updated.wellness = cleanWellness;
     await redis.set(`player:${playerId}`, updated);
 
     return res.status(200).json({ ok: true });

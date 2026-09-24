@@ -41,12 +41,19 @@ export default async function handler(req, res) {
     const statsByLabel = {};
     let totalEpisodes = 0;
     const resolvedDurations = [];
+    // Riepilogo del check-in di benessere: qui SI per nome (come "status"), perché senza sapere
+    // CHI è a rischio lo staff non può fare nulla di concreto — ma resta solo il livello calcolato,
+    // mai le risposte del giocatore (vedi sanitizeWellness in team-player-sync.js).
+    const wellnessSummary = { rosso: 0, giallo: 0, verde: 0, insufficiente: 0 };
     if (playerIds && playerIds.length) {
       const records = await Promise.all(playerIds.map((id) => redis.get(`player:${id}`)));
       for (const raw of records) {
         const p = parseJsonMaybe(raw);
         if (!p) continue;
-        players.push({ playerId: p.playerId, name: p.name, consentedAt: p.consentedAt, status: p.status || null });
+        players.push({ playerId: p.playerId, name: p.name, consentedAt: p.consentedAt, status: p.status || null, wellness: p.wellness || null });
+        if (p.wellness && p.wellness.level && wellnessSummary[p.wellness.level] !== undefined) {
+          wellnessSummary[p.wellness.level]++;
+        }
 
         const history = Array.isArray(p.injuryHistory) ? p.injuryHistory : [];
         for (const episode of history) {
@@ -87,6 +94,7 @@ export default async function handler(req, res) {
       responsibleName: team.responsibleName,
       players,
       teamStats,
+      wellnessSummary,
     });
   } catch (err) {
     console.error('Errore nel caricare la dashboard squadra:', err);
