@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // SOSTITUISCI questo con il tuo vero Payment Link di Stripe una volta creato
@@ -41,7 +41,7 @@ import {
   ArrowCounterClockwise as RotateCcw, X,
   Calendar, Scales as Scale, Barbell as Dumbbell, ArrowsOutCardinal as Move, Wind, Timer, Pause, Pencil, Target,
   Question as HelpCircle, PlayCircle, Flame, ShareNetwork as Share2, ListChecks as ClipboardCheck, Check, Gauge, Waves,
-  Aperture, PersonSimple as PersonStanding, Ruler, Plant as Sprout, ArrowClockwise as RotateCw, CircleDashed, ShieldWarning as ShieldAlert,
+  Aperture, Camera, PersonSimple as PersonStanding, Ruler, Plant as Sprout, ArrowClockwise as RotateCw, CircleDashed, ShieldWarning as ShieldAlert,
   Snowflake, Bandaids as Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, DeviceMobile as Smartphone,
   User, Hand, DotsSixVertical as Grip, MapPin, Phone, Envelope as Mail, Stethoscope, ArrowSquareOut as ExternalLink, MagnifyingGlass as Search,
   Users, SignOut as LogOut, Copy, UserPlus, Buildings as Building2, Eye, EyeSlash as EyeOff
@@ -3490,6 +3490,532 @@ function computeWellnessRisk(checkins) {
   return { level: 'verde', daysTracked: days.length };
 }
 
+// ============================================================================
+// Screening del movimento (fotocamera + pose estimation on-device)
+// ============================================================================
+// Idea: usare la fotocamera del telefono per dare un'occhiata a simmetria e controllo
+// del movimento (squat, equilibrio monopodalico) tramite un modello di stima della posa
+// (MoveNet, via TensorFlow.js) che gira INTERAMENTE nel browser, sul dispositivo.
+// Nessun fotogramma/video/immagine lascia mai il telefono — né verso i nostri server né
+// verso terzi — e a differenza del check-in di benessere qui non c'è NESSUNA sincronizzazione,
+// nemmeno di un segnale riassuntivo: il risultato resta solo su questo dispositivo.
+// È deliberatamente uno screening euristico/indicativo (le soglie qui sotto sono stime di
+// buon senso, non validate clinicamente): serve a far notare per tempo eventuali compensi,
+// non a diagnosticare né prevenire con certezza un infortunio. Vedi i testi in
+// movementVerdictCopy per come questo limite viene comunicato all'utente.
+
+const POSE_CONF_THRESHOLD = 0.4;
+const POSE_TRACK_NAMES = ['left_shoulder', 'right_shoulder', 'left_hip', 'right_hip', 'left_knee', 'right_knee', 'left_ankle', 'right_ankle'];
+const POSE_SKELETON_EDGES = [
+  ['left_shoulder', 'right_shoulder'], ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'], ['left_hip', 'right_hip'],
+  ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'], ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
+  ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'], ['right_hip', 'right_knee'], ['right_knee', 'right_ankle'],
+];
+const SQUAT_MIN_REPS = 3;
+const SQUAT_DOWN_RATIO = 0.85;
+const SQUAT_UP_RATIO = 0.93;
+const SQUAT_CALIBRATION_MS = 1200;
+const BALANCE_HOLD_MS = 10000;
+const BALANCE_MIN_SAMPLES = 40;
+
+function poseKeypointsToMap(keypoints) {
+  const map = {};
+  for (const kp of keypoints) map[kp.name] = kp;
+  return map;
+}
+function poseAvgConfidence(map, names) {
+  let sum = 0;
+  for (const n of names) sum += map[n]?.score || 0;
+  return sum / names.length;
+}
+function poseDist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function poseMid(a, b) { return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; }
+function poseMedian(arr) {
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+function poseStdDev(arr) {
+  const m = arr.reduce((a, b) => a + b, 0) / arr.length;
+  return Math.sqrt(arr.reduce((a, b) => a + (b - m) ** 2, 0) / arr.length);
+}
+// Stima di quanto un ginocchio si sposta rispetto alla retta anca-caviglia, all'altezza del
+// ginocchio stesso — una versione semplificata del "frontal plane projection angle" usato in
+// alcuni screening del movimento in fisioterapia, qui ridotto a uno scostamento orizzontale.
+function poseKneeLineDeviation(hip, knee, ankle) {
+  if (Math.abs(ankle.y - hip.y) < 1e-3) return 0;
+  const t = (knee.y - hip.y) / (ankle.y - hip.y);
+  const lineX = hip.x + (ankle.x - hip.x) * t;
+  return knee.x - lineX;
+}
+function drawPoseSkeleton(canvas, videoWidth, videoHeight, pose) {
+  if (!canvas || !videoWidth || !videoHeight) return;
+  if (canvas.width !== videoWidth) canvas.width = videoWidth;
+  if (canvas.height !== videoHeight) canvas.height = videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!pose) return;
+  const map = poseKeypointsToMap(pose.keypoints);
+  ctx.lineWidth = Math.max(3, videoWidth / 200);
+  ctx.strokeStyle = 'rgba(47,167,102,0.9)';
+  for (const [a, b] of POSE_SKELETON_EDGES) {
+    const pa = map[a], pb = map[b];
+    if (pa && pb && pa.score > POSE_CONF_THRESHOLD && pb.score > POSE_CONF_THRESHOLD) {
+      ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+    }
+  }
+  ctx.fillStyle = '#F0B429';
+  const r = Math.max(4, videoWidth / 160);
+  for (const name of POSE_TRACK_NAMES) {
+    const p = map[name];
+    if (p && p.score > POSE_CONF_THRESHOLD) {
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+// Aggrega le ripetizioni di squat raccolte in un verdetto. Pura funzione (nessun accesso a
+// stato React), così da poter essere testata con dati sintetici.
+function aggregateSquatResult(repSamples) {
+  if (repSamples.length < SQUAT_MIN_REPS) return { level: 'insufficiente', reps: repSamples.length };
+  const leftValgus = Math.max(0, poseMedian(repSamples.map((r) => -r.leftDev)));
+  const rightValgus = Math.max(0, poseMedian(repSamples.map((r) => r.rightDev)));
+  const hipDiff = poseMedian(repSamples.map((r) => r.hipDiffY));
+  const maxValgus = Math.max(leftValgus, rightValgus);
+
+  let level = 'verde';
+  if (maxValgus > 0.16 || hipDiff > 0.12) level = 'rosso';
+  else if (maxValgus > 0.08 || hipDiff > 0.06) level = 'giallo';
+
+  let side = null;
+  if (level !== 'verde') {
+    side = leftValgus > rightValgus * 1.3 ? 'left' : rightValgus > leftValgus * 1.3 ? 'right' : 'both';
+  }
+  return { level, reps: repSamples.length, side, maxValgus, hipDiff };
+}
+
+// Aggrega le due serie (destra/sinistra) del test di equilibrio monopodalico in un verdetto.
+function aggregateBalanceResult(rightSamples, leftSamples) {
+  if (rightSamples.length < BALANCE_MIN_SAMPLES || leftSamples.length < BALANCE_MIN_SAMPLES) {
+    return { level: 'insufficiente', rightSamples: rightSamples.length, leftSamples: leftSamples.length };
+  }
+  const swayR = poseStdDev(rightSamples.map((s) => s.hipMidX));
+  const swayL = poseStdDev(leftSamples.map((s) => s.hipMidX));
+  const dropR = rightSamples.reduce((a, s) => a + s.pelvicDrop, 0) / rightSamples.length;
+  const dropL = leftSamples.reduce((a, s) => a + s.pelvicDrop, 0) / leftSamples.length;
+  const swayRatio = Math.max(swayR, swayL) / Math.max(Math.min(swayR, swayL), 0.01);
+  const worseDrop = Math.max(dropR, dropL);
+  const worseDropSide = dropR >= dropL ? 'right' : 'left';
+
+  let level = 'verde';
+  if (worseDrop > 0.09 || swayRatio > 2.2) level = 'rosso';
+  else if (worseDrop > 0.05 || swayRatio > 1.6) level = 'giallo';
+
+  let side = null;
+  if (level !== 'verde') side = worseDrop > 0.05 ? worseDropSide : (swayR >= swayL ? 'right' : 'left');
+  return { level, side, swayR, swayL, dropR, dropL };
+}
+
+function movementSideLabel(side, isEN) {
+  if (side === 'left') return isEN ? 'left' : 'sinistro';
+  if (side === 'right') return isEN ? 'right' : 'destro';
+  return isEN ? 'both sides' : 'entrambi i lati';
+}
+// Testi non diagnostici per ciascun verdetto: descrivono cosa è stato osservato, mai una
+// diagnosi, e per giallo/rosso invitano a parlarne con un professionista invece di allarmare.
+function movementVerdictCopy(test, result, isEN) {
+  const { level, side } = result;
+  if (level === 'insufficiente') {
+    return {
+      title: isEN ? 'Not enough data' : 'Dati insufficienti',
+      body: test === 'squat'
+        ? (isEN ? 'I couldn\'t capture enough clean reps (at least 3 are needed). Try again with more light or staying steadier in frame.' : 'Non sono riuscito a registrare abbastanza ripetizioni pulite (ne servono almeno 3). Riprova con più luce o restando più stabile nell\'inquadratura.')
+        : (isEN ? 'I couldn\'t track you closely enough on one or both legs. Try again, staying steady and fully in frame.' : 'Non sono riuscito a seguirti abbastanza da vicino su una o entrambe le gambe. Riprova restando fermo e ben inquadrato.'),
+    };
+  }
+  if (test === 'squat') {
+    if (level === 'verde') {
+      return { title: isEN ? 'No clear asymmetry' : 'Nessuna asimmetria evidente', body: isEN ? 'Your knees seem to track well on both sides through the squat. Keep it up.' : 'Il ginocchio sembra restare ben allineato su entrambi i lati durante lo squat. Continua così.' };
+    }
+    const s = movementSideLabel(side, isEN);
+    if (level === 'giallo') {
+      return { title: isEN ? 'Slight asymmetry noticed' : 'Leggera asimmetria rilevata', body: isEN ? `Your ${s} knee tends to drift slightly inward during the squat. It happens, especially under fatigue — worth mentioning to a physio or trainer if you want a second opinion.` : `Durante lo squat il ginocchio ${s} tende a spostarsi leggermente verso l'interno. Può capitare, specialmente sotto fatica: se vuoi, parlane con un fisioterapista o un preparatore.` };
+    }
+    return { title: isEN ? 'More noticeable asymmetry' : 'Asimmetria più marcata rilevata', body: isEN ? `Your ${s} knee moves noticeably inward during the squat. Worth having a physio take a look, especially if you train with load or high intensity.` : `Durante lo squat il ginocchio ${s} si sposta in modo evidente verso l'interno. Vale la pena farlo osservare da un fisioterapista, soprattutto se alleni con carichi o ad alta intensità.` };
+  }
+  if (level === 'verde') {
+    return { title: isEN ? 'Good stability on both sides' : 'Buona stabilità su entrambi i lati', body: isEN ? 'Your hips stay stable and sway is similar on both legs.' : 'Il bacino resta stabile e l\'oscillazione è simile tra destra e sinistra.' };
+  }
+  const s2 = movementSideLabel(side, isEN);
+  if (level === 'giallo') {
+    return { title: isEN ? 'Slight difference between sides' : 'Leggera differenza tra i due lati', body: isEN ? `Your ${s2} side shows a bit more sway or hip drop than the other. Can be normal, especially if you have a dominant leg.` : `Il lato ${s2} mostra un po' più di oscillazione o un lieve cedimento del bacino rispetto all'altro. Può essere normale, specialmente se hai una gamba dominante.` };
+  }
+  return { title: isEN ? 'More noticeable difference between sides' : 'Differenza più marcata tra i due lati', body: isEN ? `Your ${s2} side shows clearly more sway or hip drop than the other. Worth discussing with a physio, especially after any past injury to that leg or ankle.` : `Il lato ${s2} mostra un'oscillazione o un cedimento del bacino nettamente maggiore rispetto all'altro. Vale la pena parlarne con un fisioterapista, soprattutto se hai avuto infortuni a quella gamba o caviglia.` };
+}
+function movementVerdictMeta(level) {
+  if (level === 'verde') return { color: colors.accent, tint: colors.accentTint, Icon: CheckCircle2 };
+  if (level === 'giallo') return { color: colors.orange, tint: 'rgba(201,106,34,0.14)', Icon: AlertTriangle };
+  if (level === 'rosso') return { color: colors.red, tint: colors.redTint, Icon: AlertTriangle };
+  return { color: colors.mutedInk, tint: colors.laneBg, Icon: HelpCircle };
+}
+
+// Overlay a schermo intero che gestisce fotocamera, modello di pose estimation e la macchina a
+// stati dello screening (posizionamento -> calibrazione -> registrazione -> risultato).
+// Tutto ciò che serve al calcolo (campioni per-frame, fase corrente, ecc.) vive in ref mutabili
+// per non forzare un render ad ogni fotogramma: lo stato React viene aggiornato solo quando
+// cambia qualcosa che l'utente deve vedere (conteggio ripetizioni, secondi rimasti, ecc.).
+function MovementCameraOverlay({ test, isEN, onCancel, onComplete }) {
+  // displayFont vive normalmente nel componente App (non è un modulo condiviso): essendo
+  // questo un componente a parte, viene ridefinito qui identico per restare coerente con il
+  // resto dell'app (titoli in Bricolage Grotesque).
+  const displayFont = { fontFamily: "'Bricolage Grotesque', sans-serif" };
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const detectorRef = useRef(null);
+  const rafRef = useRef(null);
+  const lastFrameTimeRef = useRef(null);
+  const trackingOkRef = useRef(false);
+  const balancePhaseRef = useRef('right');
+  const dataRef = useRef({});
+
+  const [stage, setStage] = useState('loading');
+  const [errorKind, setErrorKind] = useState(null);
+  const [facingMode, setFacingMode] = useState('environment');
+  const [trackingOk, setTrackingOk] = useState(false);
+  const [repCount, setRepCount] = useState(0);
+  const [balancePhase, setBalancePhase] = useState('right');
+  const [secondsLeft, setSecondsLeft] = useState(10);
+  const [result, setResult] = useState(null);
+
+  const resetMeasurement = () => {
+    dataRef.current = { squat: null, balance: { right: [], left: [], elapsedInPhase: 0 } };
+    balancePhaseRef.current = 'right';
+    setBalancePhase('right');
+    setSecondsLeft(10);
+    setRepCount(0);
+    setResult(null);
+  };
+
+  // Avvio: carica il modello (TensorFlow.js + MoveNet) e la fotocamera. Si rifà da capo se
+  // l'utente cambia fotocamera (facingMode) o se questa istanza viene smontata.
+  useEffect(() => {
+    let cancelled = false;
+    resetMeasurement();
+    setStage('loading');
+    setErrorKind(null);
+    (async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        if (!cancelled) { setErrorKind('unsupported'); setStage('error'); }
+        return;
+      }
+      try {
+        const tf = await import('@tensorflow/tfjs-core');
+        await import('@tensorflow/tfjs-backend-webgl');
+        const poseDetection = await import('@tensorflow-models/pose-detection');
+        await tf.setBackend('webgl');
+        await tf.ready();
+        if (cancelled) return;
+        const detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
+          modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+        });
+        if (cancelled) { detector.dispose?.(); return; }
+        detectorRef.current = detector;
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+        if (!cancelled) setStage('positioning');
+      } catch (err) {
+        if (cancelled) return;
+        console.error('Errore avvio screening movimento:', err);
+        setErrorKind(err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError' ? 'permission' : 'generic');
+        setStage('error');
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
+      detectorRef.current?.dispose?.();
+      detectorRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facingMode]);
+
+  const stopCamera = () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
+  };
+
+  const finishSquat = () => {
+    const res = aggregateSquatResult((dataRef.current.squat?.repSamples) || []);
+    setResult(res);
+    setStage('result');
+    stopCamera();
+  };
+
+  // Ciclo di stima della posa: gira mentre la fotocamera è attiva e non siamo ancora al
+  // risultato finale. Guida la macchina a stati (calibrazione -> registrazione) e aggiorna lo
+  // stato React SOLO quando un valore visibile all'utente cambia davvero.
+  useEffect(() => {
+    if (stage !== 'positioning' && stage !== 'calibrating' && stage !== 'recording') return;
+    let active = true;
+    const loop = async () => {
+      if (!active) return;
+      const video = videoRef.current;
+      const detector = detectorRef.current;
+      if (!detector || !video || video.readyState < 2) {
+        rafRef.current = requestAnimationFrame(loop);
+        return;
+      }
+      const now = performance.now();
+      const dt = lastFrameTimeRef.current == null ? 16 : Math.min(now - lastFrameTimeRef.current, 100);
+      lastFrameTimeRef.current = now;
+
+      try {
+        const poses = await detector.estimatePoses(video, { flipHorizontal: false });
+        if (!active) return;
+        const pose = poses[0] || null;
+        drawPoseSkeleton(canvasRef.current, video.videoWidth, video.videoHeight, pose);
+        const map = pose ? poseKeypointsToMap(pose.keypoints) : {};
+        const conf = pose ? poseAvgConfidence(map, POSE_TRACK_NAMES) : 0;
+        const ok = conf > POSE_CONF_THRESHOLD;
+        if (ok !== trackingOkRef.current) { trackingOkRef.current = ok; setTrackingOk(ok); }
+
+        if (stage === 'calibrating' && ok) {
+          if (test === 'squat') {
+            const d = dataRef.current;
+            if (!d.squat) d.squat = { calibElapsed: 0, calibSamples: [], standingLegLen: null, phase: 'up', repMin: null, repSamples: [] };
+            const lS = map.left_shoulder, rS = map.right_shoulder, lH = map.left_hip, rH = map.right_hip, lA = map.left_ankle, rA = map.right_ankle;
+            const scale = poseDist(lS, rS) || 1;
+            const hipMid = poseMid(lH, rH);
+            const ankleMid = poseMid(lA, rA);
+            const legLen = (ankleMid.y - hipMid.y) / scale;
+            d.squat.calibElapsed += dt;
+            d.squat.calibSamples.push(legLen);
+            if (d.squat.calibElapsed >= SQUAT_CALIBRATION_MS) {
+              d.squat.standingLegLen = poseMedian(d.squat.calibSamples);
+              setStage('recording');
+            }
+          } else {
+            dataRef.current.calibElapsed = (dataRef.current.calibElapsed || 0) + dt;
+            if (dataRef.current.calibElapsed >= 900) setStage('recording');
+          }
+        } else if (stage === 'recording' && test === 'squat' && ok) {
+          const s = dataRef.current.squat;
+          if (s && s.standingLegLen != null) {
+            const lS = map.left_shoulder, rS = map.right_shoulder, lH = map.left_hip, rH = map.right_hip;
+            const lK = map.left_knee, rK = map.right_knee, lA = map.left_ankle, rA = map.right_ankle;
+            const scale = poseDist(lS, rS) || 1;
+            const hipMid = poseMid(lH, rH);
+            const ankleMid = poseMid(lA, rA);
+            const ratio = ((ankleMid.y - hipMid.y) / scale) / s.standingLegLen;
+            const sampleNow = () => ({ leftDev: poseKneeLineDeviation(lH, lK, lA) / scale, rightDev: poseKneeLineDeviation(rH, rK, rA) / scale, hipDiffY: Math.abs(lH.y - rH.y) / scale });
+            if (s.phase === 'up' && ratio < SQUAT_DOWN_RATIO) {
+              s.phase = 'down';
+              s.repMin = { ratio, ...sampleNow() };
+            } else if (s.phase === 'down') {
+              if (ratio < s.repMin.ratio) s.repMin = { ratio, ...sampleNow() };
+              if (ratio > SQUAT_UP_RATIO) {
+                s.phase = 'up';
+                s.repSamples.push(s.repMin);
+                setRepCount(s.repSamples.length);
+              }
+            }
+          }
+        } else if (stage === 'recording' && test === 'balance') {
+          const b = dataRef.current.balance;
+          if (ok) {
+            const lH = map.left_hip, rH = map.right_hip, lS = map.left_shoulder, rS = map.right_shoulder;
+            const scale = poseDist(lS, rS) || 1;
+            const hipMidX = (lH.x + rH.x) / 2 / scale;
+            if (balancePhaseRef.current === 'right') b.right.push({ hipMidX, pelvicDrop: (lH.y - rH.y) / scale });
+            else b.left.push({ hipMidX, pelvicDrop: (rH.y - lH.y) / scale });
+          }
+          b.elapsedInPhase += dt;
+          const nextSeconds = Math.max(0, Math.ceil((BALANCE_HOLD_MS - b.elapsedInPhase) / 1000));
+          setSecondsLeft((prev) => (prev !== nextSeconds ? nextSeconds : prev));
+          if (b.elapsedInPhase >= BALANCE_HOLD_MS) {
+            if (balancePhaseRef.current === 'right') {
+              balancePhaseRef.current = 'left';
+              setBalancePhase('left');
+              setSecondsLeft(10);
+              b.elapsedInPhase = 0;
+            } else {
+              const res = aggregateBalanceResult(b.right, b.left);
+              setResult(res);
+              setStage('result');
+              stopCamera();
+            }
+          }
+        }
+      } catch (err) {
+        // Un fotogramma occasionale non riuscito non deve interrompere lo screening.
+      }
+      if (active) rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+    return () => { active = false; if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, test]);
+
+  const startCalibration = () => {
+    if (test === 'squat') dataRef.current.squat = { calibElapsed: 0, calibSamples: [], standingLegLen: null, phase: 'up', repMin: null, repSamples: [] };
+    else { dataRef.current.calibElapsed = 0; dataRef.current.balance = { right: [], left: [], elapsedInPhase: 0 }; balancePhaseRef.current = 'right'; setBalancePhase('right'); setSecondsLeft(10); }
+    setRepCount(0);
+    setStage('calibrating');
+  };
+  const retry = () => { resetMeasurement(); setStage('positioning'); };
+
+  const T = {
+    positioningTitle: isEN ? 'Get in frame' : 'Mettiti in posizione',
+    positioningBodySquat: isEN ? 'Stand about 2m (6ft) from the phone, facing it, so your whole body is visible.' : 'Mettiti a circa 2 metri dal telefono, di fronte, in modo che tutto il corpo sia visibile.',
+    positioningBodyBalance: isEN ? 'Stand about 2m (6ft) from the phone, facing it. You\'ll balance on your right leg first, then your left.' : 'Mettiti a circa 2 metri dal telefono, di fronte. Farai prima equilibrio sulla gamba destra, poi sulla sinistra.',
+    trackingGood: isEN ? 'I can see you clearly' : 'Ti vedo bene',
+    trackingBad: isEN ? 'Can\'t see you well — adjust distance or light' : 'Non riesco a vederti bene: correggi distanza o luce',
+    ready: isEN ? 'I\'m ready' : 'Sono pronto',
+    calibratingSquat: isEN ? 'Stand still for a second...' : 'Rimani fermo in piedi un secondo...',
+    calibratingBalance: isEN ? 'Get ready...' : 'Preparati...',
+    repLabel: isEN ? 'reps' : 'ripetizioni',
+    squatHint: isEN ? 'Do a few unhurried squats. Tap Done when finished (at least 3, ideally 5-6).' : 'Fai qualche squat con calma. Premi Fine quando hai finito (almeno 3, meglio 5-6).',
+    done: isEN ? 'Done' : 'Fine',
+    balanceOn: isEN ? 'Balancing on:' : 'In equilibrio su:',
+    right: isEN ? 'right leg' : 'gamba destra',
+    left: isEN ? 'left leg' : 'gamba sinistra',
+    loading: isEN ? 'Getting the analysis tool ready...' : 'Sto preparando lo strumento di analisi...',
+    errPermission: isEN ? 'This screening needs camera access. Check your browser permissions and try again.' : 'Per lo screening serve accedere alla fotocamera. Controlla i permessi del browser e riprova.',
+    errUnsupported: isEN ? 'Your browser doesn\'t support camera-based screening. Try updating it or use another device.' : 'Il tuo browser non supporta lo screening tramite fotocamera. Prova ad aggiornarlo o usa un altro dispositivo.',
+    errGeneric: isEN ? 'Couldn\'t start the screening. Please try again in a moment.' : 'Non sono riuscito ad avviare lo screening. Riprova tra poco.',
+    tryAgain: isEN ? 'Try again' : 'Riprova',
+    close: isEN ? 'Close' : 'Chiudi',
+    saveClose: isEN ? 'Save and close' : 'Salva e chiudi',
+    redo: isEN ? 'Redo the test' : 'Rifai il test',
+    disclaimer: isEN ? 'A heuristic screening based on computer vision, not a clinical assessment. It does not diagnose or reliably prevent injuries.' : 'Screening euristico basato su computer vision, non una valutazione clinica. Non diagnostica infortuni né li previene con certezza.',
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: stage === 'result' ? colors.paper : '#000000' }}>
+      <style>{`@keyframes os-movement-spin { to { transform: rotate(360deg); } } .os-movement-spinner { animation: os-movement-spin 0.9s linear infinite; }`}</style>
+      {stage !== 'result' && (
+        <div className="relative flex-1 overflow-hidden">
+          <video ref={videoRef} playsInline muted className="absolute inset-0 w-full h-full" style={{ objectFit: 'contain', transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }} />
+          <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" style={{ objectFit: 'contain', transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }} />
+
+          <div className="absolute top-0 inset-x-0 flex items-center justify-between p-4">
+            <button onClick={onCancel} style={{ backgroundColor: 'rgba(0,0,0,0.55)' }} className="os-focus w-10 h-10 rounded-full flex items-center justify-center" aria-label={T.close}>
+              <X size={20} color="#FFFFFF" />
+            </button>
+            {stage === 'positioning' && (
+              <button onClick={() => setFacingMode((f) => (f === 'environment' ? 'user' : 'environment'))} style={{ backgroundColor: 'rgba(0,0,0,0.55)' }} className="os-focus w-10 h-10 rounded-full flex items-center justify-center" aria-label={isEN ? 'Switch camera' : 'Cambia fotocamera'}>
+                <RotateCw size={18} color="#FFFFFF" />
+              </button>
+            )}
+          </div>
+
+          <div className="absolute bottom-0 inset-x-0 p-5 pb-8" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.88), rgba(0,0,0,0.5) 60%, transparent)' }}>
+            {stage === 'loading' && (
+              <div className="flex flex-col items-center gap-3 py-4">
+                <div className="os-movement-spinner w-8 h-8 rounded-full" style={{ border: '3px solid rgba(255,255,255,0.25)', borderTopColor: colors.accent }} />
+                <p className="text-sm text-center" style={{ color: '#FFFFFF' }}>{T.loading}</p>
+              </div>
+            )}
+            {stage === 'error' && (
+              <div className="text-center py-2">
+                <AlertTriangle size={24} color={colors.orange} className="mx-auto mb-2" />
+                <p className="text-sm mb-4" style={{ color: '#FFFFFF' }}>
+                  {errorKind === 'permission' ? T.errPermission : errorKind === 'unsupported' ? T.errUnsupported : T.errGeneric}
+                </p>
+                {errorKind !== 'unsupported' && (
+                  <button onClick={() => setFacingMode((f) => f)} style={{ backgroundColor: colors.accent }} className="os-focus px-5 py-2.5 rounded-lg text-sm font-semibold" >
+                    {T.tryAgain}
+                  </button>
+                )}
+              </div>
+            )}
+            {stage === 'positioning' && (
+              <div>
+                <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-semibold mb-1">{T.positioningTitle}</p>
+                <p style={{ color: 'rgba(255,255,255,0.85)' }} className="text-sm leading-relaxed mb-3">{test === 'squat' ? T.positioningBodySquat : T.positioningBodyBalance}</p>
+                <div className="flex items-center gap-2 mb-4">
+                  <span style={{ backgroundColor: trackingOk ? colors.accent : colors.orange }} className="w-2.5 h-2.5 rounded-full flex-shrink-0" />
+                  <span style={{ color: '#FFFFFF' }} className="text-xs font-medium">{trackingOk ? T.trackingGood : T.trackingBad}</span>
+                </div>
+                <button onClick={startCalibration} disabled={!trackingOk} style={{ backgroundColor: trackingOk ? colors.accent : 'rgba(255,255,255,0.25)', color: '#FFFFFF' }} className="os-focus w-full py-3.5 rounded-xl text-sm font-semibold uppercase tracking-wide transition-colors">
+                  {T.ready}
+                </button>
+              </div>
+            )}
+            {stage === 'calibrating' && (
+              <p className="text-center text-sm py-4" style={{ color: '#FFFFFF' }}>{test === 'squat' ? T.calibratingSquat : T.calibratingBalance}</p>
+            )}
+            {stage === 'recording' && test === 'squat' && (
+              <div className="text-center">
+                <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-5xl font-bold mb-1 os-tabular">{repCount}</p>
+                <p style={{ color: 'rgba(255,255,255,0.75)' }} className="text-xs uppercase tracking-wide mb-3">{T.repLabel}</p>
+                <p style={{ color: 'rgba(255,255,255,0.85)' }} className="text-xs leading-relaxed mb-4">{T.squatHint}</p>
+                <button onClick={finishSquat} disabled={repCount === 0} style={{ backgroundColor: repCount > 0 ? colors.accent : 'rgba(255,255,255,0.25)', color: '#FFFFFF' }} className="os-focus w-full py-3.5 rounded-xl text-sm font-semibold uppercase tracking-wide transition-colors">
+                  {T.done}
+                </button>
+              </div>
+            )}
+            {stage === 'recording' && test === 'balance' && (
+              <div className="text-center">
+                <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-5xl font-bold mb-1 os-tabular">{secondsLeft}</p>
+                <p style={{ color: 'rgba(255,255,255,0.85)' }} className="text-sm mb-2">{T.balanceOn} <strong>{balancePhase === 'right' ? T.right : T.left}</strong></p>
+                <div className="flex items-center justify-center gap-2">
+                  <span style={{ backgroundColor: trackingOk ? colors.accent : colors.orange }} className="w-2 h-2 rounded-full flex-shrink-0" />
+                  <span style={{ color: 'rgba(255,255,255,0.7)' }} className="text-[11px]">{trackingOk ? T.trackingGood : T.trackingBad}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {stage === 'result' && result && (() => {
+        const copy = movementVerdictCopy(test, result, isEN);
+        const meta = movementVerdictMeta(result.level);
+        const VIcon = meta.Icon;
+        return (
+          <div className="flex-1 overflow-y-auto p-5 pt-8">
+            <div style={{ backgroundColor: meta.tint, border: `1.5px solid ${meta.color}40` }} className="rounded-2xl p-5 mb-5">
+              <div style={{ backgroundColor: '#FFFFFF' }} className="w-12 h-12 rounded-full flex items-center justify-center mb-3 shadow-sm">
+                <VIcon size={24} color={meta.color} />
+              </div>
+              <p style={{ ...displayFont, color: meta.color }} className="text-lg font-bold mb-2">{copy.title}</p>
+              <p style={{ color: colors.ink }} className="text-sm leading-relaxed">{copy.body}</p>
+            </div>
+            <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed text-center mb-6">{T.disclaimer}</p>
+            <div className="space-y-2.5">
+              {result.level !== 'insufficiente' && (
+                <button onClick={() => onComplete(result)} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full py-3.5 rounded-xl text-sm font-semibold uppercase tracking-wide">
+                  {T.saveClose}
+                </button>
+              )}
+              <button onClick={retry} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full py-3.5 rounded-xl text-sm font-semibold">
+                {T.redo}
+              </button>
+              {result.level === 'insufficiente' && (
+                <button onClick={onCancel} style={{ color: colors.mutedInk }} className="os-focus w-full text-xs underline text-center py-2">
+                  {T.close}
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
 function downloadRecoveryReminders(isEN) {
   const pad = (n) => String(n).padStart(2, '0');
   const fmt = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
@@ -3522,6 +4048,7 @@ function mascotStageForScreen(screen) {
     triage: 2, injuries: 2, firstaid: 2,
     tracker: 3, profile: 3,
     premium: 4, teamRegister: 4, teamLogin: 4, teamDashboard: 4,
+    movementScreen: 1,
   };
   return stages[screen] ?? 1;
 }
@@ -3557,6 +4084,12 @@ export default function Offside() {
   // restano SEMPRE solo su questo dispositivo (vedi computeWellnessRisk più sotto):
   // alla squadra arriva solo un livello sintetico calcolato, mai i singoli valori.
   const [wellnessCheckins, setWellnessCheckins] = useState({});
+  // Storico locale degli screening del movimento (squat/equilibrio, vedi MovementCameraOverlay
+  // più sopra): SOLO su questo dispositivo. A differenza del check-in di benessere, qui non
+  // c'è alcuna sincronizzazione — nemmeno un segnale riassuntivo — perché non esiste una
+  // squadra/staff a cui servirebbe vederlo: resta un'analisi personale, punto.
+  const [movementScreenings, setMovementScreenings] = useState([]);
+  const [movementActive, setMovementActive] = useState(null); // null | 'squat' | 'balance'
   const [showRedFlags, setShowRedFlags] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [editingSetup, setEditingSetup] = useState(false);
@@ -3666,6 +4199,7 @@ export default function Offside() {
           setInjurySeverities(loaded.injurySeverities || {});
           setDailyLog(loaded.dailyLog || {});
           setWellnessCheckins(loaded.wellnessCheckins || {});
+          setMovementScreenings(loaded.movementScreenings || []);
           setPlayerPosition(loaded.playerPosition || null);
           setPreventionProgress(loaded.preventionProgress || {});
           setLanguage(loaded.language || 'it');
@@ -3749,7 +4283,18 @@ export default function Offside() {
     }
   }, []);
 
-  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, wellnessCheckins, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, onboardingProfileDone, injuryRecurrence, teamAuth, myTeamMembership, ...overrides });
+  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, wellnessCheckins, movementScreenings, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, onboardingProfileDone, injuryRecurrence, teamAuth, myTeamMembership, ...overrides });
+
+  // Salva un nuovo screening del movimento nello storico locale (max 20, i più vecchi cadono).
+  // Non tocca mai la rete: né qui né altrove per questa funzione, coerentemente con il fatto
+  // che l'intero screening gira sul dispositivo (vedi commento sopra MovementCameraOverlay).
+  const saveMovementResult = (test, result) => {
+    const entry = { id: `${Date.now()}`, date: toISODate(new Date()), test, result };
+    const nextList = [entry, ...movementScreenings].slice(0, 20);
+    setMovementScreenings(nextList);
+    persist(snapshot({ movementScreenings: nextList }));
+    trackEvent('movement_screening_completed', { test, level: result.level });
+  };
 
   const goBack = () => {
     if (screen === 'tracker') setScreen('injuries');
@@ -3758,6 +4303,7 @@ export default function Offside() {
     else if (screen === 'triageResults') setScreen('triage');
     else if (screen === 'firstaid') setScreen('regions');
     else if (screen === 'premium') setScreen('tracker');
+    else if (screen === 'movementScreen') { setScreen('regions'); setRegionsTab('prevention'); }
     else if (screen === 'profile') setScreen('regions');
     else if (screen === 'physios') setScreen('regions');
     else if (screen === 'teamRegister') setScreen('premium');
@@ -4514,7 +5060,7 @@ export default function Offside() {
             <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">Offside</p>
           </div>
           <h1 style={{ ...displayFont, color: colors.ink }} className="text-lg sm:text-xl font-semibold truncate">
-            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Where does it hurt?' : 'Dove senti il problema?')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'triageResults' ? (isEN ? 'Most likely matches' : 'Probabilmente è questo') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'teamRegister' ? (isEN ? 'Register your team' : 'Registra la squadra') : screen === 'teamLogin' ? (isEN ? 'Team login' : 'Accedi alla squadra') : screen === 'teamDashboard' ? (teamAuth?.teamName || 'Offside Squadre') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
+            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Where does it hurt?' : 'Dove senti il problema?')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'triageResults' ? (isEN ? 'Most likely matches' : 'Probabilmente è questo') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'movementScreen' ? (isEN ? 'Movement screening' : 'Screening del movimento') : screen === 'teamRegister' ? (isEN ? 'Register your team' : 'Registra la squadra') : screen === 'teamLogin' ? (isEN ? 'Team login' : 'Accedi alla squadra') : screen === 'teamDashboard' ? (teamAuth?.teamName || 'Offside Squadre') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
           </h1>
         </div>
         {screen === 'tracker' && injury && (
@@ -4752,6 +5298,45 @@ export default function Offside() {
                 <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">
                   {isEN ? 'The best time to work on an injury is before it happens. Choose an area — you don\'t need anything to actually hurt.' : 'Il momento migliore per lavorare su un infortunio è prima che succeda. Scegli una zona — non serve avere nulla che fa male.'}
                 </p>
+
+                {!premiumUnlocked ? (
+                  <button onClick={() => { trackEvent('movement_screening_teaser_clicked'); setScreen('premium'); }} style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}40` }} className="os-focus w-full text-left rounded-2xl p-5 mb-6 shadow-sm hover:opacity-95 transition-opacity">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Camera size={18} color={colors.premiumGold} />
+                      <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">Beta</span>
+                    </div>
+                    <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-bold mb-1.5">{isEN ? 'Movement screening' : 'Screening del movimento'}</p>
+                    <p style={{ color: '#A9B7C4' }} className="text-sm leading-relaxed mb-3">{isEN ? 'Use your camera for a real-time look at squats and balance: symmetry, knee control, stability. It all runs on your phone.' : 'Usa la fotocamera per uno sguardo in tempo reale a squat ed equilibrio: simmetria, controllo del ginocchio, stabilità. Gira tutto sul telefono.'}</p>
+                    <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="inline-block px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide">
+                      {isEN ? 'Unlock Premium' : 'Sblocca Premium'}
+                    </span>
+                  </button>
+                ) : (
+                  <button onClick={() => { trackEvent('movement_screening_opened'); setScreen('movementScreen'); }} style={{ backgroundColor: colors.card, border: `1.5px solid ${colors.prevention}45` }} className="os-focus w-full text-left rounded-2xl p-5 mb-6 shadow-sm hover:opacity-95 transition-opacity">
+                    <div className="flex items-start gap-3.5">
+                      <div style={{ backgroundColor: colors.preventionTint }} className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center">
+                        <Camera size={22} color={colors.preventionDark} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <p style={{ ...displayFont, color: colors.ink }} className="text-base font-bold">{isEN ? 'Movement screening' : 'Screening del movimento'}</p>
+                          <span style={{ backgroundColor: colors.preventionTint, color: colors.preventionDark }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0">Beta</span>
+                        </div>
+                        <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed">{isEN ? 'Camera-based squat and balance check — nothing ever leaves your phone.' : 'Analisi di squat ed equilibrio con la fotocamera — nulla lascia mai il tuo telefono.'}</p>
+                        {movementScreenings.length > 0 && (() => {
+                          const last = movementScreenings[0];
+                          const meta = movementVerdictMeta(last.result.level);
+                          return (
+                            <p style={{ color: meta.color }} className="text-xs font-semibold mt-1.5">
+                              {isEN ? `Last: ${last.test === 'squat' ? 'Squat' : 'Balance'} — ${movementVerdictCopy(last.test, last.result, isEN).title}` : `Ultimo: ${last.test === 'squat' ? 'Squat' : 'Equilibrio'} — ${movementVerdictCopy(last.test, last.result, isEN).title}`}
+                            </p>
+                          );
+                        })()}
+                      </div>
+                      <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0 mt-1" />
+                    </div>
+                  </button>
+                )}
 
                 <div className="mb-6">
                   <BodyDiagram onSelectRegion={(key) => { setExpandedPrevention(key); setTimeout(() => scrollToId(`prevention-${key}`), 120); }} accentColor={colors.prevention} tintColor={colors.preventionTint} />
@@ -5543,6 +6128,88 @@ export default function Offside() {
             <a href="mailto:manuelegusella@icloud.com?subject=Fisioterapista%20-%20Offside" style={{ color: colors.accentDark, borderTop: `1px solid ${colors.hairline}` }} className="os-focus flex items-center justify-center gap-1.5 mt-6 pt-4 text-xs font-medium hover:underline">
               <Stethoscope size={13} />{isEN ? 'Are you a sports physiotherapist? Get in touch to be listed' : 'Sei un fisioterapista sportivo? Scrivimi per essere inserito'}
             </a>
+          </div>
+        )}
+
+        {screen === 'movementScreen' && (
+          <div>
+            {!premiumUnlocked ? (
+              <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}40` }} className="rounded-2xl p-6 text-center shadow-sm">
+                <Lock size={28} color={colors.premiumGold} className="mx-auto mb-3" />
+                <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-bold mb-2">{isEN ? 'Movement screening' : 'Screening del movimento'}</p>
+                <p style={{ color: '#A9B7C4' }} className="text-sm leading-relaxed mb-4">{isEN ? 'Camera-based squat and balance screening is a Premium feature.' : 'Lo screening del movimento con la fotocamera è una funzione Premium.'}</p>
+                <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="os-focus px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wide">
+                  {isEN ? 'Unlock Premium' : 'Sblocca Premium'}
+                </button>
+              </div>
+            ) : (
+              <>
+                {movementActive && (
+                  <MovementCameraOverlay
+                    test={movementActive}
+                    isEN={isEN}
+                    onCancel={() => setMovementActive(null)}
+                    onComplete={(result) => { saveMovementResult(movementActive, result); setMovementActive(null); }}
+                  />
+                )}
+
+                <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}30` }} className="rounded-2xl p-4 mb-6">
+                  <p style={{ color: colors.ink }} className="text-sm leading-relaxed">
+                    {isEN
+                      ? 'A quick, indicative screening of movement symmetry and control, meant to help you notice compensations early — it\'s not a clinical assessment and doesn\'t replace a physiotherapist\'s judgment. Everything runs on your phone: the video is never recorded or sent anywhere, not even to us.'
+                      : 'Uno screening rapido e indicativo di simmetria e controllo del movimento, pensato per aiutarti a notare per tempo eventuali compensi — non è una valutazione clinica e non sostituisce il giudizio di un fisioterapista. Tutta l\'analisi avviene sul tuo telefono: il video non viene mai registrato né inviato da nessuna parte, nemmeno a noi.'}
+                  </p>
+                </div>
+
+                <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Choose a test' : 'Scegli un test'}</p>
+                <div className="space-y-2.5 mb-7">
+                  <button onClick={() => { trackEvent('movement_test_started', { test: 'squat' }); setMovementActive('squat'); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-3.5 rounded-2xl p-4 text-left shadow-sm hover:opacity-90 transition-opacity">
+                    <div style={{ backgroundColor: colors.preventionTint }} className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center">
+                      <Dumbbell size={22} color={colors.preventionDark} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-bold mb-0.5">{isEN ? 'Bodyweight squat' : 'Squat a corpo libero'}</p>
+                      <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'Checks knee symmetry and control over a few reps.' : 'Analizza simmetria e controllo del ginocchio durante alcune ripetizioni.'}</p>
+                    </div>
+                    <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0" />
+                  </button>
+                  <button onClick={() => { trackEvent('movement_test_started', { test: 'balance' }); setMovementActive('balance'); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-3.5 rounded-2xl p-4 text-left shadow-sm hover:opacity-90 transition-opacity">
+                    <div style={{ backgroundColor: colors.preventionTint }} className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center">
+                      <Scale size={22} color={colors.preventionDark} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-bold mb-0.5">{isEN ? 'Single-leg balance' : 'Equilibrio monopodalico'}</p>
+                      <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? '10 seconds on each leg, comparing stability side to side.' : '10 secondi su ciascuna gamba, per confrontare la stabilità tra i due lati.'}</p>
+                    </div>
+                    <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0" />
+                  </button>
+                </div>
+
+                <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'History' : 'Storico'}</p>
+                {movementScreenings.length === 0 ? (
+                  <p style={{ color: colors.mutedInk }} className="text-sm text-center py-6">{isEN ? 'No screenings yet — try one above.' : 'Nessuno screening ancora — provane uno qui sopra.'}</p>
+                ) : (
+                  <div className="space-y-2">
+                    {movementScreenings.map((entry) => {
+                      const meta = movementVerdictMeta(entry.result.level);
+                      const copy = movementVerdictCopy(entry.test, entry.result, isEN);
+                      const VIcon = meta.Icon;
+                      return (
+                        <div key={entry.id} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-3.5 flex items-center gap-3">
+                          <div style={{ backgroundColor: meta.tint }} className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center">
+                            <VIcon size={16} color={meta.color} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p style={{ color: colors.ink }} className="text-sm font-medium">{entry.test === 'squat' ? (isEN ? 'Squat' : 'Squat') : (isEN ? 'Balance' : 'Equilibrio')} <span style={{ color: colors.mutedInk }} className="font-normal">· {entry.date}</span></p>
+                            <p style={{ color: meta.color }} className="text-xs font-semibold">{copy.title}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
