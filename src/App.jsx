@@ -34,7 +34,7 @@ function trackEvent(name, params = {}) {
 // Icone: Phosphor Icons (peso "bold" impostato globalmente in main.jsx via IconContext),
 // aliasate ai nomi Lucide originali così tutto il resto del file resta invariato.
 import {
-  Footprints, Lightning as Zap, DotOutline as CircleDot, Pulse as Activity,
+  Footprints, Lightning as Zap, Pulse as Activity,
   ArrowsLeftRight as ArrowLeftRight, Shield, Anchor, ShieldCheck,
   Disc, TrendUp as TrendingUp, Compass, Warning as AlertTriangle, CheckCircle as CheckCircle2,
   Circle, CaretRight as ChevronRight, CaretDown as ChevronDown, ArrowLeft, ArrowRight, Info,
@@ -44,7 +44,7 @@ import {
   Aperture, Camera, PersonSimple as PersonStanding, Ruler, Plant as Sprout, ArrowClockwise as RotateCw, CircleDashed, ShieldWarning as ShieldAlert,
   Snowflake, Bandaids as Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, DeviceMobile as Smartphone,
   User, Hand, DotsSixVertical as Grip, MapPin, Phone, Envelope as Mail, Stethoscope, ArrowSquareOut as ExternalLink, MagnifyingGlass as Search,
-  Users, SignOut as LogOut, Copy, UserPlus, Buildings as Building2, Eye, EyeSlash as EyeOff
+  Users, SignOut as LogOut, Copy, UserPlus, Buildings as Building2, Eye, EyeSlash as EyeOff, SoccerBall
 } from '@phosphor-icons/react';
 
 const colors = {
@@ -269,7 +269,7 @@ const injuriesDataIT = {
   },
   knee: {
     relatedInjuries: ['trochanteric', 'quad'], relatedReason: 'Un\'anca debole, soprattutto il gluteo medio, è tra le cause più comuni di dolore femoro-rotuleo.',
-    label: 'Dolore femoro-rotuleo', subtitle: 'Dolore anteriore al ginocchio', icon: CircleDot, mechanismTags: ['overuse'],
+    label: 'Dolore femoro-rotuleo', subtitle: 'Dolore anteriore al ginocchio', icon: Target, mechanismTags: ['overuse'],
     severityData: {
       lieve: { dayThresholds: [10, 21], totalEstimateDays: 35 },
       moderato: { dayThresholds: [21, 42], totalEstimateDays: 70 },
@@ -1323,7 +1323,7 @@ const injuriesDataEN = {
   },
   knee: {
     relatedInjuries: ['trochanteric', 'quad'], relatedReason: 'A weak hip, especially the glute medius, is among the most common causes of patellofemoral pain.',
-    label: 'Patellofemoral pain', subtitle: 'Pain at the front of the knee', icon: CircleDot, mechanismTags: ['overuse'],
+    label: 'Patellofemoral pain', subtitle: 'Pain at the front of the knee', icon: Target, mechanismTags: ['overuse'],
     severityData: {
       lieve: { dayThresholds: [10, 21], totalEstimateDays: 35 },
       moderato: { dayThresholds: [21, 42], totalEstimateDays: 70 },
@@ -2176,7 +2176,7 @@ const physiosData = [];
 
 const regions = {
   ankle_foot: { label: 'Caviglia e piede', icon: Footprints, injuries: ['ankle', 'achilles', 'achilles_rupture', 'plantarfasciitis', 'blisters'] },
-  knee: { label: 'Ginocchio', icon: CircleDot, injuries: ['knee', 'mcl', 'lcl', 'patellar', 'meniscus', 'itband', 'osgood'] },
+  knee: { label: 'Ginocchio', icon: Target, injuries: ['knee', 'mcl', 'lcl', 'patellar', 'meniscus', 'itband', 'osgood'] },
   thigh: { label: 'Coscia', icon: Zap, injuries: ['hamstring', 'quad', 'contusion'] },
   calf_region: { label: 'Gamba e polpaccio', icon: Activity, injuries: ['calf', 'shinsplints', 'cramps'] },
   hip_groin: { label: 'Anca e inguine', icon: ArrowLeftRight, injuries: ['groin', 'hipflexor', 'piriformis', 'trochanteric'] },
@@ -3271,71 +3271,335 @@ const bodyZones = [
   { region: 'hand_wrist', label: 'Mano/polso dx', shape: 'ellipse', center: { cx: 140, cy: 141 }, props: { cx: 140, cy: 141, rx: 8, ry: 9 } },
 ];
 
-function BodyDiagram({ onSelectRegion, accentColor = colors.accent, tintColor = colors.accentTint }) {
+// ---------------------------------------------------------------------------------------
+// Lavagna tattica: il manichino diventa la lavagna dello spogliatoio. Sagoma del giocatore in
+// gesso (maglia, pantaloncini, calzettoni), zone che si accendono come LED ed etichette tirate
+// con una riga, come nelle grafiche sugli infortuni delle dirette. La logica non cambia: tocchi
+// una zona (o il suo nome) e si apre la lista, il triage o la prevenzione di quella zona.
+// ---------------------------------------------------------------------------------------
+
+const LED_TEAL = '#72E6F2';
+const BEBAS = "'Bebas Neue', sans-serif";
+const BRICOLAGE = "'Bricolage Grotesque', sans-serif";
+// Variante "prevenzione" del campo di notte: stessa luce da riflettore, ma sul verde acqua.
+const PITCH_BG_TEAL = `radial-gradient(130% 90% at 0% 0%, rgba(114,230,242,0.16), rgba(114,230,242,0) 55%), repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0 36px, rgba(255,255,255,0) 36px 72px), #06282D`;
+// Premium: notte blu con la luce oro di un riflettore dall'alto.
+const PREMIUM_BG = `radial-gradient(90% 70% at 100% 0%, rgba(240,180,41,0.26), rgba(240,180,41,0) 60%), radial-gradient(80% 60% at 0% 100%, rgba(47,167,102,0.12), rgba(47,167,102,0) 60%), #0B121A`;
+const GOLD_GRADIENT = 'linear-gradient(135deg, #F9DD85 0%, #F0B429 45%, #C98A0B 100%)';
+
+// Colori della lavagna per tono: LED = zone e scritte accese, kit = maglia/pantaloncini.
+const BOARD_TONES = {
+  green: { led: LED_GREEN, bg: PITCH_BG, skin: '#123A2C', kit: '#1A4D3B', shorts: '#23604A', boot: '#06140F' },
+  teal: { led: LED_TEAL, bg: PITCH_BG_TEAL, skin: '#0B363B', kit: '#114A54', shorts: '#185C68', boot: '#03171A' },
+};
+
+// Tracciati della sagoma, nelle stesse coordinate di bodyZones (0–200 x 0–312).
+const CHALK_PATHS = {
+  torso: 'M70 58 C78 52 88 50 100 50 C112 50 122 52 130 58 L134 70 C132 88 131 100 130 110 C122 118 110 121 100 121 C90 121 78 118 70 110 C69 100 68 88 66 70 Z',
+  shorts: 'M70 110 C78 118 90 121 100 121 C110 121 122 118 130 110 L132 150 L103 153 L100 146 L97 153 L68 150 Z',
+  neck: 'M93 37 L107 37 L108 51 L92 51 Z',
+  armL: 'M67 60 C59 60 53 67 53 78 L53 104 C53 116 54 126 55 134 C56 138 64 138 65 134 C66 124 67 112 68 102 L69 82 C70 72 71 63 67 60 Z',
+  armR: 'M133 60 C141 60 147 67 147 78 L147 104 C147 116 146 126 145 134 C144 138 136 138 135 134 C134 124 133 112 132 102 L131 82 C130 72 129 63 133 60 Z',
+  sleeveL: 'M67 59 C59 59 52 66 52 77 L52 90 L68 91 L69 80 C70 71 71 62 67 59 Z',
+  sleeveR: 'M133 59 C141 59 148 66 148 77 L148 90 L132 91 L131 80 C130 71 129 62 133 59 Z',
+  legL: 'M71 150 L97 153 C97 170 96 190 95 206 C94 214 94 222 94 230 C94 250 92 268 91 286 L81 286 C80 268 78 250 78 230 C78 220 77 212 76 204 C74 186 71 168 71 150 Z',
+  legR: 'M129 150 L103 153 C103 170 104 190 105 206 C106 214 106 222 106 230 C106 250 108 268 109 286 L119 286 C120 268 122 250 122 230 C122 220 123 212 124 204 C126 186 129 168 129 150 Z',
+  sockL: 'M78.4 257 L93.6 257 C93 266 92 276 91 286 L81 286 C80 276 79 266 78.4 257 Z',
+  sockR: 'M121.6 257 L106.4 257 C107 266 108 276 109 286 L119 286 C120 276 121 266 121.6 257 Z',
+  bootL: 'M79 285 L93 285 C94 291 96 295 96 298 C96 301 94 302 91 302 L81 302 C78 302 76 301 76 298 C76 295 78 291 79 285 Z',
+  bootR: 'M121 285 L107 285 C106 291 104 295 104 298 C104 301 106 302 109 302 L119 302 C122 302 124 301 124 298 C124 295 122 291 121 285 Z',
+};
+
+// Il giocatore disegnato col gesso. Riempimenti pieni (non trasparenti) così le linee delle
+// parti dietro non si vedono attraverso: resta una sagoma pulita, con il contorno bianco.
+function ChalkPlayer({ tone = 'green', strokeOpacity = 0.5, strokeWidth = 1.2 }) {
+  const t = BOARD_TONES[tone] || BOARD_TONES.green;
+  const P = CHALK_PATHS;
+  return (
+    <g stroke={`rgba(255,255,255,${strokeOpacity})`} strokeWidth={strokeWidth} strokeLinejoin="round" strokeLinecap="round">
+      <path d={P.legL} fill={t.skin} />
+      <path d={P.legR} fill={t.skin} />
+      <path d={P.sockL} fill={t.kit} />
+      <path d={P.sockR} fill={t.kit} />
+      <path d={P.bootL} fill={t.boot} />
+      <path d={P.bootR} fill={t.boot} />
+      <path d={P.armL} fill={t.skin} />
+      <path d={P.armR} fill={t.skin} />
+      <ellipse cx="60" cy="142" rx="7" ry="8.5" fill={t.skin} />
+      <ellipse cx="140" cy="142" rx="7" ry="8.5" fill={t.skin} />
+      <path d={P.neck} fill={t.skin} />
+      <path d={P.shorts} fill={t.shorts} />
+      <path d={P.torso} fill={t.kit} />
+      <path d={P.sleeveL} fill={t.kit} />
+      <path d={P.sleeveR} fill={t.kit} />
+      <ellipse cx="100" cy="24" rx="14" ry="16.5" fill={t.skin} />
+      <path d="M93 51 L100 59 L107 51" fill="none" />
+      <path d="M79.3 265 L92.8 265 M107.2 265 L120.7 265" fill="none" strokeOpacity="0.8" />
+    </g>
+  );
+}
+
+function ZoneShape({ zone, ...rest }) {
+  const Tag = zone.shape;
+  return <Tag {...zone.props} {...rest} />;
+}
+
+// Dove va l'etichetta di ogni zona: lato (L/R), altezza della scritta e punto della zona a cui
+// arriva la riga. Scelti perché le righe non si incrocino tra loro e passino fuori dalla sagoma.
+const BODY_CALLOUTS = [
+  { region: 'shoulder_arm', side: 'L', y: 64, tx: 56, ty: 80 },
+  { region: 'lower_back', side: 'L', y: 108, tx: 78, ty: 109 },
+  { region: 'thigh', side: 'L', y: 182, tx: 82, ty: 177 },
+  { region: 'calf_region', side: 'L', y: 250, tx: 84, ty: 252 },
+  { region: 'hand_wrist', side: 'R', y: 128, tx: 144, ty: 140 },
+  { region: 'hip_groin', side: 'R', y: 170, tx: 122, ty: 142 },
+  { region: 'knee', side: 'R', y: 212, tx: 120, ty: 216 },
+  { region: 'ankle_foot', side: 'R', y: 288, tx: 121, ty: 292 },
+];
+
+function BodyDiagram({ onSelectRegion, labels = regionLabelsIT, isEN = false, title, caption, tone = 'green' }) {
   const [pressed, setPressed] = useState(null);
   const [pinging, setPinging] = useState(null);
-  const Shape = { rect: 'rect', circle: 'circle', ellipse: 'ellipse' };
+  const [focused, setFocused] = useState(null);
+  const t = BOARD_TONES[tone] || BOARD_TONES.green;
+  const led = t.led;
 
-  const handleSelect = (i, region) => {
-    setPinging(i);
-    setTimeout(() => { onSelectRegion(region); setPinging(null); }, 260);
+  const handleSelect = (region) => {
+    if (pinging) return;
+    setPinging(region);
+    setTimeout(() => { onSelectRegion(region); setPinging(null); }, 280);
   };
+  // Acceso = premuto, appena scelto o col focus da tastiera (fa da indicatore di focus visibile).
+  const lit = (region) => pressed === region || pinging === region || focused === region;
 
   return (
-    <svg viewBox="0 0 200 312" className="w-full mx-auto" style={{ maxWidth: '220px', display: 'block' }} role="img" aria-label="Sagoma del corpo, tocca la zona dove senti dolore">
-      <style>{`
-        @keyframes os-radar { 0% { r: 4; opacity: 0.9; } 100% { r: 30; opacity: 0; } }
-        .os-radar-ring { animation: os-radar 0.55s ease-out; transform-origin: center; }
-        @keyframes os-breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.9; } }
-        .os-breathe { animation: os-breathe 2.6s ease-in-out infinite; }
-      `}</style>
-      <defs>
-        <linearGradient id="os-body-gradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#E4EBF2" />
-          <stop offset="100%" stopColor="#CBD8E3" />
-        </linearGradient>
-        <filter id="os-body-shadow" x="-30%" y="-10%" width="160%" height="130%">
-          <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor={colors.ink} floodOpacity="0.12" />
-        </filter>
-      </defs>
-      <ellipse cx="100" cy="300" rx="52" ry="8" fill={colors.ink} opacity="0.06" />
-      <g filter="url(#os-body-shadow)">
-        <ellipse cx="100" cy="25" rx="15" ry="17" fill="url(#os-body-gradient)" />
-        <rect x="95" y="39" width="10" height="10" rx="4" fill="url(#os-body-gradient)" />
-        <path d="M72 58 Q100 44 128 58 L131 108 Q100 124 69 108 Z" fill="url(#os-body-gradient)" />
-        <rect x="53" y="58" width="14" height="78" rx="7" fill="url(#os-body-gradient)" />
-        <rect x="133" y="58" width="14" height="78" rx="7" fill="url(#os-body-gradient)" />
-        <ellipse cx="60" cy="141" rx="8" ry="9" fill="url(#os-body-gradient)" />
-        <ellipse cx="140" cy="141" rx="8" ry="9" fill="url(#os-body-gradient)" />
-      </g>
-
-      {bodyZones.map((zone, i) => {
-        const isPressed = pressed === i;
-        const commonProps = {
-          fill: isPressed ? accentColor : tintColor,
-          stroke: accentColor,
-          strokeWidth: 1.3,
-          className: isPressed ? '' : 'os-breathe',
-          style: { cursor: 'pointer', transition: 'fill 0.12s ease' },
-          onClick: () => handleSelect(i, zone.region),
-          onMouseDown: () => setPressed(i),
-          onMouseUp: () => setPressed(null),
-          onMouseLeave: () => setPressed(null),
-          onTouchStart: () => setPressed(i),
-          onTouchEnd: () => setPressed(null),
-          role: 'button',
-          'aria-label': zone.label,
-          tabIndex: 0,
-          onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') handleSelect(i, zone.region); },
-        };
-        const ShapeTag = Shape[zone.shape];
-        return <ShapeTag key={i} {...zone.props} {...commonProps} />;
-      })}
-
-      {pinging !== null && (
-        <circle className="os-radar-ring" cx={bodyZones[pinging].center.cx} cy={bodyZones[pinging].center.cy} r="4" fill="none" stroke={accentColor} strokeWidth="2" />
+    <div style={{ background: t.bg }} className="relative overflow-hidden rounded-3xl px-2 pt-4 pb-2 shadow-lg">
+      {(title || caption) && (
+        <div className="relative px-3 mb-1">
+          {title && <p style={{ fontFamily: BEBAS, color: led, letterSpacing: '0.06em', textShadow: `0 0 12px ${led}55` }} className="text-[22px] leading-none">{title}</p>}
+          {caption && <p style={{ fontFamily: BRICOLAGE, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.12em' }} className="text-[9px] font-bold uppercase leading-tight mt-1.5">{caption}</p>}
+        </div>
       )}
+      <svg viewBox="-76 -6 352 318" className="relative w-full block" role="group" aria-label={isEN ? 'Player outline: tap where it hurts' : 'Sagoma del giocatore: tocca dove senti il problema'}>
+        {/* Righe del campo e segni tattici col gesso, appena accennati. */}
+        <g stroke="rgba(255,255,255,0.08)" strokeWidth="1.2" fill="none" aria-hidden="true">
+          <line x1="-80" y1="152" x2="280" y2="152" />
+          <circle cx="100" cy="152" r="68" />
+        </g>
+        <g stroke="rgba(255,255,255,0.14)" strokeWidth="1.5" fill="none" strokeLinecap="round" aria-hidden="true">
+          <circle cx="236" cy="22" r="6.5" />
+          <path d="M198 60 L209 71 M209 60 L198 71" />
+          <path d="M229 32 Q227 52 214 60" strokeDasharray="3 4" />
+          <path d="M214 60 L220 60 M214 60 L216 54" />
+          <path d="M-60 282 L-49 293 M-49 282 L-60 293" />
+          <circle cx="-14" cy="297" r="6.5" />
+          <path d="M-44 296 Q-34 306 -23 299" strokeDasharray="3 4" />
+        </g>
+
+        <ChalkPlayer tone={tone} />
+
+        {/* Etichette con la riga: toccabili quanto la zona, e sono loro i bottoni per tastiera e lettori di schermo. */}
+        {BODY_CALLOUTS.map((c) => {
+          const on = lit(c.region);
+          const left = c.side === 'L';
+          const lineY = c.y + 5;
+          const elbowX = left ? 36 : 164;
+          const label = labels[c.region] || regionLabelsIT[c.region];
+          return (
+            <g
+              key={c.region}
+              role="button"
+              tabIndex={0}
+              aria-label={label}
+              className="os-focus"
+              style={{ cursor: 'pointer', outline: 'none' }}
+              onClick={() => handleSelect(c.region)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(c.region); } }}
+              onFocus={() => setFocused(c.region)}
+              onBlur={() => setFocused(null)}
+              onMouseDown={() => setPressed(c.region)}
+              onMouseUp={() => setPressed(null)}
+              onMouseLeave={() => setPressed(null)}
+              onTouchStart={() => setPressed(c.region)}
+              onTouchEnd={() => setPressed(null)}
+            >
+              <rect x={left ? -74 : 158} y={c.y - 16} width="118" height="26" fill="transparent" />
+              <path d={`M${left ? -70 : 270} ${lineY} L${elbowX} ${lineY} L${c.tx} ${c.ty}`} fill="none" stroke={on ? led : 'rgba(255,255,255,0.34)'} strokeWidth={on ? 1.6 : 1} style={{ transition: 'stroke 0.15s ease' }} />
+              <circle cx={c.tx} cy={c.ty} r={on ? 6 : 4.5} fill={led} opacity={on ? 0.35 : 0.18} />
+              <circle cx={c.tx} cy={c.ty} r="2.3" fill={on ? led : '#FFFFFF'} />
+              <text x={left ? -70 : 270} y={c.y} textAnchor={left ? 'start' : 'end'} fill={on ? led : 'rgba(255,255,255,0.9)'} style={{ fontFamily: BEBAS, fontSize: 15, letterSpacing: '0.05em', transition: 'fill 0.15s ease' }}>
+                {label}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Le zone: si accendono a onda dalla testa ai piedi, e piene quando le tocchi. */}
+        {bodyZones.map((zone, i) => {
+          const on = lit(zone.region);
+          return (
+            <ZoneShape
+              key={i}
+              zone={zone}
+              fill={led}
+              fillOpacity={on ? 0.85 : 0.24}
+              stroke={led}
+              strokeOpacity={on ? 1 : 0.85}
+              strokeWidth={on ? 1.8 : 1.2}
+              className={on ? '' : 'os-breathe'}
+              style={{ cursor: 'pointer', transition: 'fill-opacity 0.12s ease', animationDelay: `${((zone.center.cy / 300) * 2.6).toFixed(2)}s` }}
+              onClick={() => handleSelect(zone.region)}
+              onMouseDown={() => setPressed(zone.region)}
+              onMouseUp={() => setPressed(null)}
+              onMouseLeave={() => setPressed(null)}
+              onTouchStart={() => setPressed(zone.region)}
+              onTouchEnd={() => setPressed(null)}
+              aria-hidden="true"
+            />
+          );
+        })}
+
+        {pinging && bodyZones.filter((z) => z.region === pinging).map((z, i) => (
+          <circle key={i} className="os-radar-ring" cx={z.center.cx} cy={z.center.cy} r="22" fill="none" stroke={led} strokeWidth="2" />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+// La "figurina" di una zona: il giocatore in piccolo con solo quella zona accesa. Serve a far
+// capire al volo dove si trova, nelle card delle zone, nell'intestazione degli infortuni e
+// nell'elenco della prevenzione.
+function RegionFigure({ region, tone = 'green', height = 80 }) {
+  const t = BOARD_TONES[tone] || BOARD_TONES.green;
+  const zones = bodyZones.filter((z) => z.region === region);
+  const width = Math.round((height * 108) / 306);
+  return (
+    <svg viewBox="46 2 108 306" width={width} height={height} aria-hidden="true" style={{ overflow: 'visible', display: 'block' }}>
+      <ChalkPlayer tone={tone} strokeOpacity={0.4} strokeWidth={1.6} />
+      {zones.map((z, i) => <circle key={`h${i}`} cx={z.center.cx} cy={z.center.cy} r="22" fill={t.led} opacity="0.16" />)}
+      {zones.map((z, i) => <ZoneShape key={i} zone={z} fill={t.led} fillOpacity="0.92" stroke={t.led} strokeWidth="1.5" />)}
     </svg>
+  );
+}
+
+// Icona per il tipo di meccanismo, le stesse del triage ("Com'è successo?").
+const mechanismIcons = { acute: Zap, overuse: TrendingUp, contact: Shield };
+
+// Tempi di rientro indicativi di un infortunio, dal grado lieve al severo (i totalEstimateDays
+// già usati dal cronometro). Unità scelta per essere leggibile: giorni, settimane o mesi.
+function recoveryRangeLabel(sd, isEN) {
+  if (!sd || !sd.lieve || !sd.severo) return '';
+  const min = sd.lieve.totalEstimateDays;
+  const max = sd.severo.totalEstimateDays;
+  const u = isEN ? { d: 'days', w: 'wks', m: 'mo' } : { d: 'gg', w: 'sett.', m: 'mesi' };
+  const wk = (d) => Math.max(1, Math.round(d / 7));
+  const mo = (d) => Math.max(1, Math.round(d / 30));
+  if (max <= 21) return `${min}–${max} ${u.d}`;
+  if (max < 180) return `${wk(min)}–${wk(max)} ${u.w}`;
+  if (min < 60) return `${wk(min)} ${u.w}–${mo(max)} ${u.m}`;
+  return `${mo(min)}–${mo(max)} ${u.m}`;
+}
+
+// Separa il nome dell'esercizio dalla parentesi finale: se è un dosaggio ("3 serie da 12-15",
+// "tenuta 20-30 secondi, 3-4 volte") diventa il chip del tabellone; se è un'indicazione
+// ("poi a occhi chiusi se comodo") resta sotto come nota. Il testo non cambia, solo come appare.
+function splitDose(text) {
+  const m = typeof text === 'string' ? text.match(/^(.*\S)\s*\(([^()]*)\)\s*$/) : null;
+  if (!m) return { main: text, dose: null, note: null };
+  const inner = m[2].trim();
+  const isDosePart = (p) => /^\d/.test(p) || /^(tenuta|hold)\b/i.test(p);
+  if (!isDosePart(inner)) return { main: m[1], dose: null, note: inner };
+  const parts = inner.split(/,\s*/);
+  let i = 1;
+  while (i < parts.length && isDosePart(parts[i])) i += 1;
+  return { main: m[1], dose: parts.slice(0, i).join(', '), note: parts.slice(i).join(', ') || null };
+}
+
+const DRILL_TONES = {
+  green: { main: colors.accent, tint: colors.accentTint, dark: colors.accentDark, led: LED_GREEN, board: colors.heroBg },
+  teal: { main: colors.prevention, tint: colors.preventionTint, dark: colors.preventionDark, led: LED_TEAL, board: '#06282D' },
+  gold: { main: colors.premiumGold, tint: '#FCF1D6', dark: '#8A5A00', led: colors.premiumGold, board: '#0B121A' },
+};
+
+// La card di un esercizio, uguale in percorso, prevenzione, tecnica e Premium: numero grande
+// a sinistra, nome in chiaro, dosaggio sul "tabellone" LED, spunta tonda a destra e il
+// "Come si fa" sotto. Senza onToggle (tecnica) non c'è la spunta; con dark va su fondo scuro.
+function DrillCard({ index, ex, catLabel, done = false, onToggle, helpOpen = false, onToggleHelp, isEN, tone = 'green', dark = false }) {
+  const t = DRILL_TONES[tone] || DRILL_TONES.green;
+  const { main, dose, note } = splitDose(ex.text);
+  const CatIcon = catIcons[ex.cat] || Circle;
+  const checkable = typeof onToggle === 'function';
+  const num = String(index + 1).padStart(2, '0');
+  const ink = dark ? '#EEF3F8' : colors.ink;
+  const muted = dark ? '#A9B7C4' : colors.mutedInk;
+  const cardBg = dark ? 'rgba(255,255,255,0.06)' : done ? t.tint : colors.card;
+  const border = dark ? 'rgba(255,255,255,0.09)' : done ? `${t.main}66` : colors.hairline;
+  const railBg = done ? t.main : dark ? 'rgba(240,180,41,0.14)' : t.tint;
+  const railInk = done ? '#FFFFFF' : dark ? t.led : t.dark;
+  return (
+    <div style={{ backgroundColor: cardBg, border: `1px solid ${border}` }} className={`rounded-2xl overflow-hidden transition-colors ${dark ? '' : 'shadow-sm'}`}>
+      <div className="flex items-stretch">
+        <div style={{ backgroundColor: railBg }} className="flex-shrink-0 w-11 flex justify-center pt-3 transition-colors" aria-hidden="true">
+          <span style={{ fontFamily: BEBAS, color: railInk }} className="text-[26px] leading-none os-tabular">{num}</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-2 px-3 pt-3 pb-2">
+            <div onClick={checkable ? onToggle : undefined} className={`flex-1 min-w-0 ${checkable ? 'cursor-pointer select-none' : ''}`}>
+              <p style={{ color: dark ? t.led : t.dark, fontFamily: BRICOLAGE, letterSpacing: '0.1em' }} className="flex items-center gap-1 text-[10px] font-bold uppercase mb-1"><CatIcon size={11} />{catLabel}</p>
+              <p style={{ color: ink, opacity: done ? 0.62 : 1 }} className="text-[14.5px] font-semibold leading-snug transition-opacity">{main}</p>
+              {(dose || note) && (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2">
+                  {dose && <span style={{ backgroundColor: dark ? 'rgba(0,0,0,0.4)' : t.board, color: t.led, fontFamily: BEBAS, letterSpacing: '0.05em' }} className="text-[14px] leading-none px-2 py-1 rounded-md">{dose}</span>}
+                  {note && <span style={{ color: muted }} className="text-[11.5px] leading-snug">{note}</span>}
+                </div>
+              )}
+            </div>
+            {checkable && (
+              <button
+                type="button"
+                onClick={onToggle}
+                aria-pressed={done}
+                aria-label={done ? (isEN ? `Mark as not done: ${main}` : `Segna come da fare: ${main}`) : (isEN ? `Mark as done: ${main}` : `Segna come fatto: ${main}`)}
+                style={{ backgroundColor: done ? t.main : dark ? 'rgba(255,255,255,0.06)' : colors.card, border: `2px solid ${done ? t.main : dark ? 'rgba(255,255,255,0.22)' : colors.hairline}`, boxShadow: done ? `0 4px 12px ${t.main}55` : 'none' }}
+                className="os-focus flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-colors"
+              >
+                {done ? <Check size={18} color="#FFFFFF" className="os-check-pop" /> : <Check size={16} color={dark ? 'rgba(255,255,255,0.3)' : colors.hairline} />}
+              </button>
+            )}
+          </div>
+          <button type="button" onClick={onToggleHelp} aria-expanded={helpOpen} style={{ color: dark ? t.led : t.dark }} className="os-focus flex items-center gap-1.5 px-3 pb-3 text-[12px] font-semibold hover:opacity-75 transition-opacity">
+            <PlayCircle size={14} />{isEN ? 'How to do it' : 'Come si fa'}
+            <ChevronDown size={12} style={{ transform: helpOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+          </button>
+          {helpOpen && (
+            <div className="px-3 pb-3 os-fadein">
+              {dark ? (
+                <div style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} className="rounded-xl p-3">
+                  <p style={{ color: '#D7E1EA' }} className="text-xs leading-relaxed">{ex.howTo || main}</p>
+                </div>
+              ) : (
+                <ExerciseHelp ex={ex} isEN={isEN} />
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Barra a segmenti "formazione": un segmento per esercizio, pieno quando è fatto.
+function DrillProgress({ doneFlags, tone = 'green', isEN, showCount = true }) {
+  const t = DRILL_TONES[tone] || DRILL_TONES.green;
+  const done = doneFlags.filter(Boolean).length;
+  return (
+    <div className="flex items-center gap-3" role="img" aria-label={isEN ? `${done} of ${doneFlags.length} exercises done` : `${done} esercizi fatti su ${doneFlags.length}`}>
+      <div className="flex-1 flex gap-1">
+        {doneFlags.map((f, i) => <span key={i} style={{ backgroundColor: f ? t.main : colors.hairline }} className="h-1.5 flex-1 rounded-full transition-colors" />)}
+      </div>
+      {showCount && <span style={{ fontFamily: BEBAS, color: done ? t.dark : colors.mutedInk, letterSpacing: '0.04em' }} className="text-[15px] leading-none os-tabular">{done}/{doneFlags.length}</span>}
+    </div>
   );
 }
 
@@ -3375,17 +3639,95 @@ function SetupSection({ id, currentSection, onToggle, icon: Icon, label, badge, 
   );
 }
 
+// Bottone oro di Premium, con un riflesso di luce che ci passa sopra ogni tanto.
+function GoldButton({ children, onClick, href, full = false }) {
+  const cls = `os-focus relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-xl font-bold uppercase tracking-wide shadow-md hover:brightness-105 active:scale-[0.98] transition ${full ? 'w-full py-4 text-sm' : 'px-5 py-3 text-xs'}`;
+  const style = { background: GOLD_GRADIENT, color: '#0B121A', fontFamily: BRICOLAGE, letterSpacing: '0.06em', boxShadow: '0 8px 22px rgba(240,180,41,0.28)' };
+  const inner = <>{children}<span className="os-sheen" aria-hidden="true" /></>;
+  return href
+    ? <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} style={style} className={cls}>{inner}</a>
+    : <button type="button" onClick={onClick} style={style} className={cls}>{inner}</button>;
+}
+
+// Il banner che porta a Premium, in stile "biglietto oro": cornice sfumata oro, etichetta
+// PREMIUM e il vantaggio concreto. Il prefisso "Premium:" dei testi esistenti diventa
+// l'etichetta, così non si ripete.
 function PremiumBanner({ text, onClick }) {
+  const body = String(text || '').replace(/^Premium:\s*/i, '');
+  const label = body.charAt(0).toUpperCase() + body.slice(1);
   return (
-    <button onClick={onClick} style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}50` }} className="os-focus w-full flex items-center gap-3.5 rounded-2xl p-4 mb-5 text-left hover:opacity-90 transition-opacity shadow-sm">
-      <div style={{ backgroundColor: colors.premiumGoldTint }} className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center">
-        <TrendingUp size={22} color={colors.premiumGold} />
+    <button onClick={onClick} style={{ background: 'linear-gradient(120deg, #F9DD85, #8A6414 38%, #F0B429 70%, #6B4D0C)' }} className="os-focus relative w-full overflow-hidden rounded-2xl p-[1.5px] mb-5 text-left shadow-md hover:brightness-110 active:scale-[0.99] transition">
+      <div style={{ background: 'radial-gradient(120% 140% at 0% 0%, rgba(240,180,41,0.24), rgba(240,180,41,0) 55%), #0E1620' }} className="relative flex items-center gap-3.5 overflow-hidden rounded-[15px] px-4 py-3.5">
+        <div style={{ background: GOLD_GRADIENT }} className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center shadow-sm">
+          <Trophy size={20} color="#0E1620" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p style={{ fontFamily: BEBAS, letterSpacing: '0.14em' }} className="os-gold-text text-[14px] leading-none mb-1">Premium</p>
+          <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-sm font-semibold leading-snug">{label}</p>
+        </div>
+        <ChevronRight size={18} color={colors.premiumGold} className="flex-shrink-0" />
+        <span className="os-sheen" aria-hidden="true" />
       </div>
-      <div className="flex-1 min-w-0">
-        <p style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: '#FFFFFF' }} className="text-sm font-semibold leading-snug">{text}</p>
-      </div>
-      <ChevronRight size={18} color={colors.premiumGold} className="flex-shrink-0" />
     </button>
+  );
+}
+
+// Contenuto Premium bloccato: dietro si intravede (sfocato) il contenuto vero, davanti il
+// lucchetto oro, cosa sblocchi e il bottone. Senza anteprima diventa una card normale.
+function PremiumLockCard({ title, text, cta, onUnlock, preview = [], icon: Icon = Lock, badge }) {
+  const hasPreview = preview.length > 0;
+  return (
+    <div style={{ background: PREMIUM_BG, border: '1px solid rgba(240,180,41,0.35)' }} className="relative overflow-hidden rounded-3xl shadow-lg">
+      {hasPreview && (
+        <div aria-hidden="true" style={{ filter: 'blur(3px)', opacity: 0.5 }} className="p-4 space-y-2 min-h-[300px] pointer-events-none select-none">
+          {preview.map((line, i) => (
+            <div key={i} style={{ backgroundColor: 'rgba(255,255,255,0.07)' }} className="flex items-center gap-3 rounded-xl px-3 py-2.5">
+              <span style={{ fontFamily: BEBAS, color: colors.premiumGold }} className="text-xl leading-none">{String(i + 1).padStart(2, '0')}</span>
+              <span style={{ color: '#EEF3F8' }} className="text-sm leading-snug">{line}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={hasPreview ? { background: 'linear-gradient(180deg, rgba(11,18,26,0.05) 0%, rgba(11,18,26,0.55) 28%, rgba(11,18,26,0.92) 58%)' } : undefined} className={`${hasPreview ? 'absolute inset-0' : 'relative'} flex flex-col items-center justify-center text-center px-6 py-7`}>
+        <div style={{ background: GOLD_GRADIENT, boxShadow: '0 6px 20px rgba(240,180,41,0.35)' }} className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3">
+          <Icon size={22} color="#0B121A" />
+        </div>
+        {badge && <span style={{ border: '1px solid rgba(240,180,41,0.5)', color: colors.premiumGold }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full mb-2">{badge}</span>}
+        <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[17px] font-bold leading-snug mb-1.5">{title}</p>
+        <p style={{ color: '#A9B7C4' }} className="text-sm leading-relaxed mb-4 max-w-xs">{text}</p>
+        <GoldButton onClick={onUnlock}><Lock size={13} />{cta}</GoldButton>
+      </div>
+    </div>
+  );
+}
+
+// Scelta del ruolo come "maglie" numerate (numeri classici: 1 portiere, 5 difensore,
+// 8 centrocampista, 9 attaccante). Solo grafica: il ruolo salvato resta la stessa chiave.
+const POSITION_NUMBERS = { portiere: 1, difensore: 5, centrocampista: 8, attaccante: 9 };
+function PositionPicker({ positions, value, onPick, dark = false }) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {positions.map((pos) => {
+        const on = value === pos.key;
+        return (
+          <button
+            key={pos.key}
+            type="button"
+            onClick={() => onPick(pos.key)}
+            aria-pressed={on}
+            style={{
+              backgroundColor: on ? colors.premiumGold : dark ? 'rgba(255,255,255,0.06)' : colors.card,
+              border: `1.5px solid ${on ? colors.premiumGold : dark ? 'rgba(240,180,41,0.35)' : colors.premiumGold + '66'}`,
+              color: on ? '#0B121A' : dark ? '#FFFFFF' : colors.ink,
+            }}
+            className="os-focus flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors"
+          >
+            <span style={{ fontFamily: BEBAS, color: on ? '#0B121A' : colors.premiumGold }} className="text-[26px] leading-none w-6 text-center">{POSITION_NUMBERS[pos.key] || '•'}</span>
+            <span style={{ fontFamily: BRICOLAGE }} className="text-[13px] font-bold leading-tight">{pos.label}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -4982,6 +5324,18 @@ export default function Offside() {
     .os-gol-text { display: inline-block; animation: os-gol-pop 0.5s cubic-bezier(0.2, 1.3, 0.4, 1) 0.35s both; }
     @keyframes os-playhead { 0%, 100% { box-shadow: 0 0 0 3px rgba(47,167,102,0.45), 0 0 10px rgba(47,167,102,0.9); } 50% { box-shadow: 0 0 0 6px rgba(47,167,102,0.15), 0 0 18px rgba(47,167,102,1); } }
     .os-playhead { animation: os-playhead 2.4s ease-in-out infinite; }
+    @keyframes os-radar { 0% { transform: scale(0.15); opacity: 0.95; } 100% { transform: scale(1.5); opacity: 0; } }
+    .os-radar-ring { transform-box: fill-box; transform-origin: center; animation: os-radar 0.6s ease-out both; }
+    @keyframes os-breathe { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+    .os-breathe { animation: os-breathe 2.6s ease-in-out infinite; }
+    @keyframes os-check-pop { 0% { transform: scale(0.6); } 55% { transform: scale(1.18); } 100% { transform: scale(1); } }
+    .os-check-pop { animation: os-check-pop 0.35s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+    @keyframes os-sheen { 0%, 62% { transform: translateX(-130%) skewX(-18deg); } 100% { transform: translateX(330%) skewX(-18deg); } }
+    .os-sheen { position: absolute; top: 0; bottom: 0; left: 0; width: 40%; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.3), rgba(255,255,255,0)); transform: translateX(-130%); animation: os-sheen 4s ease-in-out infinite; pointer-events: none; }
+    @keyframes os-live { 0%, 100% { box-shadow: 0 0 0 0 rgba(125,255,168,0.65); } 50% { box-shadow: 0 0 0 4px rgba(125,255,168,0); } }
+    .os-live-dot { animation: os-live 1.8s ease-in-out infinite; }
+    .os-gold-text { background: linear-gradient(180deg, #FFF3C9 0%, #F7D774 38%, #F0B429 66%, #B7800A 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    @media (prefers-reduced-motion: reduce) { .os-sheen { display: none; } }
     .os-print-only { display: none; }
     @media print {
       body * { visibility: hidden; }
@@ -5228,6 +5582,7 @@ export default function Offside() {
   })() : null;
   const otherActiveKeys = activeInjuryKeys.filter((k) => k !== heroKey);
   const preventionDoneCount = Object.values(preventionProgress || {}).reduce((sum, region) => sum + Object.values(region || {}).filter(Boolean).length, 0);
+  const totalInjuryCount = Object.values(regions).reduce((sum, r) => sum + r.injuries.filter((k) => injuriesData[k]).length, 0);
   const seasonLabel = (() => { const d = new Date(); const y = d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1; return `${y}/${String((y + 1) % 100).padStart(2, '0')}`; })();
 
   return (
@@ -5481,7 +5836,7 @@ export default function Offside() {
                 <ShieldCheck size={14} />{isEN ? 'Prevention' : 'Prevenzione'}
               </button>
               <button onClick={() => setRegionsTab('technique')} style={{ backgroundColor: regionsTab === 'technique' ? colors.card : 'transparent', color: regionsTab === 'technique' ? colors.premiumGold : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
-                {!premiumUnlocked && <Lock size={11} />}<CircleDot size={14} />{isEN ? 'Technique' : 'Tecnica'}
+                {!premiumUnlocked && <Lock size={11} />}<SoccerBall size={14} />{isEN ? 'Technique' : 'Tecnica'}
               </button>
             </div>
 
@@ -5496,9 +5851,14 @@ export default function Offside() {
                   <ChevronRight size={18} color={colors.ink} className="opacity-60" />
                 </button>
 
-                <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase text-center mb-3">{isEN ? 'Tap where it hurts' : 'Tocca dove senti il problema'}</p>
                 <div className="mb-6">
-                  <BodyDiagram onSelectRegion={openRegion} />
+                  <BodyDiagram
+                    onSelectRegion={openRegion}
+                    labels={regionLabels}
+                    isEN={isEN}
+                    title={isEN ? 'Tap where it hurts' : 'Tocca dove ti fa male'}
+                    caption={isEN ? `${Object.keys(regions).length} areas · ${totalInjuryCount} injuries` : `${Object.keys(regions).length} zone · ${totalInjuryCount} infortuni`}
+                  />
                 </div>
 
                 <button onClick={startTriage} style={{ backgroundColor: colors.card, border: `1.5px dashed ${colors.hairline}` }} className="os-focus w-full flex items-center gap-3 rounded-2xl p-4 mb-6 text-left hover:border-green-300 transition-colors">
@@ -5515,11 +5875,26 @@ export default function Offside() {
                 <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.1em' }} className="text-xs font-semibold uppercase mb-3">{isEN ? 'Or choose the area' : 'Oppure scegli il distretto'}</p>
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   {Object.entries(regions).map(([key, data]) => {
-                    const Icon = data.icon;
+                    const count = data.injuries.filter((k) => injuriesData[k]).length;
+                    const live = activeInjuryKeys.some((k) => data.injuries.includes(k));
                     return (
-                      <button key={key} onClick={() => openRegion(key)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus flex flex-col items-center gap-2.5 px-3 py-5 rounded-2xl text-center hover:shadow-md hover:border-green-300 transition-all">
-                        <div style={{ backgroundColor: colors.accentTint, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center"><Icon size={24} color={colors.accentDark} strokeWidth={2} /></div>
-                        <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.01em' }} className="text-sm font-semibold uppercase leading-tight">{regionLabels[key]}</p>
+                      <button key={key} onClick={() => openRegion(key)} style={{ backgroundColor: colors.card, border: `1px solid ${live ? colors.accent + '88' : colors.hairline}` }} className="os-focus flex flex-col overflow-hidden rounded-2xl text-left shadow-sm hover:shadow-md active:scale-[0.98] transition-all">
+                        <div style={{ background: PITCH_BG }} className="relative h-[92px] flex-shrink-0 flex items-center justify-between pl-5 pr-3.5">
+                          <RegionFigure region={key} height={80} />
+                          <div className={`text-right ${live ? 'self-end pb-2' : ''}`}>
+                            <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[34px] leading-none os-tabular">{count}</p>
+                            <p style={{ fontFamily: BRICOLAGE, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.12em' }} className="text-[9px] font-bold uppercase mt-0.5">{count === 1 ? (isEN ? 'injury' : 'infortunio') : (isEN ? 'injuries' : 'infortuni')}</p>
+                          </div>
+                          {live && (
+                            <span style={{ backgroundColor: 'rgba(0,0,0,0.35)', color: LED_GREEN, fontFamily: BEBAS, letterSpacing: '0.06em' }} className="absolute top-2 right-2 flex items-center gap-1 rounded px-1.5 py-1 text-[11px] leading-none">
+                              <span style={{ backgroundColor: LED_GREEN }} className="w-1.5 h-1.5 rounded-full os-live-dot" />{isEN ? 'In progress' : 'In corso'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 flex items-center justify-between gap-1.5 px-3.5 py-3">
+                          <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[13.5px] font-bold leading-tight">{regionLabels[key]}</p>
+                          <ChevronRight size={14} color={colors.mutedInk} className="flex-shrink-0" />
+                        </div>
                       </button>
                     );
                   })}
@@ -5538,16 +5913,20 @@ export default function Offside() {
                 </p>
 
                 {!premiumUnlocked ? (
-                  <button onClick={() => { trackEvent('movement_screening_teaser_clicked'); setScreen('premium'); }} style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}40` }} className="os-focus w-full text-left rounded-2xl p-5 mb-6 shadow-sm hover:opacity-95 transition-opacity">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Camera size={18} color={colors.premiumGold} />
-                      <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">Beta</span>
+                  <button onClick={() => { trackEvent('movement_screening_teaser_clicked'); setScreen('premium'); }} style={{ background: 'linear-gradient(120deg, #F9DD85, #8A6414 38%, #F0B429 70%, #6B4D0C)' }} className="os-focus relative w-full overflow-hidden rounded-3xl p-[1.5px] mb-6 text-left shadow-md hover:brightness-110 active:scale-[0.99] transition">
+                    <div style={{ background: PREMIUM_BG }} className="relative overflow-hidden rounded-[22px] p-5">
+                      <PitchArc size={170} />
+                      <div className="relative flex items-center gap-2.5 mb-3">
+                        <div style={{ background: GOLD_GRADIENT }} className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"><Camera size={19} color="#0B121A" /></div>
+                        <span style={{ fontFamily: BEBAS, letterSpacing: '0.14em' }} className="os-gold-text text-[15px] leading-none">Premium</span>
+                        <span style={{ border: '1px solid rgba(240,180,41,0.5)', color: colors.premiumGold }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">Beta</span>
+                      </div>
+                      <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[17px] font-bold mb-1.5">{isEN ? 'Movement screening' : 'Screening del movimento'}</p>
+                      <p style={{ color: '#A9B7C4' }} className="relative text-sm leading-relaxed mb-4">{isEN ? 'Use your camera for a real-time look at squats and balance: symmetry, knee control, stability. It all runs on your phone.' : 'Usa la fotocamera per uno sguardo in tempo reale a squat ed equilibrio: simmetria, controllo del ginocchio, stabilità. Gira tutto sul telefono.'}</p>
+                      <span style={{ background: GOLD_GRADIENT, color: '#0B121A', fontFamily: BRICOLAGE }} className="relative inline-flex items-center gap-1.5 overflow-hidden px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide shadow-sm">
+                        <Lock size={12} />{isEN ? 'Unlock Premium' : 'Sblocca Premium'}<span className="os-sheen" aria-hidden="true" />
+                      </span>
                     </div>
-                    <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-bold mb-1.5">{isEN ? 'Movement screening' : 'Screening del movimento'}</p>
-                    <p style={{ color: '#A9B7C4' }} className="text-sm leading-relaxed mb-3">{isEN ? 'Use your camera for a real-time look at squats and balance: symmetry, knee control, stability. It all runs on your phone.' : 'Usa la fotocamera per uno sguardo in tempo reale a squat ed equilibrio: simmetria, controllo del ginocchio, stabilità. Gira tutto sul telefono.'}</p>
-                    <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="inline-block px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide">
-                      {isEN ? 'Unlock Premium' : 'Sblocca Premium'}
-                    </span>
                   </button>
                 ) : (
                   <button onClick={() => { trackEvent('movement_screening_opened'); setScreen('movementScreen'); }} style={{ backgroundColor: colors.card, border: `1.5px solid ${colors.prevention}45` }} className="os-focus w-full text-left rounded-2xl p-5 mb-6 shadow-sm hover:opacity-95 transition-opacity">
@@ -5577,53 +5956,59 @@ export default function Offside() {
                 )}
 
                 <div className="mb-6">
-                  <BodyDiagram onSelectRegion={(key) => { setExpandedPrevention(key); setTimeout(() => scrollToId(`prevention-${key}`), 120); }} accentColor={colors.prevention} tintColor={colors.preventionTint} />
+                  <BodyDiagram
+                    onSelectRegion={(key) => { setExpandedPrevention(key); setTimeout(() => scrollToId(`prevention-${key}`), 120); }}
+                    tone="teal"
+                    labels={regionLabels}
+                    isEN={isEN}
+                    title={isEN ? 'Pick an area to strengthen' : 'Scegli la zona da rinforzare'}
+                    caption={preventionDoneCount > 0 ? (isEN ? `${preventionDoneCount} done` : `${preventionDoneCount} fatti`) : null}
+                  />
                 </div>
 
                 <div className="space-y-2.5">
                   {Object.entries(preventionData).map(([key, data]) => {
                     const isExpanded = expandedPrevention === key;
                     const regionProgress = preventionProgress[key] || {};
-                    const doneCount = data.exercises.filter((_, i) => regionProgress[i]).length;
-                    const RegionIcon = regions[key]?.icon || ShieldCheck;
+                    const doneFlags = data.exercises.map((_, i) => !!regionProgress[i]);
+                    const doneCount = doneFlags.filter(Boolean).length;
                     return (
-                      <div key={key} id={`prevention-${key}`} style={{ backgroundColor: colors.card, border: `1.5px solid ${isExpanded ? colors.prevention + '55' : colors.hairline}` }} className="rounded-2xl overflow-hidden shadow-sm scroll-mt-4">
-                        <button onClick={() => setExpandedPrevention(isExpanded ? null : key)} className="os-focus w-full flex items-center gap-4 px-4 py-4.5 text-left">
-                          <div style={{ backgroundColor: colors.preventionTint, border: `1.5px solid ${colors.prevention}40` }} className="flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center"><RegionIcon size={24} color={colors.preventionDark} strokeWidth={2} /></div>
-                          <div className="flex-1 min-w-0">
-                            <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.02em' }} className="text-base font-semibold uppercase">{data.label}</p>
-                            {doneCount > 0 && <p style={{ color: colors.preventionDark }} className="text-xs font-medium">{doneCount}/{data.exercises.length} fatti</p>}
+                      <div key={key} id={`prevention-${key}`} style={{ backgroundColor: colors.card, border: `1.5px solid ${isExpanded ? colors.prevention + '66' : colors.hairline}` }} className="rounded-2xl overflow-hidden shadow-sm scroll-mt-4">
+                        <button onClick={() => setExpandedPrevention(isExpanded ? null : key)} aria-expanded={isExpanded} className="os-focus w-full flex items-center gap-3.5 p-3 text-left">
+                          <div style={{ background: PITCH_BG_TEAL }} className="flex-shrink-0 w-14 h-[68px] rounded-xl flex items-center justify-center">
+                            <RegionFigure region={key} tone="teal" height={60} />
                           </div>
-                          <ChevronDown size={20} color={colors.mutedInk} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                          <div className="flex-1 min-w-0">
+                            <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold leading-tight">{data.label}</p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <div className="flex gap-0.5 w-24">
+                                {doneFlags.map((f, i) => <span key={i} style={{ backgroundColor: f ? colors.prevention : colors.hairline }} className="h-1.5 flex-1 rounded-full" />)}
+                              </div>
+                              <span style={{ color: doneCount ? colors.preventionDark : colors.mutedInk }} className="text-[11px] font-semibold os-tabular">{isEN ? `${doneCount}/${data.exercises.length} done` : `${doneCount}/${data.exercises.length} fatti`}</span>
+                            </div>
+                          </div>
+                          <ChevronDown size={20} color={colors.mutedInk} className="flex-shrink-0" style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
                         </button>
                         {isExpanded && (
-                          <div className="px-4 pb-4 os-fadein">
-                            <p style={{ color: colors.mutedInk, borderBottom: `1px solid ${colors.hairline}` }} className="text-xs leading-relaxed mb-3 pb-3">{data.why}</p>
-                            <div className="space-y-2">
+                          <div className="px-3 pb-3 os-fadein">
+                            <p style={{ color: colors.mutedInk, backgroundColor: colors.preventionPaper, borderLeft: `3px solid ${colors.prevention}` }} className="text-xs leading-relaxed mb-3 px-3 py-2.5 rounded-r-lg">{data.why}</p>
+                            <div className="space-y-2.5">
                               {data.exercises.map((ex, i) => {
-                                const done = !!regionProgress[i];
-                                const CatIcon = catIcons[ex.cat] || Circle;
                                 const tipKey = `${key}-${i}`;
                                 const tipOpen = expandedPreventionTip === tipKey;
                                 return (
-                                  <div key={i} style={{ backgroundColor: done ? colors.preventionTint : colors.paper, border: `1px solid ${done ? colors.prevention + '55' : colors.hairline}` }} className="rounded-lg overflow-hidden">
-                                    <button onClick={() => togglePreventionExercise(key, i)} className="os-focus w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors">
-                                      {done ? <CheckCircle2 size={18} color={colors.prevention} className="flex-shrink-0 mt-0.5" strokeWidth={2.25} /> : <Circle size={18} color={colors.mutedInk} className="flex-shrink-0 mt-0.5" strokeWidth={1.75} />}
-                                      <span className="flex-1">
-                                        <span style={{ color: done ? colors.preventionDark : colors.ink, textDecoration: done ? 'line-through' : 'none' }} className="text-sm leading-snug block">{ex.text}</span>
-                                        <span style={{ color: colors.mutedInk }} className="text-[11px] flex items-center gap-1 mt-0.5"><CatIcon size={11} />{catLabels[ex.cat]}</span>
-                                      </span>
-                                    </button>
-                                    <button onClick={() => setExpandedPreventionTip(tipOpen ? null : tipKey)} style={{ color: colors.preventionDark }} className="os-focus flex items-center gap-1 text-[11px] font-medium px-3 pb-2.5 hover:opacity-70">
-                                      <ChevronDown size={11} style={{ transform: tipOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
-                                      Come si fa?
-                                    </button>
-                                    {tipOpen && (
-                                      <div className="px-3 pb-3 os-fadein">
-                                        <ExerciseHelp ex={ex} isEN={isEN} />
-                                      </div>
-                                    )}
-                                  </div>
+                                  <DrillCard
+                                    key={tipKey}
+                                    index={i}
+                                    ex={ex}
+                                    tone="teal"
+                                    catLabel={catLabels[ex.cat]}
+                                    done={!!regionProgress[i]}
+                                    onToggle={() => togglePreventionExercise(key, i)}
+                                    helpOpen={tipOpen}
+                                    onToggleHelp={() => setExpandedPreventionTip(tipOpen ? null : tipKey)}
+                                    isEN={isEN}
+                                  />
                                 );
                               })}
                             </div>
@@ -5638,56 +6023,54 @@ export default function Offside() {
             ) : (
               <>
                 {!premiumUnlocked ? (
-                  <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}40` }} className="rounded-2xl p-6 text-center shadow-sm">
-                    <Lock size={28} color={colors.premiumGold} className="mx-auto mb-3" />
-                    <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-bold mb-2">{isEN ? 'Technical training, by role' : 'Allenamento tecnico, per ruolo'}</p>
-                    <p style={{ color: '#A9B7C4' }} className="text-sm leading-relaxed mb-4">{isEN ? 'Ball control, passing, finishing — exercises built for your position on the pitch.' : 'Controllo palla, passaggio, finalizzazione — esercizi pensati per il tuo ruolo in campo.'}</p>
-                    <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="os-focus px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wide">
-                      {isEN ? 'Unlock Premium' : 'Sblocca Premium'}
-                    </button>
-                  </div>
+                  <PremiumLockCard
+                    title={isEN ? 'Technical training, by role' : 'Allenamento tecnico, per ruolo'}
+                    text={isEN ? 'Ball control, passing, finishing — exercises built for your position on the pitch.' : 'Controllo palla, passaggio, finalizzazione — esercizi pensati per il tuo ruolo in campo.'}
+                    cta={isEN ? 'Unlock Premium' : 'Sblocca Premium'}
+                    onUnlock={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }}
+                    icon={SoccerBall}
+                    preview={(techniqueData.centrocampista?.exercises || []).slice(0, 5).map((ex) => splitDose(ex.text).main)}
+                  />
                 ) : !playerPosition ? (
-                  <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-2xl p-4 shadow-sm">
-                    <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold mb-3">{isEN ? 'Pick your position to see the right drills' : 'Scegli il tuo ruolo per vedere gli esercizi giusti'}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {playerPositions.map((pos) => (
-                        <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: colors.premiumGoldTint, color: colors.ink, border: `1px solid ${colors.premiumGold}60` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium hover:opacity-80 transition-colors">
-                          {pos.label}
-                        </button>
-                      ))}
+                  <div style={{ background: PREMIUM_BG }} className="relative overflow-hidden rounded-3xl p-5 shadow-lg">
+                    <PitchArc size={180} />
+                    <p style={{ fontFamily: BEBAS, letterSpacing: '0.12em' }} className="os-gold-text relative text-[15px] leading-none mb-2">{isEN ? 'Technique · Premium' : 'Tecnica · Premium'}</p>
+                    <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[17px] font-bold leading-snug mb-4">{isEN ? 'Pick your position to see the right drills' : 'Scegli il tuo ruolo per vedere gli esercizi giusti'}</p>
+                    <div className="relative">
+                      <PositionPicker positions={playerPositions} value={playerPosition} dark onPick={(k) => { setPlayerPosition(k); persist(snapshot({ playerPosition: k })); }} />
                     </div>
                   </div>
                 ) : (
                   <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <p style={{ ...displayFont, color: colors.ink }} className="text-base font-bold">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>
-                      <button onClick={() => setPlayerPosition(null)} style={{ color: colors.mutedInk }} className="os-focus text-[11px] underline hover:opacity-70">{isEN ? 'Change' : 'Cambia'}</button>
+                    <div style={{ background: PREMIUM_BG }} className="relative overflow-hidden rounded-3xl p-5 mb-4 shadow-lg">
+                      <PitchArc size={190} />
+                      <div className="relative flex items-center justify-between gap-3 mb-2">
+                        <p style={{ fontFamily: BRICOLAGE, color: colors.premiumGold, letterSpacing: '0.14em' }} className="text-[10px] font-bold uppercase">{isEN ? 'Your position' : 'Il tuo ruolo'}</p>
+                        <button onClick={() => setPlayerPosition(null)} style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#FFFFFF' }} className="os-focus flex-shrink-0 flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-semibold hover:bg-white/20 transition-colors">
+                          <RotateCw size={12} />{isEN ? 'Change' : 'Cambia'}
+                        </button>
+                      </div>
+                      <div className="relative flex items-end gap-2.5">
+                        <span style={{ fontFamily: BEBAS }} className="os-gold-text text-[56px] leading-[0.8]">{POSITION_NUMBERS[playerPosition] || ''}</span>
+                        <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[34px] leading-[0.85] min-w-0 break-words">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>
+                      </div>
+                      <p style={{ color: '#A9B7C4' }} className="relative text-sm leading-relaxed mt-3">{techniqueData[playerPosition].why}</p>
                     </div>
-                    <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-4">{techniqueData[playerPosition].why}</p>
                     <div className="space-y-2.5">
                       {techniqueData[playerPosition].exercises.map((ex, i) => {
-                        const CatIcon = catIcons[ex.cat] || Circle;
                         const techKey = `tech-${i}`;
                         const tipOpen = activeVideo === techKey;
                         return (
-                          <div key={i} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl overflow-hidden shadow-sm">
-                            <div className="flex items-start gap-3 p-3">
-                              <div style={{ backgroundColor: colors.premiumGoldTint, color: colors.ink }} className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">{i + 1}</div>
-                              <div className="flex-1 min-w-0">
-                                <p style={{ color: colors.ink }} className="text-sm leading-snug mb-1">{ex.text}</p>
-                                <span style={{ backgroundColor: colors.paper, color: colors.ink, fontWeight: 600 }} className="text-[11px] px-1.5 py-0.5 rounded inline-flex items-center gap-1"><CatIcon size={10} />{catLabels[ex.cat]}</span>
-                              </div>
-                            </div>
-                            <button onClick={() => setActiveVideo(tipOpen ? null : techKey)} style={{ color: '#B8860B', borderTop: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-1.5 px-3 py-2 text-xs font-semibold hover:opacity-70">
-                              <ChevronDown size={11} style={{ transform: tipOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
-                              {isEN ? 'How do I do this?' : 'Come si fa?'}
-                            </button>
-                            {tipOpen && (
-                              <div className="px-3 pb-3 os-fadein">
-                                <ExerciseHelp ex={ex} isEN={isEN} />
-                              </div>
-                            )}
-                          </div>
+                          <DrillCard
+                            key={techKey}
+                            index={i}
+                            ex={ex}
+                            tone="gold"
+                            catLabel={catLabels[ex.cat]}
+                            helpOpen={tipOpen}
+                            onToggleHelp={() => setActiveVideo(tipOpen ? null : techKey)}
+                            isEN={isEN}
+                          />
                         );
                       })}
                     </div>
@@ -5721,28 +6104,48 @@ export default function Offside() {
             <>
             {!premiumUnlocked ? (
               <>
-                <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}40` }} className="rounded-2xl p-6 mb-5 text-center">
-                  <TrendingUp size={32} color={colors.premiumGold} className="mx-auto mb-3" />
-                  <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-lg font-bold mb-2">{isEN ? 'Train like your role and injury need' : 'Allenati come richiedono ruolo e infortunio'}</p>
-                  <p style={{ color: '#A9B7C4' }} className="text-sm leading-relaxed">{isEN ? 'Exercises tailored to your position AND the specific area — plus your real progress over time.' : 'Esercizi su misura per il tuo ruolo E la zona specifica — più il tuo vero andamento nel tempo.'}</p>
+                <div style={{ background: PREMIUM_BG, border: '1px solid rgba(240,180,41,0.3)' }} className="relative overflow-hidden rounded-3xl mb-4 shadow-xl">
+                  <PitchArc size={240} />
+                  <div className="relative px-6 pt-6 pb-5">
+                    <div className="flex items-center gap-1.5 mb-4">
+                      <LogoMark size={15} color={colors.premiumGold} strokeWidth={2.5} />
+                      <span style={{ fontFamily: BRICOLAGE, color: 'rgba(240,180,41,0.85)', letterSpacing: '0.18em' }} className="text-[10px] font-bold uppercase">Offside</span>
+                    </div>
+                    <p style={{ fontFamily: BEBAS, letterSpacing: '0.02em', filter: 'drop-shadow(0 4px 18px rgba(240,180,41,0.35))' }} className="os-gold-text text-[78px] leading-[0.82]">Premium</p>
+                    <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[18px] font-bold leading-snug mt-3">{isEN ? 'Train like your role and injury need' : 'Allenati come richiedono ruolo e infortunio'}</p>
+                    <p style={{ color: '#A9B7C4' }} className="text-sm leading-relaxed mt-1.5">{isEN ? 'Exercises tailored to your position AND the specific area — plus your real progress over time.' : 'Esercizi su misura per il tuo ruolo E la zona specifica — più il tuo vero andamento nel tempo.'}</p>
+                  </div>
+                  <div className="relative h-5" aria-hidden="true">
+                    <span style={{ backgroundColor: colors.paper }} className="absolute -left-2.5 top-0 w-5 h-5 rounded-full" />
+                    <span style={{ backgroundColor: colors.paper }} className="absolute -right-2.5 top-0 w-5 h-5 rounded-full" />
+                    <div style={{ borderTop: '2px dashed rgba(240,180,41,0.3)' }} className="absolute left-5 right-5 top-1/2" />
+                  </div>
+                  <div className="relative px-5 pt-2 pb-5">
+                    <p style={{ fontFamily: BEBAS, color: colors.premiumGold, letterSpacing: '0.12em' }} className="text-[15px] leading-none mb-3.5">{isEN ? 'What you unlock' : 'Cosa sblocchi'}</p>
+                    <div className="space-y-3">
+                      {[
+                        { icon: Target, title: isEN ? 'Role + area training' : 'Allenamento ruolo + zona', text: isEN ? 'Exercises that combine your position and the injured area' : 'Esercizi che uniscono il tuo ruolo e la zona dell\'infortunio' },
+                        { icon: TrendingUp, title: isEN ? 'Your progress, charted' : 'Il tuo andamento, in grafico', text: isEN ? 'Feeling and stiffness day by day' : 'Feeling e rigidità giorno per giorno' },
+                        { icon: ClipboardCheck, title: isEN ? 'A report for your physio' : 'Un resoconto per il fisio', text: isEN ? 'A printable or PDF summary for your physio or coach' : 'Un riepilogo stampabile o in PDF per fisioterapista o allenatore' },
+                        { icon: SoccerBall, title: isEN ? 'Technique by position' : 'Tecnica per ruolo', text: isEN ? 'Ball control, passing, finishing: drills for your position' : 'Controllo palla, passaggio, finalizzazione: esercizi per il tuo ruolo' },
+                        { icon: Camera, title: isEN ? 'Movement screening' : 'Screening del movimento', beta: true, text: isEN ? 'Squat and balance with your camera, all on your phone' : 'Squat ed equilibrio con la fotocamera, tutto sul telefono' },
+                        { icon: User, title: isEN ? 'Return tip for your role' : 'Consiglio di rientro per ruolo', text: isEN ? 'In the final phase, a return-to-play tip built for your position' : 'Nell\'ultima fase, un consiglio sul rientro pensato per il tuo ruolo' },
+                      ].map((f) => (
+                        <div key={f.title} className="flex items-start gap-3">
+                          <div style={{ backgroundColor: 'rgba(240,180,41,0.12)', border: '1px solid rgba(240,180,41,0.3)' }} className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"><f.icon size={17} color={colors.premiumGold} /></div>
+                          <div className="min-w-0">
+                            <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="flex items-center gap-1.5 text-sm font-bold leading-snug">
+                              {f.title}
+                              {f.beta && <span style={{ border: '1px solid rgba(240,180,41,0.5)', color: colors.premiumGold }} className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full">Beta</span>}
+                            </p>
+                            <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed mt-0.5">{f.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-3 mb-6">
-                  <div className="flex gap-3 items-start">
-                    <CheckCircle2 size={18} color={colors.premiumGold} className="flex-shrink-0 mt-0.5" />
-                    <p style={{ color: colors.ink }} className="text-sm">{isEN ? 'Training that combines your position AND the specific area' : 'Allenamento che unisce il tuo ruolo E la zona specifica'}</p>
-                  </div>
-                  <div className="flex gap-3 items-start">
-                    <CheckCircle2 size={18} color={colors.premiumGold} className="flex-shrink-0 mt-0.5" />
-                    <p style={{ color: colors.ink }} className="text-sm">{isEN ? 'Feeling and stiffness trends, visualized day by day' : 'Andamento di feeling e rigidità, giorno per giorno'}</p>
-                  </div>
-                  <div className="flex gap-3 items-start">
-                    <CheckCircle2 size={18} color={colors.premiumGold} className="flex-shrink-0 mt-0.5" />
-                    <p style={{ color: colors.ink }} className="text-sm">{isEN ? 'A printable summary for your physio or coach' : 'Un riepilogo stampabile per il tuo fisioterapista o allenatore'}</p>
-                  </div>
-                </div>
-                <a href={STRIPE_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('premium_unlock_clicked')} style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity">
-                  <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
-                </a>
+                <GoldButton full href={STRIPE_PAYMENT_LINK} onClick={() => trackEvent('premium_unlock_clicked')}>{isEN ? 'Unlock Premium' : 'Sblocca Premium'}<ArrowRight size={16} /></GoldButton>
                 <p style={{ color: colors.mutedInk }} className="text-[10.5px] text-center mt-2.5">
                   {isEN ? 'Payments handled securely by Stripe. ' : 'Pagamenti gestiti in sicurezza da Stripe. '}
                   <a href="/privacy.html" style={{ color: colors.mutedInk }} className="underline hover:opacity-70">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>
@@ -5753,60 +6156,54 @@ export default function Offside() {
               <>
                 {(() => {
                   const roleRegion = injury ? regionOfInjury(selectedInjury, injuriesData) : selectedRegion;
+                  const rr = roleRegion && playerPosition ? regionRoleExercises[roleRegion]?.[playerPosition] : null;
                   return (
-                    <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}40` }} className="rounded-2xl p-4 mb-5 shadow-sm">
-                      <p style={{ ...displayFont, color: colors.premiumGold, letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase mb-2">{isEN ? 'Training for your area + role' : 'Allenamento per zona + ruolo'}</p>
+                    <div style={{ background: PREMIUM_BG, border: '1px solid rgba(240,180,41,0.3)' }} className="relative overflow-hidden rounded-3xl p-5 mb-5 shadow-lg">
+                      <PitchArc size={200} />
+                      <div className="relative flex items-center justify-between gap-3 mb-3">
+                        <p style={{ fontFamily: BEBAS, letterSpacing: '0.12em' }} className="os-gold-text text-[15px] leading-none">{isEN ? 'Premium · Area + role' : 'Premium · Zona + ruolo'}</p>
+                        <span style={{ backgroundColor: 'rgba(125,255,168,0.12)', color: LED_GREEN }} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"><Check size={11} />{isEN ? 'Active' : 'Attivo'}</span>
+                      </div>
                       {!roleRegion ? (
-                        <p style={{ color: '#D7E1EA' }} className="text-sm leading-relaxed">{isEN ? 'Select an injury or area first, to see training built specifically for it.' : 'Scegli prima un infortunio o una zona, per vedere l\'allenamento pensato apposta per quella.'}</p>
+                        <p style={{ color: '#D7E1EA' }} className="relative text-sm leading-relaxed">{isEN ? 'Select an injury or area first, to see training built specifically for it.' : 'Scegli prima un infortunio o una zona, per vedere l\'allenamento pensato apposta per quella.'}</p>
                       ) : !playerPosition ? (
-                        <>
+                        <div className="relative">
                           <p style={{ color: '#D7E1EA' }} className="text-sm mb-3">{isEN ? `Pick your position to see exercises for ${regionLabels[roleRegion].toLowerCase()}, built for your role.` : `Scegli il tuo ruolo per vedere gli esercizi per ${regionLabels[roleRegion].toLowerCase()}, pensati per te.`}</p>
-                          <div className="flex flex-wrap gap-2">
-                            {playerPositions.map((pos) => (
-                              <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: colors.premiumGoldTint, color: '#FFFFFF', border: `1px solid ${colors.premiumGold}60` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium hover:opacity-80 transition-colors">
-                                {pos.label}
-                              </button>
-                            ))}
-                          </div>
-                        </>
+                          <PositionPicker positions={playerPositions} value={playerPosition} dark onPick={(k) => { setPlayerPosition(k); persist(snapshot({ playerPosition: k })); }} />
+                        </div>
                       ) : (
-                        <>
-                          <div className="flex items-center justify-between mb-2.5">
-                            <div>
-                              <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-bold">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>
-                              <p style={{ color: colors.premiumGold }} className="text-[11px] font-semibold uppercase">{regionLabels[roleRegion]}</p>
+                        <div className="relative">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.08)' }} className="flex-shrink-0 rounded-xl px-2 py-1.5">
+                              <RegionFigure region={roleRegion} height={64} />
                             </div>
-                            <button onClick={() => setPlayerPosition(null)} style={{ color: '#A9B7C4' }} className="os-focus text-[11px] underline hover:opacity-70">{isEN ? 'Change' : 'Cambia'}</button>
+                            <div className="flex-1 min-w-0">
+                              <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[28px] leading-[0.9]">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>
+                              <p style={{ color: colors.premiumGold }} className="text-[11px] font-bold uppercase tracking-wide mt-1">{regionLabels[roleRegion]}</p>
+                            </div>
+                            <button onClick={() => setPlayerPosition(null)} style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#FFFFFF' }} className="os-focus flex-shrink-0 flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-semibold hover:bg-white/20 transition-colors">
+                              <RotateCw size={12} />{isEN ? 'Change' : 'Cambia'}
+                            </button>
                           </div>
-                          {regionRoleExercises[roleRegion]?.[playerPosition] ? (
+                          {rr ? (
                             <>
-                              <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed mb-3">{regionRoleExercises[roleRegion][playerPosition].why}</p>
+                              <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed mb-3">{rr.why}</p>
                               <div className="space-y-2">
-                                {regionRoleExercises[roleRegion][playerPosition].exercises.map((ex, i) => {
-                                  const CatIcon = catIcons[ex.cat] || Circle;
+                                {rr.exercises.map((ex, i) => {
                                   const rrKey = `rr-${roleRegion}-${playerPosition}-${i}`;
                                   const tipOpen = activeVideo === rrKey;
                                   return (
-                                    <div key={i} style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} className="rounded-lg overflow-hidden">
-                                      <div className="flex items-start gap-2.5 p-2.5">
-                                        <div style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5">{i + 1}</div>
-                                        <div className="flex-1 min-w-0">
-                                          <p style={{ color: '#EEF3F8' }} className="text-sm leading-snug mb-1">{ex.text}</p>
-                                          <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#D7E1EA', fontWeight: 600 }} className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1"><CatIcon size={9} />{catLabels[ex.cat]}</span>
-                                        </div>
-                                      </div>
-                                      <button onClick={() => setActiveVideo(tipOpen ? null : rrKey)} style={{ color: colors.premiumGold }} className="os-focus w-full flex items-center gap-1.5 px-2.5 pb-2 text-[11px] font-semibold hover:opacity-70">
-                                        <ChevronDown size={10} style={{ transform: tipOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
-                                        {isEN ? 'How do I do this?' : 'Come si fa?'}
-                                      </button>
-                                      {tipOpen && (
-                                        <div className="px-2.5 pb-2.5 os-fadein">
-                                          <div style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} className="rounded-lg p-2.5">
-                                            <p style={{ color: '#D7E1EA' }} className="text-xs leading-relaxed">{ex.howTo}</p>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
+                                    <DrillCard
+                                      key={rrKey}
+                                      index={i}
+                                      ex={ex}
+                                      tone="gold"
+                                      dark
+                                      catLabel={catLabels[ex.cat]}
+                                      helpOpen={tipOpen}
+                                      onToggleHelp={() => setActiveVideo(tipOpen ? null : rrKey)}
+                                      isEN={isEN}
+                                    />
                                   );
                                 })}
                               </div>
@@ -5814,7 +6211,7 @@ export default function Offside() {
                           ) : (
                             <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed">{isEN ? 'Role-specific training for this area is coming soon.' : 'L\'allenamento per ruolo per questa zona arriva presto.'}</p>
                           )}
-                        </>
+                        </div>
                       )}
                     </div>
                   );
@@ -6372,14 +6769,14 @@ export default function Offside() {
         {screen === 'movementScreen' && (
           <div>
             {!premiumUnlocked ? (
-              <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `1px solid ${colors.premiumGold}40` }} className="rounded-2xl p-6 text-center shadow-sm">
-                <Lock size={28} color={colors.premiumGold} className="mx-auto mb-3" />
-                <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-bold mb-2">{isEN ? 'Movement screening' : 'Screening del movimento'}</p>
-                <p style={{ color: '#A9B7C4' }} className="text-sm leading-relaxed mb-4">{isEN ? 'Camera-based squat and balance screening is a Premium feature.' : 'Lo screening del movimento con la fotocamera è una funzione Premium.'}</p>
-                <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="os-focus px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wide">
-                  {isEN ? 'Unlock Premium' : 'Sblocca Premium'}
-                </button>
-              </div>
+              <PremiumLockCard
+                icon={Camera}
+                badge="Beta"
+                title={isEN ? 'Movement screening' : 'Screening del movimento'}
+                text={isEN ? 'Camera-based squat and balance screening is a Premium feature.' : 'Lo screening del movimento con la fotocamera è una funzione Premium.'}
+                cta={isEN ? 'Unlock Premium' : 'Sblocca Premium'}
+                onUnlock={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }}
+              />
             ) : (
               <>
                 {movementActive && (
@@ -6625,7 +7022,7 @@ export default function Offside() {
             {!triageRegion ? (
               <>
                 <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-6">{isEN ? 'First, tap where you feel the problem — then a few fixed questions to narrow it down.' : 'Prima tocca dove senti il problema — poi qualche domanda fissa per restringere il campo.'}</p>
-                <BodyDiagram onSelectRegion={(key) => setTriageRegion(key)} />
+                <BodyDiagram onSelectRegion={(key) => setTriageRegion(key)} labels={regionLabels} isEN={isEN} title={isEN ? 'Where do you feel it?' : 'Dove senti il problema?'} />
               </>
             ) : (
               <>
@@ -6735,14 +7132,27 @@ export default function Offside() {
                     <span style={{ backgroundColor: confidenceColor + '22', color: confidenceColor }} className="text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full">{confidence}</span>
                     <span style={{ color: colors.mutedInk }} className="text-xs">{triageCandidateIndex + 1}/{triageResults.length}</span>
                   </div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div style={{ backgroundColor: colors.accentTint }} className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center">
-                      <Icon size={22} color={colors.accentDark} />
+                  <div className="flex items-center gap-3.5 mb-2">
+                    <div style={{ background: PITCH_BG }} className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm">
+                      <Icon size={26} color={LED_GREEN} />
                     </div>
-                    <div>
-                      <p style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: colors.ink }} className="text-base font-bold">{data.label}</p>
-                      <p style={{ color: colors.mutedInk }} className="text-xs">{data.subtitle}</p>
+                    <div className="min-w-0">
+                      <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[17px] font-bold leading-tight">{data.label}</p>
+                      <p style={{ color: colors.mutedInk }} className="text-xs mt-0.5">{data.subtitle}</p>
                     </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                    {data.mechanismTags.map((t) => {
+                      const MechIcon = mechanismIcons[t] || Zap;
+                      return (
+                        <span key={t} style={{ backgroundColor: colors.paper, color: colors.ink, border: `1px solid ${colors.hairline}` }} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full">
+                          <MechIcon size={11} color={colors.accentDark} />{mechanismLabels[t]}
+                        </span>
+                      );
+                    })}
+                    <span style={{ backgroundColor: colors.heroBg, color: LED_GREEN, fontFamily: BEBAS, letterSpacing: '0.05em' }} className="inline-flex items-center gap-1 text-[13px] leading-none px-2 py-1 rounded-full" title={isEN ? 'Indicative return time, mild to severe' : 'Rientro indicativo, da lieve a severo'}>
+                      <Timer size={11} />{recoveryRangeLabel(data.severityData, isEN)}
+                    </span>
                   </div>
 
                   <div className="flex gap-2 mt-4">
@@ -6763,53 +7173,100 @@ export default function Offside() {
           </div>
         )}
 
-        {screen === 'injuries' && selectedRegion && regions[selectedRegion] && (
-          <div className="space-y-2.5">
-            {regions[selectedRegion].injuries.map((key) => {
-              const data = injuriesData[key];
-              if (!data) return null;
-              const Icon = data.icon;
-              const hasProgress = injuryDates[key];
-              const matches = triageTag && data.mechanismTags.includes(triageTag);
-              const symptomsOpen = expandedSymptoms === key;
-              return (
-                <div key={key} style={{ backgroundColor: colors.card, border: `1.5px solid ${matches ? colors.accent : colors.hairline}` }} className="rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
-                  <button onClick={() => chooseInjury(key)} className="os-focus w-full flex items-center gap-4 px-4 py-4.5 text-left">
-                    <div style={{ backgroundColor: colors.accentTint, border: `1.5px solid ${colors.accent}40` }} className="flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center"><Icon size={24} color={colors.accentDark} strokeWidth={2} /></div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                        <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.01em' }} className="text-base font-semibold uppercase">{data.label}</p>
-                        {matches && <span style={{ backgroundColor: colors.accentTint, color: colors.accentDark }} className="text-[10px] px-2 py-0.5 rounded-full font-medium">Probabilmente questo</span>}
+        {screen === 'injuries' && selectedRegion && regions[selectedRegion] && (() => {
+          const regionInjuries = regions[selectedRegion].injuries.filter((k) => injuriesData[k]);
+          return (
+          <div>
+            <div style={{ background: PITCH_BG }} className="relative overflow-hidden rounded-3xl p-4 mb-3 shadow-lg flex items-center gap-4">
+              <PitchArc size={180} />
+              <div style={{ backgroundColor: 'rgba(0,0,0,0.22)', border: '1px solid rgba(255,255,255,0.08)' }} className="relative flex-shrink-0 rounded-2xl px-3.5 py-2.5">
+                <RegionFigure region={selectedRegion} height={116} />
+              </div>
+              <div className="relative min-w-0">
+                <p style={{ fontFamily: BRICOLAGE, color: LED_GREEN, letterSpacing: '0.14em' }} className="text-[10px] font-bold uppercase mb-1.5">{isEN ? 'Area' : 'Zona'}</p>
+                <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[38px] leading-[0.9]">{regionLabels[selectedRegion]}</p>
+                <p style={{ color: 'rgba(255,255,255,0.72)' }} className="text-xs leading-snug mt-2">
+                  {regionInjuries.length === 1
+                    ? (isEN ? '1 injury with its recovery plan' : '1 infortunio con il suo percorso')
+                    : (isEN ? `${regionInjuries.length} injuries, each with its own recovery plan` : `${regionInjuries.length} infortuni, ognuno con il suo percorso`)}
+                </p>
+              </div>
+            </div>
+            <p style={{ color: colors.mutedInk }} className="flex items-center gap-1.5 text-[11px] mb-4 px-1">
+              <Timer size={12} className="flex-shrink-0" />{isEN ? 'Return times are indicative, from mild to severe' : 'Tempi di rientro indicativi, da lieve a severo'}
+            </p>
+
+            <div className="space-y-3">
+              {regionInjuries.map((key) => {
+                const data = injuriesData[key];
+                const Icon = data.icon;
+                const live = !!injuryDates[key];
+                const liveMinute = live ? (() => {
+                  const sd = data.severityData[injurySeverities[key] || 'moderato'] || data.severityData.moderato;
+                  return Math.min(90, Math.max(0, Math.round((daysSince(injuryDates[key]) / sd.totalEstimateDays) * 90)));
+                })() : 0;
+                const matches = triageTag && data.mechanismTags.includes(triageTag);
+                const symptomsOpen = expandedSymptoms === key;
+                return (
+                  <div key={key} style={{ backgroundColor: colors.card, border: `1.5px solid ${matches ? colors.accent : colors.hairline}`, boxShadow: matches ? `0 0 0 4px ${colors.accent}1F` : undefined }} className="rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    <button onClick={() => chooseInjury(key)} className="os-focus w-full flex items-start gap-3.5 p-4 text-left">
+                      <div style={{ background: PITCH_BG }} className="relative flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm">
+                        <Icon size={26} color={LED_GREEN} />
+                        {live && <span style={{ backgroundColor: LED_GREEN, border: `2px solid ${colors.card}` }} className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full os-live-dot" />}
                       </div>
-                      <p style={{ color: colors.mutedInk }} className="text-sm mb-1.5">{data.subtitle}{hasProgress ? ' · in corso' : ''}</p>
-                      <span style={{ backgroundColor: colors.paper, color: colors.accentDark, border: `1px solid ${colors.accent}30` }} className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full">{data.mechanismTags.map((t) => mechanismLabels[t]).join(' o ')}</span>
-                    </div>
-                    <ChevronRight size={20} color={colors.mutedInk} className="flex-shrink-0" />
-                  </button>
-                  {data.symptoms && (
-                    <>
-                      <button onClick={() => setExpandedSymptoms(symptomsOpen ? null : key)} style={{ color: colors.accentDark, borderTop: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold">
-                        <ChevronDown size={12} style={{ transform: symptomsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
-                        {isEN ? 'Typical symptoms' : 'Sintomi tipici'}
-                      </button>
-                      {symptomsOpen && (
-                        <div style={{ backgroundColor: colors.paper }} className="px-4 py-3 os-fadein">
-                          <ul className="space-y-1 mb-2">
-                            {data.symptoms.map((s, i) => (
-                              <li key={i} style={{ color: colors.ink }} className="text-sm flex gap-2"><span style={{ color: colors.accentDark }}>—</span><span>{s}</span></li>
-                            ))}
-                          </ul>
-                          <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">{isEN ? 'For informational purposes only, not a diagnosis. If you think this might be it, talk to a physiotherapist or doctor for a real assessment.' : 'A titolo informativo, non una diagnosi. Se pensi possa essere questo, parlane con un fisioterapista o un medico per una valutazione vera.'}</p>
+                      <div className="flex-1 min-w-0">
+                        {(matches || live) && (
+                          <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                            {matches && <span style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">{isEN ? 'Most likely this' : 'Probabilmente questo'}</span>}
+                            {live && <span style={{ backgroundColor: colors.heroBg, color: LED_GREEN, fontFamily: BEBAS, letterSpacing: '0.05em' }} className="text-[13px] leading-none px-2 py-1 rounded-md">{isEN ? 'In progress' : 'In corso'} · {liveMinute}'</span>}
+                          </div>
+                        )}
+                        <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-base font-bold leading-tight">{data.label}</p>
+                        <p style={{ color: colors.mutedInk }} className="text-[13px] leading-snug mt-0.5">{data.subtitle}</p>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                          {data.mechanismTags.map((t) => {
+                            const MechIcon = mechanismIcons[t] || Zap;
+                            return (
+                              <span key={t} style={{ backgroundColor: colors.paper, color: colors.ink, border: `1px solid ${colors.hairline}` }} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full">
+                                <MechIcon size={11} color={colors.accentDark} />{mechanismLabels[t]}
+                              </span>
+                            );
+                          })}
+                          <span style={{ backgroundColor: colors.heroBg, color: LED_GREEN, fontFamily: BEBAS, letterSpacing: '0.05em' }} className="inline-flex items-center gap-1 text-[13px] leading-none px-2 py-1 rounded-full" title={isEN ? 'Indicative return time, mild to severe' : 'Rientro indicativo, da lieve a severo'}>
+                            <Timer size={11} />{recoveryRangeLabel(data.severityData, isEN)}
+                          </span>
                         </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              );
-            })}
-            <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: training designed for each injury, matched to your role' : 'Premium: allenamento pensato per ogni infortunio, in base al tuo ruolo'} />
+                      </div>
+                      <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0 mt-4" />
+                    </button>
+                    {data.symptoms && (
+                      <>
+                        <button onClick={() => setExpandedSymptoms(symptomsOpen ? null : key)} style={{ color: colors.accentDark, borderTop: `1px dashed ${colors.hairline}` }} className="os-focus w-full flex items-center justify-between gap-1.5 px-4 py-2.5 text-xs font-semibold">
+                          <span className="flex items-center gap-1.5"><Info size={13} />{isEN ? 'Typical symptoms' : 'Sintomi tipici'}</span>
+                          <ChevronDown size={13} style={{ transform: symptomsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                        </button>
+                        {symptomsOpen && (
+                          <div style={{ backgroundColor: colors.paper }} className="px-4 py-3 os-fadein">
+                            <ul className="space-y-1.5 mb-2">
+                              {data.symptoms.map((s, i) => (
+                                <li key={i} style={{ color: colors.ink }} className="text-sm flex gap-2"><span style={{ backgroundColor: colors.accent }} className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-[7px]" /><span>{s}</span></li>
+                              ))}
+                            </ul>
+                            <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">{isEN ? 'For informational purposes only, not a diagnosis. If you think this might be it, talk to a physiotherapist or doctor for a real assessment.' : 'A titolo informativo, non una diagnosi. Se pensi possa essere questo, parlane con un fisioterapista o un medico per una valutazione vera.'}</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-5">
+              <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: training designed for each injury, matched to your role' : 'Premium: allenamento pensato per ogni infortunio, in base al tuo ruolo'} />
+            </div>
           </div>
-        )}
+          );
+        })()}
 
 
         {screen === 'tracker' && injury && phase && (
@@ -7272,45 +7729,28 @@ export default function Offside() {
                 )}
 
                 <SetupSection id="esercizi" currentSection={trackerSection} onToggle={setTrackerSection} icon={Dumbbell} label={isEN ? 'Exercises' : 'Esercizi'} badge={<span style={{ ...displayFont, color: colors.accentDark }} className="os-tabular text-sm font-bold mr-1">{completedCount}<span style={{ color: colors.mutedInk }} className="text-xs font-normal"> /{phase.exercises.length}</span></span>}>
+                  <div className="mb-3">
+                    <DrillProgress doneFlags={phase.exercises.map((_, i) => !!phaseProgress[i])} isEN={isEN} showCount={false} />
+                  </div>
                   <p style={{ color: colors.mutedInk }} className="text-[11px] mb-3">{isEN ? 'Adjust them to how your body responds, don\'t push through sharp pain.' : 'Adattali a come risponde il tuo corpo, non forzare sul dolore acuto.'}</p>
-                  <div>
-                  {phase.exercises.map((ex, i) => {
-                    const done = !!phaseProgress[i];
-                    const exKey = `${activePhase}-${i}`;
-                    const isVideoOpen = activeVideo === exKey;
-                    const CatIcon = catIcons[ex.cat] || Circle;
-
-                    return (
-                      <div key={i} style={{ backgroundColor: done ? colors.accentTint : colors.card, border: `1px solid ${done ? colors.accent + '55' : colors.hairline}` }} className="rounded-xl overflow-hidden shadow-sm mb-2.5 transition-colors">
-                        <div className="flex items-start gap-3 p-3.5">
-                          <button onClick={() => toggleExercise(i)} style={{ backgroundColor: done ? colors.accent : colors.paper, border: `2px solid ${done ? colors.accent : colors.hairline}` }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-colors">
-                            {done ? <Check size={15} color="#FFFFFF" strokeWidth={3} /> : <span style={{ ...displayFont, color: colors.mutedInk }} className="text-xs font-bold">{i + 1}</span>}
-                          </button>
-                          <div className="flex-1 min-w-0 pt-0.5">
-                            <button onClick={() => toggleExercise(i)} className="os-focus text-left w-full">
-                              <span style={{ color: done ? colors.accentDark : colors.ink, textDecoration: done ? 'line-through' : 'none', textDecorationColor: colors.accent + '99' }} className="text-sm leading-snug block mb-1.5">{ex.text}</span>
-                            </button>
-                            <span style={{ backgroundColor: done ? 'rgba(255,255,255,0.6)' : colors.paper, color: colors.ink, fontWeight: 600 }} className="text-[11px] px-1.5 py-0.5 rounded inline-flex items-center gap-1"><CatIcon size={10} />{catLabels[ex.cat]}</span>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={() => setActiveVideo(isVideoOpen ? null : exKey)}
-                          style={{ color: colors.accentDark, borderTop: `1px solid ${done ? colors.accent + '30' : colors.hairline}` }}
-                          className="os-focus w-full flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold hover:opacity-70 transition-opacity"
-                        >
-                          <ChevronDown size={11} style={{ transform: isVideoOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
-                          {isEN ? 'How do I do this?' : 'Come si fa?'}
-                        </button>
-
-                        {isVideoOpen && (
-                          <div className="px-3.5 pb-3.5 os-fadein">
-                            <ExerciseHelp ex={ex} isEN={isEN} />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  <div className="space-y-2.5">
+                    {phase.exercises.map((ex, i) => {
+                      const exKey = `${activePhase}-${i}`;
+                      const isVideoOpen = activeVideo === exKey;
+                      return (
+                        <DrillCard
+                          key={exKey}
+                          index={i}
+                          ex={ex}
+                          catLabel={catLabels[ex.cat]}
+                          done={!!phaseProgress[i]}
+                          onToggle={() => toggleExercise(i)}
+                          helpOpen={isVideoOpen}
+                          onToggleHelp={() => setActiveVideo(isVideoOpen ? null : exKey)}
+                          isEN={isEN}
+                        />
+                      );
+                    })}
                   </div>
                 </SetupSection>
 
