@@ -39,7 +39,7 @@ import {
   Disc, TrendUp as TrendingUp, Compass, Warning as AlertTriangle, CheckCircle as CheckCircle2,
   Circle, CaretRight as ChevronRight, CaretDown as ChevronDown, ArrowLeft, ArrowRight, Info,
   ArrowCounterClockwise as RotateCcw, X,
-  Calendar, Scales as Scale, Barbell as Dumbbell, ArrowsOutCardinal as Move, Wind, Timer, Pause, Pencil, Target,
+  Scales as Scale, Barbell as Dumbbell, ArrowsOutCardinal as Move, Wind, Timer, Pause, Pencil, Target,
   Question as HelpCircle, PlayCircle, Flame, ShareNetwork as Share2, ListChecks as ClipboardCheck, Check, Gauge, Waves,
   Aperture, Camera, PersonSimple as PersonStanding, Ruler, Plant as Sprout, ArrowClockwise as RotateCw, CircleDashed, ShieldWarning as ShieldAlert,
   Snowflake, Bandaids as Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, DeviceMobile as Smartphone,
@@ -3603,6 +3603,99 @@ function DrillProgress({ doneFlags, tone = 'green', isEN, showCount = true }) {
   );
 }
 
+// ---------------------------------------------------------------------------------------
+// Ordine: titoli di sezione e tappe del percorso, per dividere ogni schermata in "comparti"
+// riconoscibili e far vedere sempre dove sei e dove stai andando.
+// ---------------------------------------------------------------------------------------
+
+// Titolo di un comparto: etichetta piccola (di che parte si tratta), titolo (cosa trovi qui)
+// e, se serve, una riga di spiegazione. Stesso aspetto in tutta l'app.
+function SectionTitle({ id, kicker, title, hint, tone = 'green', className = '' }) {
+  const kColor = { green: colors.accentDark, teal: colors.preventionDark, gold: '#8A5A00' }[tone] || colors.accentDark;
+  return (
+    <div id={id} className={`mb-3 scroll-mt-4 ${className}`}>
+      {kicker && (
+        <p style={{ fontFamily: BRICOLAGE, color: kColor, letterSpacing: '0.14em' }} className="flex items-center gap-1.5 text-[10px] font-bold uppercase mb-1">
+          <span style={{ backgroundColor: kColor }} className="w-3 h-[2px] rounded-full" aria-hidden="true" />{kicker}
+        </p>
+      )}
+      <h2 style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[18px] font-bold leading-tight">{title}</h2>
+      {hint && <p style={{ color: colors.mutedInk }} className="text-[12.5px] leading-snug mt-1">{hint}</p>}
+    </div>
+  );
+}
+
+// Le 4 tappe per arrivare al percorso: Zona → Infortunio → Imposta → Percorso. Le tappe già
+// fatte sono toccabili per tornare indietro (se la schermata passa onStep).
+function FlowSteps({ current, isEN, onStep }) {
+  const steps = isEN ? ['Area', 'Injury', 'Set up', 'Recovery'] : ['Zona', 'Infortunio', 'Imposta', 'Percorso'];
+  return (
+    <nav aria-label={isEN ? 'Steps to your recovery plan' : 'Tappe verso il tuo percorso'} className="mb-5">
+      <ol className="flex items-start">
+        {steps.map((label, i) => {
+          const done = i < current;
+          const now = i === current;
+          const clickable = done && typeof onStep === 'function';
+          const dot = (
+            <span style={{ backgroundColor: done ? colors.accent : now ? colors.heroBg : colors.card, border: `2px solid ${done ? colors.accent : now ? colors.heroBg : colors.hairline}`, boxShadow: now ? `0 0 0 4px ${colors.accent}33` : 'none' }} className="relative z-10 w-7 h-7 rounded-full flex items-center justify-center">
+              {done ? <Check size={13} color="#FFFFFF" /> : <span style={{ fontFamily: BEBAS, color: now ? LED_GREEN : colors.mutedInk }} className="text-[15px] leading-none">{i + 1}</span>}
+            </span>
+          );
+          const text = <span style={{ fontFamily: BRICOLAGE, color: now ? colors.ink : done ? colors.accentDark : colors.mutedInk }} className={`mt-1.5 text-[11px] leading-none ${now ? 'font-bold' : 'font-semibold'}`}>{label}</span>;
+          return (
+            <li key={label} className="relative flex-1 flex flex-col items-center" aria-current={now ? 'step' : undefined}>
+              {i > 0 && <span aria-hidden="true" style={{ backgroundColor: i <= current ? colors.accent : colors.hairline }} className="absolute top-[13px] right-1/2 w-full h-0.5" />}
+              {clickable
+                ? <button type="button" onClick={() => onStep(i)} className="os-focus flex flex-col items-center rounded-lg" aria-label={isEN ? `Back to: ${label}` : `Torna a: ${label}`}>{dot}{text}</button>
+                : <>{dot}{text}</>}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+// "In questa pagina": le sezioni di una schermata lunga come chip toccabili, per vedere
+// subito cosa c'è e saltarci direttamente.
+function SectionNav({ items, isEN }) {
+  return (
+    <nav aria-label={isEN ? 'On this page' : 'In questa pagina'} className="mt-4">
+      <p style={{ fontFamily: BRICOLAGE, color: colors.mutedInk, letterSpacing: '0.12em' }} className="text-[9.5px] font-bold uppercase mb-2">{isEN ? 'On this page' : 'In questa pagina'}</p>
+      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+        {items.map((it) => (
+          <button key={it.id} type="button" onClick={it.onClick} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus flex-shrink-0 flex items-center gap-1 rounded-full pl-2 pr-2.5 py-1.5 text-[11.5px] font-semibold shadow-sm hover:border-green-300 active:scale-[0.97] transition">
+            <it.icon size={13} color={colors.accentDark} />{it.label}
+            {it.badge && <span style={{ color: colors.accentDark, fontFamily: BEBAS, letterSpacing: '0.04em' }} className="text-[13px] leading-none">{it.badge}</span>}
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+// Intestazione di un passaggio numerato (1, 2…) dentro una schermata guidata.
+function StepHeading({ n, title, hint, done = false }) {
+  return (
+    <div className="flex items-start gap-3 mb-3">
+      <span style={{ backgroundColor: done ? colors.accent : colors.heroBg, fontFamily: BEBAS }} className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center">
+        {done ? <Check size={15} color="#FFFFFF" /> : <span style={{ color: LED_GREEN }} className="text-[17px] leading-none">{n}</span>}
+      </span>
+      <div className="min-w-0 pt-0.5">
+        <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[16px] font-bold leading-tight">{title}</p>
+        {hint && <p style={{ color: colors.mutedInk }} className="text-xs leading-snug mt-0.5">{hint}</p>}
+      </div>
+    </div>
+  );
+}
+
+// Una durata indicativa leggibile: giorni, settimane o mesi.
+function durationLabel(days, isEN) {
+  if (days <= 21) return isEN ? `${days} days` : `${days} gg`;
+  if (days < 120) return isEN ? `${Math.round(days / 7)} wks` : `${Math.round(days / 7)} sett.`;
+  return isEN ? `${Math.round(days / 30)} mo` : `${Math.round(days / 30)} mesi`;
+}
+
 function InstallBanner({ isEN, onInstallClick, canInstall, onDismiss }) {
   const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   return (
@@ -4524,7 +4617,6 @@ export default function Offside() {
   const [showRedFlags, setShowRedFlags] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [editingSetup, setEditingSetup] = useState(false);
-  const [showSeverityInfo, setShowSeverityInfo] = useState(false);
   const [setupSection, setSetupSection] = useState('gravita');
   const [injuryRecurrence, setInjuryRecurrence] = useState({});
   const [trackerSection, setTrackerSection] = useState('esercizi');
@@ -5828,16 +5920,20 @@ export default function Offside() {
               );
             })()}
 
-            <div id="home-tabs" style={{ backgroundColor: colors.laneBg }} className="flex gap-1 p-1 rounded-full mb-5 scroll-mt-4">
-              <button onClick={() => setRegionsTab('injury')} style={{ backgroundColor: regionsTab === 'injury' ? colors.card : 'transparent', color: regionsTab === 'injury' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
-                <Snowflake size={14} />{isEN ? 'Injury' : 'Infortunio'}
-              </button>
-              <button onClick={() => setRegionsTab('prevention')} style={{ backgroundColor: regionsTab === 'prevention' ? colors.card : 'transparent', color: regionsTab === 'prevention' ? colors.preventionDark : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
-                <ShieldCheck size={14} />{isEN ? 'Prevention' : 'Prevenzione'}
-              </button>
-              <button onClick={() => setRegionsTab('technique')} style={{ backgroundColor: regionsTab === 'technique' ? colors.card : 'transparent', color: regionsTab === 'technique' ? colors.premiumGold : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
-                {!premiumUnlocked && <Lock size={11} />}<SoccerBall size={14} />{isEN ? 'Technique' : 'Tecnica'}
-              </button>
+            <div id="home-tabs" role="tablist" aria-label={isEN ? 'App sections' : 'Sezioni dell\'app'} style={{ backgroundColor: colors.laneBg }} className="grid grid-cols-3 gap-1 p-1 rounded-2xl mb-6 scroll-mt-4">
+              {[
+                { key: 'injury', icon: Snowflake, label: isEN ? 'Injury' : 'Infortunio', sub: isEN ? 'to recover' : 'per recuperare', color: colors.accentDark },
+                { key: 'prevention', icon: ShieldCheck, label: isEN ? 'Prevention' : 'Prevenzione', sub: isEN ? 'to stay fit' : 'per non farti male', color: colors.preventionDark },
+                { key: 'technique', icon: SoccerBall, label: isEN ? 'Technique' : 'Tecnica', sub: isEN ? 'for your role' : 'per il tuo ruolo', color: '#8A5A00', lock: !premiumUnlocked },
+              ].map((tab) => {
+                const on = regionsTab === tab.key;
+                return (
+                  <button key={tab.key} role="tab" aria-selected={on} onClick={() => setRegionsTab(tab.key)} style={{ backgroundColor: on ? colors.card : 'transparent', boxShadow: on ? '0 1px 3px rgba(16,27,38,0.14)' : 'none' }} className="os-focus flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 px-1 transition-colors">
+                    <span style={{ color: on ? tab.color : colors.mutedInk }} className="flex items-center gap-1 text-[11.5px] font-bold uppercase tracking-wide">{tab.lock && <Lock size={10} />}<tab.icon size={14} />{tab.label}</span>
+                    <span style={{ color: on ? colors.ink : colors.mutedInk }} className="text-[10px] leading-tight opacity-80">{tab.sub}</span>
+                  </button>
+                );
+              })}
             </div>
 
             {regionsTab === 'injury' ? (
@@ -5851,7 +5947,9 @@ export default function Offside() {
                   <ChevronRight size={18} color={colors.ink} className="opacity-60" />
                 </button>
 
-                <div className="mb-6">
+                <SectionTitle kicker={isEN ? 'Your recovery' : 'Il tuo recupero'} title={isEN ? 'Find your injury' : 'Trova il tuo infortunio'} hint={isEN ? 'Four steps to a phase-by-phase plan.' : 'Quattro tappe per avere un percorso fase per fase.'} />
+                <FlowSteps current={0} isEN={isEN} />
+                <div className="mb-4">
                   <BodyDiagram
                     onSelectRegion={openRegion}
                     labels={regionLabels}
@@ -5908,9 +6006,7 @@ export default function Offside() {
                     <span style={{ color: colors.accentDark }} className="text-sm font-medium">{isEN ? `Back to ${injuriesData[selectedInjury].label}` : `Torna a ${injuriesData[selectedInjury].label}`}</span>
                   </button>
                 )}
-                <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">
-                  {isEN ? 'The best time to work on an injury is before it happens. Choose an area — you don\'t need anything to actually hurt.' : 'Il momento migliore per lavorare su un infortunio è prima che succeda. Scegli una zona — non serve avere nulla che fa male.'}
-                </p>
+                <SectionTitle tone="teal" kicker={isEN ? 'Prevention' : 'Prevenzione'} title={isEN ? 'Train so you don\'t get hurt' : 'Allenati per non farti male'} hint={isEN ? 'The best time to work on an injury is before it happens. Choose an area — you don\'t need anything to actually hurt.' : 'Il momento migliore per lavorare su un infortunio è prima che succeda. Scegli una zona — non serve avere nulla che fa male.'} />
 
                 {!premiumUnlocked ? (
                   <button onClick={() => { trackEvent('movement_screening_teaser_clicked'); setScreen('premium'); }} style={{ background: 'linear-gradient(120deg, #F9DD85, #8A6414 38%, #F0B429 70%, #6B4D0C)' }} className="os-focus relative w-full overflow-hidden rounded-3xl p-[1.5px] mb-6 text-left shadow-md hover:brightness-110 active:scale-[0.99] transition">
@@ -5966,6 +6062,7 @@ export default function Offside() {
                   />
                 </div>
 
+                <SectionTitle className="mt-2" tone="teal" kicker={isEN ? 'Area by area' : 'Zona per zona'} title={isEN ? 'Prevention exercises' : 'Esercizi di prevenzione'} hint={isEN ? 'Tick the ones you do: they stay saved.' : 'Spunta quelli che fai: restano salvati.'} />
                 <div className="space-y-2.5">
                   {Object.entries(preventionData).map(([key, data]) => {
                     const isExpanded = expandedPrevention === key;
@@ -7019,6 +7116,7 @@ export default function Offside() {
 
         {screen === 'triage' && (
           <div>
+            <FlowSteps current={triageRegion ? 1 : 0} isEN={isEN} />
             {!triageRegion ? (
               <>
                 <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-6">{isEN ? 'First, tap where you feel the problem — then a few fixed questions to narrow it down.' : 'Prima tocca dove senti il problema — poi qualche domanda fissa per restringere il campo.'}</p>
@@ -7116,6 +7214,7 @@ export default function Offside() {
 
         {screen === 'triageResults' && triageRegion && (
           <div>
+            <FlowSteps current={1} isEN={isEN} onStep={() => setScreen('regions')} />
             <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-5">{isEN ? 'Based on your answers, ordered from most to least likely. Not a diagnosis — just a starting point.' : 'In base alle tue risposte, dal più al meno probabile. Non è una diagnosi — solo un punto di partenza.'}</p>
 
             {(() => {
@@ -7177,6 +7276,7 @@ export default function Offside() {
           const regionInjuries = regions[selectedRegion].injuries.filter((k) => injuriesData[k]);
           return (
           <div>
+            <FlowSteps current={1} isEN={isEN} onStep={() => setScreen('regions')} />
             <div style={{ background: PITCH_BG }} className="relative overflow-hidden rounded-3xl p-4 mb-3 shadow-lg flex items-center gap-4">
               <PitchArc size={180} />
               <div style={{ backgroundColor: 'rgba(0,0,0,0.22)', border: '1px solid rgba(255,255,255,0.08)' }} className="relative flex-shrink-0 rounded-2xl px-3.5 py-2.5">
@@ -7271,10 +7371,13 @@ export default function Offside() {
 
         {screen === 'tracker' && injury && phase && (
           <>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <span style={{ ...displayFont, color: colors.ink, letterSpacing: '0.01em' }} className="text-lg font-semibold uppercase">{injury.label}</span>
-                <span style={{ color: colors.mutedInk }} className="text-sm ml-2 block sm:inline">{injury.subtitle}</span>
+            <div className="flex items-center gap-3 mb-4">
+              <div style={{ background: PITCH_BG }} className="flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm">
+                <injury.icon size={22} color={LED_GREEN} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[17px] font-bold leading-tight">{injury.label}</p>
+                <p style={{ color: colors.mutedInk }} className="text-[12.5px] leading-snug mt-0.5">{injury.subtitle}</p>
               </div>
               <button
                 onClick={() => {
@@ -7290,28 +7393,92 @@ export default function Offside() {
 
             {editingSetup ? (
               <div className="mb-5">
-                <SetupSection id="gravita" currentSection={setupSection} onToggle={setSetupSection} icon={Gauge} label={isEN ? 'Severity' : 'Gravità'} badge={<span style={{ color: colors.accentDark, fontWeight: 600 }} className="text-xs mr-1">{severityLabels[severity]}</span>}>
-                  <div className="flex items-center gap-2 mb-2.5">
-                    <button onClick={() => setShowSeverityInfo(!showSeverityInfo)} style={{ color: colors.mutedInk }} className="os-focus flex items-center gap-1 text-[11px] hover:opacity-70"><Info size={12} />{isEN ? 'What each level means' : 'Cosa significa ogni livello'}</button>
+                <FlowSteps current={2} isEN={isEN} onStep={(i) => { if (i === 0) setScreen('regions'); else { const r = regionOfInjury(selectedInjury, injuriesData); if (r) openRegion(r); } }} />
+
+                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-2xl p-4 mb-3 shadow-sm">
+                  <StepHeading n={1} title={isEN ? 'How bad is it?' : 'Quanto è grave?'} hint={isEN ? 'It sets the phases and the indicative return time.' : 'Serve a regolare le fasi e il rientro indicativo.'} />
+                  <div className="grid grid-cols-3 gap-2">
+                    {Object.keys(severityLabels).map((sev, si) => {
+                      const on = severity === sev;
+                      return (
+                        <button key={sev} onClick={() => setSeverity(sev)} aria-pressed={on} style={{ backgroundColor: on ? colors.heroBg : colors.paper, border: `1.5px solid ${on ? colors.heroBg : colors.hairline}` }} className="os-focus rounded-xl px-2 py-3 text-center transition-colors">
+                          <span className="flex items-end justify-center gap-0.5 h-4 mb-1.5" aria-hidden="true">
+                            {[0, 1, 2].map((b) => <span key={b} style={{ height: 6 + b * 4, backgroundColor: b <= si ? (on ? LED_GREEN : colors.accent) : (on ? 'rgba(255,255,255,0.2)' : colors.hairline) }} className="w-1.5 rounded-full" />)}
+                          </span>
+                          <span style={{ fontFamily: BRICOLAGE, color: on ? '#FFFFFF' : colors.ink }} className="block text-sm font-bold">{severityLabels[sev]}</span>
+                          <span style={{ fontFamily: BEBAS, color: on ? LED_GREEN : colors.mutedInk, letterSpacing: '0.04em' }} className="block text-[13px] leading-none mt-1">~{durationLabel(injury.severityData[sev].totalEstimateDays, isEN)}</span>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="flex gap-2 mb-2">
-                    {Object.keys(severityLabels).map((sev) => (
-                      <button key={sev} onClick={() => setSeverity(sev)} style={{ backgroundColor: severity === sev ? colors.accent : colors.paper, color: severity === sev ? '#FFFFFF' : colors.ink, border: `1px solid ${severity === sev ? colors.accent : colors.hairline}` }} className="os-focus flex-1 rounded-lg py-2 text-sm font-medium transition-colors">{severityLabels[sev]}</button>
-                    ))}
-                  </div>
-                  {showSeverityInfo && (
-                    <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-3 space-y-2 mt-2">
-                      {Object.keys(severityLabels).map((sev) => (
-                        <p key={sev} style={{ color: colors.mutedInk }} className="text-xs leading-relaxed"><span style={{ color: colors.ink, fontWeight: 600 }}>{severityLabels[sev]}: </span>{severityInfo[sev]}</p>
-                      ))}
-                    </div>
-                  )}
+                  <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed mt-3">{severityInfo[severity]}</p>
                   {severity === 'severo' && (
                     <div style={{ backgroundColor: colors.redTint }} className="rounded-lg p-3 flex gap-2 mt-3">
                       <AlertTriangle size={15} color={colors.red} className="flex-shrink-0 mt-0.5" />
                       <p style={{ color: colors.red }} className="text-xs leading-relaxed">{isEN ? 'With severe severity, we recommend seeing a professional before starting this plan on your own.' : 'Con gravità severa ti consigliamo di sentire un professionista prima di iniziare da solo questo percorso.'}</p>
                     </div>
                   )}
+                </div>
+
+                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-2xl p-4 mb-4 shadow-sm">
+                  <StepHeading n={2} done={!!currentDate} title={isEN ? 'When did it start?' : 'Quando è iniziato?'} hint={isEN ? 'It starts the clock and puts you in the right phase.' : 'Fa partire il cronometro e ti mette nella fase giusta.'} />
+                  {currentDate && (
+                    <div style={{ backgroundColor: colors.accentTint }} className="flex items-center gap-2 rounded-lg px-3 py-2 mb-3">
+                      <CheckCircle2 size={15} color={colors.accentDark} className="flex-shrink-0" />
+                      <p style={{ color: colors.accentDark }} className="text-xs font-medium">{isEN ? 'Set to' : 'Impostata al'} {currentDate}</p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    {dateChips.map((chip) => {
+                      const chipDate = (() => { const d = new Date(); d.setDate(d.getDate() - chip.days); return toISODate(d); })();
+                      const isChosen = currentDate === chipDate;
+                      return (
+                        <button key={chip.label} onClick={() => commitDate(chipDate)} style={{ backgroundColor: isChosen ? colors.accent : colors.accentTint, color: isChosen ? '#FFFFFF' : colors.accentDark, border: `1.5px solid ${isChosen ? colors.accent : 'transparent'}` }} className="os-focus px-3 py-2 rounded-lg text-sm text-center font-medium hover:opacity-80 transition-colors flex items-center justify-center gap-1">
+                          {isChosen && <Check size={13} strokeWidth={3} />}{chip.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input type="date" value={pendingDate} className="os-date os-focus text-sm px-3 py-1.5 rounded-lg flex-1" style={{ border: `1px solid ${colors.hairline}`, color: colors.ink }} max={toISODate(new Date())} onChange={(e) => setPendingDate(e.target.value)} />
+                    <button onClick={() => pendingDate && commitDate(pendingDate)} disabled={!pendingDate} style={{ backgroundColor: pendingDate ? colors.accent : colors.hairline, color: pendingDate ? '#FFFFFF' : colors.mutedInk }} className="os-focus px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">{isEN ? 'Confirm' : 'Conferma'}</button>
+                  </div>
+                  <button onClick={skipDate} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-2 block">{isEN ? 'I\'d rather not say' : 'Preferisco non specificarla'}</button>
+                </div>
+
+                <button onClick={skipDate} style={{ backgroundColor: colors.accent, color: '#FFFFFF', boxShadow: `0 8px 22px ${colors.accent}40` }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium hover:opacity-90 active:scale-[0.99] transition">
+                  <span style={{ fontFamily: BRICOLAGE }} className="uppercase tracking-wide text-sm font-bold">{isEN ? 'Go to my recovery' : 'Vai al mio percorso'}</span><ArrowRight size={16} />
+                </button>
+                {!currentDate && <p style={{ color: colors.mutedInk }} className="text-[11px] text-center mt-2">{isEN ? 'You can add the date later too, with the pencil on your plan.' : 'Puoi aggiungere la data anche dopo, con la matita nel percorso.'}</p>}
+
+                <SectionTitle className="mt-8" kicker={isEN ? 'Optional' : 'Facoltativo'} title={isEN ? 'For a more precise plan' : 'Per un percorso più preciso'} hint={isEN ? 'Not needed to start: open only what you need.' : 'Non servono per iniziare: apri solo quello che ti serve.'} />
+                <SetupSection id="recidiva" currentSection={setupSection} onToggle={setSetupSection} icon={RotateCcw} label={isEN ? 'First time?' : 'Prima volta?'} badge={injuryRecurrence[selectedInjury] && <CheckCircle2 size={15} color={colors.accent} className="mr-1" />}>
+                  <div className="flex gap-2 mb-2.5">
+                    {[{ key: 'prima', label: isEN ? 'First time' : 'Prima volta' }, { key: 'recidiva', label: isEN ? 'Happened before' : 'Già successo prima' }].map((opt) => (
+                      <button key={opt.key} onClick={() => { const next = { ...injuryRecurrence, [selectedInjury]: opt.key }; setInjuryRecurrence(next); persist(snapshot({ injuryRecurrence: next })); }} style={{ backgroundColor: injuryRecurrence[selectedInjury] === opt.key ? colors.accent : colors.paper, color: injuryRecurrence[selectedInjury] === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${injuryRecurrence[selectedInjury] === opt.key ? colors.accent : colors.hairline}` }} className="os-focus flex-1 rounded-lg py-2 text-sm font-medium transition-colors">{opt.label}</button>
+                    ))}
+                  </div>
+                  {injuryRecurrence[selectedInjury] === 'recidiva' && (
+                    <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'A repeat injury is worth extra caution on the return-to-play criteria, and a chat with a professional if it keeps happening.' : 'Un infortunio che si ripete merita più attenzione sui criteri di rientro, e magari una parola con un professionista se continua a succedere.'}</p>
+                  )}
+                </SetupSection>
+
+                <SetupSection id="fasi" currentSection={setupSection} onToggle={setSetupSection} icon={Activity} label={isEN ? 'Phases and progression' : 'Fasi e decorso'}>
+                  <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-2.5">{isEN ? 'Tap the phase that matches where you actually are — useful if you\'re starting the app partway through recovery.' : 'Tocca la fase che corrisponde a dove sei davvero — utile se inizi a usare l\'app a metà del recupero.'}</p>
+                  <div className="space-y-2">
+                    {injury.phases.map((p, i) => {
+                      const isChosen = i === activePhase;
+                      return (
+                        <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isChosen ? colors.accentTint : colors.paper, border: `1.5px solid ${isChosen ? colors.accent : 'transparent'}` }} className="os-focus w-full flex items-center gap-3 rounded-lg p-2.5 text-left transition-colors">
+                          <div style={{ backgroundColor: isChosen ? colors.accent : colors.card, color: isChosen ? '#FFFFFF' : colors.accentDark }} className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold">{isChosen ? <Check size={13} strokeWidth={3} /> : i + 1}</div>
+                          <div className="flex-1 min-w-0">
+                            <p style={{ color: colors.ink }} className="text-sm font-medium">{p.name}</p>
+                            <p style={{ color: colors.mutedInk }} className="text-[11px] os-tabular">{phaseRangeLabel(i, injury.severityData[severity].dayThresholds, isEN)}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </SetupSection>
 
                 <SetupSection id="come" currentSection={setupSection} onToggle={setSetupSection} icon={Zap} label={isEN ? 'How it usually happens' : 'Come succede di solito'}>
@@ -7335,31 +7502,7 @@ export default function Offside() {
                   </button>
                 </SetupSection>
 
-                <SetupSection id="quando" currentSection={setupSection} onToggle={setSetupSection} icon={Calendar} label={isEN ? 'When it started' : 'Quando è iniziato'} badge={currentDate && <CheckCircle2 size={15} color={colors.accent} className="mr-1" />}>
-                  {currentDate && (
-                    <div style={{ backgroundColor: colors.accentTint }} className="flex items-center gap-2 rounded-lg px-3 py-2 mb-3">
-                      <CheckCircle2 size={15} color={colors.accentDark} className="flex-shrink-0" />
-                      <p style={{ color: colors.accentDark }} className="text-xs font-medium">{isEN ? 'Set to' : 'Impostata al'} {currentDate}</p>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    {dateChips.map((chip) => {
-                      const chipDate = (() => { const d = new Date(); d.setDate(d.getDate() - chip.days); return toISODate(d); })();
-                      const isChosen = currentDate === chipDate;
-                      return (
-                        <button key={chip.label} onClick={() => commitDate(chipDate)} style={{ backgroundColor: isChosen ? colors.accent : colors.accentTint, color: isChosen ? '#FFFFFF' : colors.accentDark, border: `1.5px solid ${isChosen ? colors.accent : 'transparent'}` }} className="os-focus px-3 py-2 rounded-lg text-sm text-center font-medium hover:opacity-80 transition-colors flex items-center justify-center gap-1">
-                          {isChosen && <Check size={13} strokeWidth={3} />}{chip.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <input type="date" value={pendingDate} className="os-date os-focus text-sm px-3 py-1.5 rounded-lg flex-1" style={{ border: `1px solid ${colors.hairline}`, color: colors.ink }} max={toISODate(new Date())} onChange={(e) => setPendingDate(e.target.value)} />
-                    <button onClick={() => pendingDate && commitDate(pendingDate)} disabled={!pendingDate} style={{ backgroundColor: pendingDate ? colors.accent : colors.hairline, color: pendingDate ? '#FFFFFF' : colors.mutedInk }} className="os-focus px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">{isEN ? 'Confirm' : 'Conferma'}</button>
-                  </div>
-                  <button onClick={skipDate} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-2 block">{isEN ? 'I\'d rather not say' : 'Preferisco non specificarla'}</button>
-                </SetupSection>
-
+                <SectionTitle className="mt-7" tone="gold" kicker="Premium" title={isEN ? 'With Premium' : 'Con Premium'} />
                 <SetupSection id="ruolo" currentSection={setupSection} onToggle={setSetupSection} icon={User} label={isEN ? 'Your role' : 'Il tuo ruolo'} gold={!premiumUnlocked} badge={premiumUnlocked && playerPosition && <span style={{ color: colors.accentDark, fontWeight: 600 }} className="text-xs mr-1">{playerPositions.find((p) => p.key === playerPosition)?.label}</span>}>
                   {premiumUnlocked ? (
                     <div className="flex flex-wrap gap-2">
@@ -7419,35 +7562,6 @@ export default function Offside() {
                   <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mt-2.5">{isEN ? 'Your real progress over time — useful to track and to share with a professional.' : 'Il tuo vero andamento nel tempo — utile da tracciare e da mostrare a un professionista.'}</p>
                 </SetupSection>
 
-                <SetupSection id="recidiva" currentSection={setupSection} onToggle={setSetupSection} icon={RotateCcw} label={isEN ? 'First time?' : 'Prima volta?'} badge={injuryRecurrence[selectedInjury] && <CheckCircle2 size={15} color={colors.accent} className="mr-1" />}>
-                  <div className="flex gap-2 mb-2.5">
-                    {[{ key: 'prima', label: isEN ? 'First time' : 'Prima volta' }, { key: 'recidiva', label: isEN ? 'Happened before' : 'Già successo prima' }].map((opt) => (
-                      <button key={opt.key} onClick={() => { const next = { ...injuryRecurrence, [selectedInjury]: opt.key }; setInjuryRecurrence(next); persist(snapshot({ injuryRecurrence: next })); }} style={{ backgroundColor: injuryRecurrence[selectedInjury] === opt.key ? colors.accent : colors.paper, color: injuryRecurrence[selectedInjury] === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${injuryRecurrence[selectedInjury] === opt.key ? colors.accent : colors.hairline}` }} className="os-focus flex-1 rounded-lg py-2 text-sm font-medium transition-colors">{opt.label}</button>
-                    ))}
-                  </div>
-                  {injuryRecurrence[selectedInjury] === 'recidiva' && (
-                    <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'A repeat injury is worth extra caution on the return-to-play criteria, and a chat with a professional if it keeps happening.' : 'Un infortunio che si ripete merita più attenzione sui criteri di rientro, e magari una parola con un professionista se continua a succedere.'}</p>
-                  )}
-                </SetupSection>
-
-                <SetupSection id="fasi" currentSection={setupSection} onToggle={setSetupSection} icon={Activity} label={isEN ? 'Phases and progression' : 'Fasi e decorso'}>
-                  <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-2.5">{isEN ? 'Tap the phase that matches where you actually are — useful if you\'re starting the app partway through recovery.' : 'Tocca la fase che corrisponde a dove sei davvero — utile se inizi a usare l\'app a metà del recupero.'}</p>
-                  <div className="space-y-2">
-                    {injury.phases.map((p, i) => {
-                      const isChosen = i === activePhase;
-                      return (
-                        <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isChosen ? colors.accentTint : colors.paper, border: `1.5px solid ${isChosen ? colors.accent : 'transparent'}` }} className="os-focus w-full flex items-center gap-3 rounded-lg p-2.5 text-left transition-colors">
-                          <div style={{ backgroundColor: isChosen ? colors.accent : colors.card, color: isChosen ? '#FFFFFF' : colors.accentDark }} className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold">{isChosen ? <Check size={13} strokeWidth={3} /> : i + 1}</div>
-                          <div className="flex-1 min-w-0">
-                            <p style={{ color: colors.ink }} className="text-sm font-medium">{p.name}</p>
-                            <p style={{ color: colors.mutedInk }} className="text-[11px] os-tabular">{phaseRangeLabel(i, injury.severityData[severity].dayThresholds, isEN)}</p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </SetupSection>
-
                 <SetupSection id="resoconto" currentSection={setupSection} onToggle={setSetupSection} icon={Lock} label={isEN ? 'Full report' : 'Resoconto completo'} gold>
                   {!premiumUnlocked ? (
                     <div className="relative">
@@ -7464,10 +7578,6 @@ export default function Offside() {
                     <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'Find your full printable summary (with charts and role-specific training) in the Percorso tab, once you start tracking.' : 'Trovi il riepilogo completo stampabile (con grafici e allenamento per ruolo) nella scheda Percorso, una volta iniziato a tracciare.'}</p>
                   )}
                 </SetupSection>
-
-                <button onClick={skipDate} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium shadow-sm hover:opacity-90 transition-opacity mt-2">
-                  <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Go to my recovery' : 'Vai al mio percorso'}</span><ArrowRight size={16} />
-                </button>
               </div>
             ) : (
               <>
@@ -7501,6 +7611,16 @@ export default function Offside() {
                   </div>
                 </div>
 
+                <SectionNav
+                  isEN={isEN}
+                  items={[
+                    { id: 'oggi', icon: Flame, label: isEN ? 'Today' : 'Oggi', onClick: () => scrollToId('sez-oggi') },
+                    { id: 'fase', icon: Activity, label: isEN ? 'Phase' : 'Fase', badge: `${activePhase + 1}/${injury.phases.length}`, onClick: () => scrollToId('sez-fase') },
+                    { id: 'esercizi', icon: Dumbbell, label: isEN ? 'Exercises' : 'Esercizi', badge: `${completedCount}/${phase.exercises.length}`, onClick: () => { setTrackerSection('esercizi'); setTimeout(() => scrollToId('sez-esercizi'), 60); } },
+                    ...(injury.relatedInjuries && injury.relatedInjuries.length > 0 ? [{ id: 'collegati', icon: ArrowLeftRight, label: isEN ? 'Related' : 'Collegati', onClick: () => scrollToId('sez-collegati') }] : []),
+                  ]}
+                />
+                <SectionTitle id="sez-oggi" className="mt-6" kicker={isEN ? 'Today' : 'Oggi'} title={isEN ? "Today's session" : 'La sessione di oggi'} hint={currentDate ? (isEN ? 'How you feel, then tick the session: it keeps your streak alive.' : 'Come ti senti, poi spunta la sessione: tiene viva la serie.') : null} />
                 <div style={{ backgroundColor: todayEntry.done ? colors.accentDark : colors.card, border: `1px solid ${todayEntry.done ? colors.accentDark : colors.hairline}` }} className="rounded-xl p-3.5 mb-5 shadow-sm transition-colors">
                   {!currentDate ? (
                     <button onClick={() => setEditingSetup(true)} className="os-focus w-full flex items-center justify-between gap-2">
@@ -7569,8 +7689,8 @@ export default function Offside() {
                   )}
                 </div>
 
-                <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase mb-2">{isEN ? 'Phase' : 'Fase'}</p>
-                <div className="flex items-stretch gap-1.5 mb-5">
+                <SectionTitle id="sez-fase" className="mt-8" kicker={isEN ? 'Your phase' : 'La tua fase'} title={isEN ? 'Where you are in recovery' : 'Dove sei nel recupero'} hint={isEN ? 'Each phase has its goal: move on when you meet the criteria.' : 'Ogni fase ha il suo obiettivo: passa alla successiva quando superi i criteri.'} />
+                <div className="flex items-stretch gap-1.5 mb-3">
                   {injury.phases.map((p, i) => {
                     const isActive = i === activePhase;
                     const pKey = `${selectedInjury}-${i}`;
@@ -7639,6 +7759,8 @@ export default function Offside() {
                     </SetupSection>
                   );
                 })()}
+
+                <SectionTitle id="sez-esercizi" className="mt-8" kicker={isEN ? 'Training' : 'Allenamento'} title={isEN ? 'Exercises for this phase' : 'Gli esercizi di questa fase'} />
 
                 {activePhase === injury.phases.length - 1 && (
                   <SetupSection id="ruolo-percorso" currentSection={trackerSection} onToggle={setTrackerSection} icon={User} label={isEN ? 'What position do you play?' : 'Che ruolo giochi?'} gold={!premiumUnlocked} badge={premiumUnlocked && playerPosition && <span style={{ color: colors.accentDark, fontWeight: 600 }} className="text-xs mr-1">{playerPositions.find((p) => p.key === playerPosition)?.label}</span>}>
@@ -7758,13 +7880,7 @@ export default function Offside() {
 
                     {injury.relatedInjuries && injury.relatedInjuries.length > 0 && (
                       <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="mt-6 pt-5">
-                        <svg width="32" height="8" viewBox="0 0 32 8" className="mb-2">
-                          <line x1="0" y1="4" x2="32" y2="4" stroke={colors.accent} strokeWidth="1.5" strokeDasharray="1 4" />
-                          <circle cx="4" cy="4" r="2" fill={colors.accent} />
-                          <circle cx="28" cy="4" r="2" fill={colors.accent} />
-                        </svg>
-                        <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.08em' }} className="text-xs font-semibold uppercase mb-1">{isEN ? 'Connected to' : 'Collegato a'}</p>
-                        <p style={{ color: colors.mutedInk }} className="text-xs mb-3 leading-relaxed">{injury.relatedReason}</p>
+                        <SectionTitle id="sez-collegati" kicker={isEN ? 'Connected to' : 'Collegato a'} title={isEN ? 'Related injuries' : 'Infortuni collegati'} hint={injury.relatedReason} />
                         <div className="flex flex-wrap gap-2">
                           {injury.relatedInjuries.map((relKey) => {
                             const rel = injuriesData[relKey];
