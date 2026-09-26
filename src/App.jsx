@@ -2429,6 +2429,203 @@ const injuryScenariosEN = [
   { icon: RotateCw, label: 'Twisted your knee', region: 'knee', tag: 'acute' },
 ];
 
+// Prevenzione, parte 2: per ogni zona quanto spesso allenarla, un test rapido per capire da che
+// lato lavorare e qualche consiglio pratico. Niente soglie precise inventate: i test chiedono di
+// confrontare i due lati, e dove c'è un riferimento è dichiarato come indicativo.
+const preventionExtrasIT = {
+  ankle_foot: {
+    dose: 'Quando: 2–3 volte a settimana, 10 minuti. L\'equilibrio si può fare anche ogni giorno.',
+    test: { title: 'Equilibrio a occhi chiusi', how: 'In piedi su una gamba, braccia incrociate: chiudi gli occhi e conta quanto resisti senza appoggiare l\'altro piede. Poi cambia gamba.', check: 'Confronta i due lati: se una caviglia cede molto prima dell\'altra, è quella su cui lavorare di più.' },
+    tips: [
+      'Se hai già avuto una distorsione, l\'equilibrio conta ancora di più: nei mesi successivi il rischio di rifarsela è più alto.',
+      'Scarpini adatti al terreno: tacchetti troppo lunghi sul sintetico possono bloccare il piede nei cambi di direzione.',
+      'Distorsioni ripetute? Chiedi a un professionista se in partita ti conviene un tape o una cavigliera.',
+    ],
+  },
+  knee: {
+    dose: 'Quando: 2–3 volte a settimana. Squat e ponte sono ottimi anche dentro il riscaldamento.',
+    test: { title: 'Squat su una gamba allo specchio', how: 'Davanti a uno specchio, scendi lentamente in un mezzo squat su una gamba sola e risali. Ripeti 5 volte per lato.', check: 'Guarda il ginocchio: deve restare in linea con il piede. Se tende a cadere verso l\'interno, rinforza soprattutto gluteo e anca.' },
+    tips: [
+      'Atterra morbido dai salti: ginocchia piegate e in linea con le punte, mai verso l\'interno.',
+      'Nei cambi di direzione abbassa il baricentro e accorcia i passi prima di girare.',
+      'Aumenta salti e sprint gradualmente, soprattutto dopo una pausa (inizio stagione, vacanze).',
+    ],
+  },
+  thigh: {
+    dose: 'Quando: il Nordic 1–2 volte a settimana (bastano poche ripetizioni), gli altri 2–3 volte.',
+    test: { title: 'Ponte su una gamba', how: 'Sdraiato, tallone su una sedia o un gradino e l\'altra gamba in alto: solleva il bacino e riscendi. Conta quante ripetizioni fai per lato fino a stanchezza.', check: 'Confronta i lati: una differenza marcata tra le due gambe è un segnale su cui lavorare.' },
+    tips: [
+      'Il Nordic è tra gli esercizi più studiati per prevenire gli stiramenti dei muscoli posteriori. I primi giorni l\'indolenzimento è normale: parti con poche ripetizioni.',
+      'Non passare da zero agli sprint massimali: le corse veloci vanno reintrodotte un po\' alla volta, settimana dopo settimana.',
+      'Riscaldati sempre bene prima di scatti e tiri: sono i gesti in cui la coscia si fa male più spesso.',
+    ],
+  },
+  calf_region: {
+    dose: 'Quando: 2–3 volte a settimana. I calf raises si possono fare anche tutti i giorni.',
+    test: { title: 'Calf raise su una gamba', how: 'In piedi su una gamba, con una mano al muro solo per l\'equilibrio, sali sulle punte e scendi a ritmo regolare. Conta quante ripetizioni fai per lato.', check: 'Confronta i lati: se una gamba ne fa molte meno dell\'altra, è quella da rinforzare.' },
+    tips: [
+      'Aumenta la corsa gradualmente, soprattutto a inizio stagione o quando cambi terreno.',
+      'Crampi frequenti? Controlla idratazione, sonno e quanto ti stai allenando.',
+      'Dolore lungo la tibia che peggiora correndo: riduci impatti e salti, e fatti vedere se non passa.',
+    ],
+  },
+  hip_groin: {
+    dose: 'Quando: 2–3 volte a settimana. Il Copenhagen 1–2 volte, con poche ripetizioni.',
+    test: { title: 'Pallone tra le ginocchia', how: 'Sdraiato a pancia in su con le ginocchia piegate, metti un pallone tra le ginocchia e stringilo forte per 5 secondi.', check: 'Se senti dolore all\'inguine è un segnale da non ignorare: riduci i carichi e parlane con un professionista.' },
+    tips: [
+      'Il Copenhagen è tra gli esercizi più studiati per prevenire i problemi all\'inguine nel calcio: inizia dalla versione corta, con il ginocchio appoggiato.',
+      'Calci lunghi e cambi di direzione caricano molto gli adduttori: non esagerare con i tiri a freddo.',
+      'Un fastidio all\'inguine che torna a ogni allenamento non va "giocato sopra": prima lo affronti, meno dura.',
+    ],
+  },
+  lower_back: {
+    dose: 'Quando: 3 volte a settimana, anche 10 minuti a fine allenamento.',
+    test: { title: 'Plank', how: 'In appoggio su avambracci e punte, corpo dritto dalla testa ai talloni: resta finché riesci a tenere la posizione senza inarcare la schiena.', check: 'Come riferimento indicativo, un minuto pulito è un buon livello. Se senti dolore alla schiena, fermati.' },
+    tips: [
+      'Un busto stabile rende più efficaci tiri e contrasti, e protegge la schiena.',
+      'Prima di giocare non restare seduto a lungo: muoviti e fai un po\' di mobilità.',
+      'Dolore alla schiena con formicolii o debolezza alle gambe: fatti vedere presto.',
+    ],
+  },
+  shoulder_arm: {
+    dose: 'Quando: 2 volte a settimana, più spesso se sei portiere.',
+    test: { title: 'Rotazione con il gomito al fianco', how: 'Gomito piegato a 90° e appoggiato al fianco: ruota l\'avambraccio verso l\'esterno più che puoi, senza staccare il gomito. Fallo con entrambe le braccia.', check: 'Confronta ampiezza e fastidio tra i due lati: una spalla più rigida o dolorante è quella da allenare.' },
+    tips: [
+      'Soprattutto per i portieri: tuffi e uscite sollecitano molto la spalla.',
+      'Nelle cadute prova a rotolare invece di atterrare sulla mano con il braccio teso.',
+      'Rinforza anche i muscoli tra le scapole, non solo quelli davanti: la spalla lavora meglio in equilibrio.',
+    ],
+  },
+  hand_wrist: {
+    dose: 'Quando: 2 volte a settimana; i portieri anche prima di ogni allenamento.',
+    test: { title: 'Presa a confronto', how: 'Stringi forte una pallina morbida 10 volte con una mano, poi con l\'altra.', check: 'Noti meno forza o fastidio da un lato? È il polso da rinforzare; se fa male anche a riposo, fallo vedere.' },
+    tips: [
+      'Portieri: guanti della misura giusta e dita ben protette (tape se hai già avuto distorsioni).',
+      'Nelle cadute evita di atterrare a mano tesa: rotola sulla spalla.',
+      'Un dito gonfio o "storto" dopo una pallonata non va tirato: fallo controllare.',
+    ],
+  },
+};
+
+const preventionExtrasEN = {
+  ankle_foot: {
+    dose: 'When: 2–3 times a week, 10 minutes. Balance work can be done every day.',
+    test: { title: 'Eyes-closed balance', how: 'Stand on one leg with arms crossed, close your eyes and count how long you last without putting the other foot down. Then switch legs.', check: 'Compare both sides: if one ankle gives way much sooner, that is the one to work on most.' },
+    tips: [
+      'If you have sprained it before, balance work matters even more: the risk of doing it again is higher in the following months.',
+      'Boots that suit the surface: studs that are too long on artificial turf can lock your foot when you change direction.',
+      'Repeated sprains? Ask a professional whether tape or an ankle brace makes sense for matches.',
+    ],
+  },
+  knee: {
+    dose: 'When: 2–3 times a week. Squats and bridges also work well inside your warm-up.',
+    test: { title: 'Single-leg squat in the mirror', how: 'In front of a mirror, slowly lower into a half squat on one leg and come back up. Repeat 5 times per side.', check: 'Watch your knee: it should stay in line with your foot. If it drifts inwards, focus on glutes and hip strength.' },
+    tips: [
+      'Land softly from jumps: knees bent and in line with your toes, never caving inwards.',
+      'When changing direction, lower your centre of gravity and shorten your steps before turning.',
+      'Build up jumps and sprints gradually, especially after a break (pre-season, holidays).',
+    ],
+  },
+  thigh: {
+    dose: 'When: Nordics 1–2 times a week (a few reps are enough), the rest 2–3 times.',
+    test: { title: 'Single-leg bridge', how: 'Lying down, heel on a chair or step and the other leg up: lift your hips and lower them. Count how many reps you do per side until tired.', check: 'Compare sides: a clear difference between your legs is something to work on.' },
+    tips: [
+      'The Nordic is one of the most studied exercises for preventing hamstring strains. Soreness in the first days is normal: start with a few reps.',
+      'Don\'t go from zero to all-out sprints: bring fast running back a little at a time, week by week.',
+      'Always warm up well before sprints and shots: they are the moves where thighs get hurt most often.',
+    ],
+  },
+  calf_region: {
+    dose: 'When: 2–3 times a week. Calf raises can be done every day.',
+    test: { title: 'Single-leg calf raise', how: 'Standing on one leg, one hand on the wall only for balance, rise onto your toes and lower at a steady pace. Count your reps per side.', check: 'Compare sides: if one leg does far fewer, that is the one to strengthen.' },
+    tips: [
+      'Increase running gradually, especially at the start of the season or when you change surface.',
+      'Frequent cramps? Check hydration, sleep and how much you are training.',
+      'Pain along the shin that gets worse when running: cut down on impacts and jumps, and get it checked if it doesn\'t settle.',
+    ],
+  },
+  hip_groin: {
+    dose: 'When: 2–3 times a week. The Copenhagen 1–2 times, with a few reps.',
+    test: { title: 'Ball between the knees', how: 'Lying on your back with knees bent, put a ball between your knees and squeeze it hard for 5 seconds.', check: 'If you feel groin pain, don\'t ignore it: reduce your load and talk to a professional.' },
+    tips: [
+      'The Copenhagen is one of the most studied exercises for preventing groin problems in football: start with the short version, knee supported.',
+      'Long kicks and changes of direction load the adductors heavily: don\'t overdo shooting when you are cold.',
+      'Groin discomfort that comes back every session shouldn\'t be "played through": the sooner you deal with it, the shorter it lasts.',
+    ],
+  },
+  lower_back: {
+    dose: 'When: 3 times a week, even 10 minutes at the end of training.',
+    test: { title: 'Plank', how: 'On forearms and toes, body straight from head to heels: hold as long as you can keep the position without arching your back.', check: 'As an indicative reference, one clean minute is a good level. If your back hurts, stop.' },
+    tips: [
+      'A stable trunk makes shots and challenges more effective, and protects your back.',
+      'Before playing, don\'t sit still for long: move around and do some mobility work.',
+      'Back pain with tingling or weakness in the legs: get it checked soon.',
+    ],
+  },
+  shoulder_arm: {
+    dose: 'When: 2 times a week, more often if you are a goalkeeper.',
+    test: { title: 'Rotation with elbow at your side', how: 'Elbow bent to 90° and resting against your side: rotate your forearm outwards as far as you can without lifting the elbow. Do it with both arms.', check: 'Compare range and discomfort between sides: a stiffer or sore shoulder is the one to train.' },
+    tips: [
+      'Especially for goalkeepers: dives and claims put a lot of stress on the shoulder.',
+      'When you fall, try to roll instead of landing on your hand with a straight arm.',
+      'Strengthen the muscles between your shoulder blades too, not just the front: the shoulder works better in balance.',
+    ],
+  },
+  hand_wrist: {
+    dose: 'When: 2 times a week; goalkeepers before every session too.',
+    test: { title: 'Grip comparison', how: 'Squeeze a soft ball hard 10 times with one hand, then with the other.', check: 'Less strength or discomfort on one side? That wrist needs strengthening; if it hurts at rest too, get it checked.' },
+    tips: [
+      'Goalkeepers: gloves in the right size and well-protected fingers (tape if you have had sprains before).',
+      'When you fall, avoid landing on an outstretched hand: roll onto your shoulder.',
+      'A swollen or "bent" finger after a ball hit shouldn\'t be pulled: get it checked.',
+    ],
+  },
+};
+
+// Riscaldamento preventivo: 3 parti come nei programmi di riscaldamento studiati nel calcio
+// (corsa di attivazione, forza/equilibrio/salti, corsa finale). Esercizi generici, parole nostre.
+const warmupRoutineIT = [
+  { part: 'Attivazione', minutes: 5, exercises: [
+    { text: `Corsa leggera con apertura e chiusura dell'anca (2 andata e ritorno)`, cat: 'run', howTo: `Corri piano su 15-20 metri: a ogni passo alza un ginocchio e aprilo verso l'esterno all'andata, poi portalo verso l'interno al ritorno. Scalda anca e inguine prima dei gesti più veloci.` },
+    { text: `Corsa laterale e incrociata (2 andata e ritorno)`, cat: 'run', howTo: `Corri di lato a passi accostati, poi incrociando le gambe davanti e dietro, con le ginocchia leggermente piegate. Prepara caviglie e anche ai movimenti laterali della partita.` },
+    { text: `Skip e calciata dietro (2 andata e ritorno)`, cat: 'run', howTo: `Alterna ginocchia alte e talloni verso il sedere su 15-20 metri, con appoggi rapidi e busto dritto. Alza la temperatura dei muscoli di coscia e polpaccio.` },
+  ] },
+  { part: 'Forza, equilibrio e salti', minutes: 8, exercises: [
+    { text: `Plank frontale (3 serie da 20-30 secondi)`, cat: 'hold', howTo: `Appoggiati su avambracci e punte, con il corpo dritto dalla testa ai talloni e la pancia contratta. Non lasciar cadere il bacino: meglio meno secondi fatti bene.` },
+    { text: `Plank laterale (2 serie da 20 secondi per lato)`, cat: 'hold', howTo: `Su un avambraccio, con il gomito sotto la spalla, solleva il bacino finché il corpo è in linea. Allena i muscoli laterali di busto e anca che ti stabilizzano nei contrasti.` },
+    { text: `Nordic curl (1 serie da 3-5)`, cat: 'strength', howTo: `In ginocchio, con un compagno che ti blocca le caviglie, lasciati cadere in avanti il più lentamente possibile frenando con i muscoli dietro la coscia; appoggiati con le mani e torna su. Poche ripetizioni fatte bene bastano.` },
+    { text: `Equilibrio su una gamba passandoti la palla (2 serie da 30 secondi per lato)`, cat: 'balance', howTo: `In equilibrio su una gamba, ginocchio morbido, passa una palla da una mano all'altra o scambiala con un compagno. Distrarre l'attenzione allena i riflessi di caviglia e ginocchio.` },
+    { text: `Squat con salita sulle punte (2 serie da 10)`, cat: 'strength', howTo: `Scendi in squat con le ginocchia in linea con le punte dei piedi, poi risali e sali sulle punte. Controlla che le ginocchia non cadano mai verso l'interno.` },
+    { text: `Salti con atterraggio morbido (2 serie da 8-10)`, cat: 'strength', howTo: `Salta in alto o di lato e atterra sugli avampiedi con le ginocchia piegate e in linea con i piedi, fermandoti un attimo prima del salto successivo. Impari ad atterrare nel modo che protegge il ginocchio.` },
+    { text: `Copenhagen corto (1 serie da 5 per lato)`, cat: 'strength', howTo: `Sdraiato su un fianco, appoggia l'interno del ginocchio della gamba sopra su una panca o sulle mani di un compagno e solleva il bacino; scendi piano. Rinforza gli adduttori, i muscoli dell'inguine.` },
+  ] },
+  { part: 'Corsa finale', minutes: 3, exercises: [
+    { text: `Corsa progressiva fino alla velocità di gara (2 volte da 30-40 metri)`, cat: 'run', howTo: `Parti piano e accelera gradualmente fino a una velocità vicina a quella di partita, poi rallenta con calma. Prepara i muscoli agli sprint veri.` },
+    { text: `Cambi di direzione controllati (2 andata e ritorno)`, cat: 'run', howTo: `Corri 4-5 passi, pianta il piede esterno con il ginocchio in linea e cambia direzione, alternando i lati. Conta la qualità dell'appoggio, non la velocità.` },
+  ] },
+];
+
+const warmupRoutineEN = [
+  { part: 'Activation', minutes: 5, exercises: [
+    { text: `Easy jog with hip out and hip in (2 times there and back)`, cat: 'run', howTo: `Jog slowly over 15-20 metres: on each step lift a knee and open it outwards on the way there, then bring it inwards on the way back. It warms up hips and groin before faster moves.` },
+    { text: `Sideways and crossover running (2 times there and back)`, cat: 'run', howTo: `Run sideways with side steps, then crossing your legs in front and behind, knees slightly bent. It prepares ankles and hips for the lateral moves of a match.` },
+    { text: `High knees and heel kicks (2 times there and back)`, cat: 'run', howTo: `Alternate high knees and heels to your bottom over 15-20 metres, with quick contacts and an upright trunk. It raises the temperature of thigh and calf muscles.` },
+  ] },
+  { part: 'Strength, balance and jumps', minutes: 8, exercises: [
+    { text: `Front plank (3 sets of 20-30 seconds)`, cat: 'hold', howTo: `Rest on forearms and toes, body straight from head to heels and tummy braced. Don't let your hips sag: fewer seconds done well is better.` },
+    { text: `Side plank (2 sets of 20 seconds per side)`, cat: 'hold', howTo: `On one forearm, elbow under the shoulder, lift your hips until your body is in line. It trains the side muscles of trunk and hip that keep you stable in challenges.` },
+    { text: `Nordic curl (1 set of 3-5)`, cat: 'strength', howTo: `Kneeling, with a teammate holding your ankles, lower yourself forwards as slowly as possible, braking with the muscles at the back of your thigh; catch yourself with your hands and come back up. A few good reps are enough.` },
+    { text: `Single-leg balance passing the ball (2 sets of 30 seconds per side)`, cat: 'balance', howTo: `Balancing on one leg with a soft knee, pass a ball from hand to hand or swap it with a teammate. Taking your attention away trains ankle and knee reflexes.` },
+    { text: `Squat to toe raise (2 sets of 10)`, cat: 'strength', howTo: `Squat down with your knees in line with your toes, then come up and rise onto your toes. Make sure your knees never cave inwards.` },
+    { text: `Jumps with soft landing (2 sets of 8-10)`, cat: 'strength', howTo: `Jump up or sideways and land on the balls of your feet with knees bent and in line with your feet, pausing briefly before the next jump. You learn to land in the way that protects your knee.` },
+    { text: `Short Copenhagen (1 set of 5 per side)`, cat: 'strength', howTo: `Lying on your side, rest the inside of your top knee on a bench or a teammate's hands and lift your hips; lower slowly. It strengthens the adductors, your groin muscles.` },
+  ] },
+  { part: 'Final running', minutes: 3, exercises: [
+    { text: `Build-up run to match speed (2 times over 30-40 metres)`, cat: 'run', howTo: `Start slowly and speed up gradually to close to match pace, then slow down calmly. It prepares your muscles for real sprints.` },
+    { text: `Controlled changes of direction (2 times there and back)`, cat: 'run', howTo: `Run 4-5 steps, plant your outside foot with the knee in line and change direction, alternating sides. Quality of the plant matters more than speed.` },
+  ] },
+];
+
 const playerPositionsIT = [
   { key: 'portiere', label: 'Portiere', tip: 'Per un portiere contano più i tuffi e gli atterraggi che la corsa pura: prima di sentirti pronto, assicurati di tollerare bene cadute e atterraggi controllati sul lato infortunato, non solo la corsa in linea.' },
   { key: 'difensore', label: 'Difensore', tip: 'Da difensore affronti molti contrasti e duelli aerei: oltre alla corsa, testa la tenuta durante contatti fisici controllati prima di sentirti davvero pronto.' },
@@ -3658,15 +3855,16 @@ function FlowSteps({ current, isEN, onStep }) {
 
 // "In questa pagina": le sezioni di una schermata lunga come chip toccabili, per vedere
 // subito cosa c'è e saltarci direttamente.
-function SectionNav({ items, isEN }) {
+function SectionNav({ items, isEN, tone = 'green' }) {
+  const tc = tone === 'teal' ? colors.preventionDark : colors.accentDark;
   return (
     <nav aria-label={isEN ? 'On this page' : 'In questa pagina'} className="mt-4">
       <p style={{ fontFamily: BRICOLAGE, color: colors.mutedInk, letterSpacing: '0.12em' }} className="text-[9.5px] font-bold uppercase mb-2">{isEN ? 'On this page' : 'In questa pagina'}</p>
       <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
         {items.map((it) => (
           <button key={it.id} type="button" onClick={it.onClick} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus flex-shrink-0 flex items-center gap-1 rounded-full pl-2 pr-2.5 py-1.5 text-[11.5px] font-semibold shadow-sm hover:border-green-300 active:scale-[0.97] transition">
-            <it.icon size={13} color={colors.accentDark} />{it.label}
-            {it.badge && <span style={{ color: colors.accentDark, fontFamily: BEBAS, letterSpacing: '0.04em' }} className="text-[13px] leading-none">{it.badge}</span>}
+            <it.icon size={13} color={tc} />{it.label}
+            {it.badge && <span style={{ color: tc, fontFamily: BEBAS, letterSpacing: '0.04em' }} className="text-[13px] leading-none">{it.badge}</span>}
           </button>
         ))}
       </div>
@@ -3900,6 +4098,8 @@ function scrollToId(id) {
 }
 
 function toISODate(d) { return d.toISOString().slice(0, 10); }
+// Giorno di calendario locale (a mezzogiorno, così il fuso non lo sposta al giorno prima).
+function localDayKey(date = new Date()) { return toISODate(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12)); }
 function daysSince(isoDate) {
   const then = new Date(isoDate + 'T00:00:00');
   const now = new Date();
@@ -4675,6 +4875,8 @@ export default function Offside() {
   const [premiumTab, setPremiumTab] = useState('individual'); // 'individual' | 'team'
   const [expandedPrevention, setExpandedPrevention] = useState(null);
   const [preventionProgress, setPreventionProgress] = useState({});
+  const [warmupLog, setWarmupLog] = useState([]); // giorni (YYYY-MM-DD) in cui è stato fatto il riscaldamento preventivo
+  const [warmupOpen, setWarmupOpen] = useState(false);
   const [expandedPreventionTip, setExpandedPreventionTip] = useState(null);
   const [expandedSymptoms, setExpandedSymptoms] = useState(null);
 
@@ -4730,6 +4932,7 @@ export default function Offside() {
           setMovementScreenings(loaded.movementScreenings || []);
           setPlayerPosition(loaded.playerPosition || null);
           setPreventionProgress(loaded.preventionProgress || {});
+          setWarmupLog(Array.isArray(loaded.warmupLog) ? loaded.warmupLog : []);
           setLanguage(loaded.language || 'it');
           setPremiumUnlocked(!!loaded.premiumUnlocked);
           setCriteriaChecked(loaded.criteriaChecked || {});
@@ -4818,7 +5021,7 @@ export default function Offside() {
     }
   }, []);
 
-  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, wellnessCheckins, movementScreenings, playerPosition, preventionProgress, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, onboardingProfileDone, injuryRecurrence, teamAuth, myTeamMembership, disclaimerAcceptedAt, ...overrides });
+  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, wellnessCheckins, movementScreenings, playerPosition, preventionProgress, warmupLog, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, onboardingProfileDone, injuryRecurrence, teamAuth, myTeamMembership, disclaimerAcceptedAt, ...overrides });
 
   // Salva un nuovo screening del movimento nello storico locale (max 20, i più vecchi cadono).
   // Non tocca mai la rete: né qui né altrove per questa funzione, coerentemente con il fatto
@@ -5211,6 +5414,18 @@ export default function Offside() {
   };
 
   const todayKey = () => toISODate(new Date());
+
+  const toggleWarmupToday = () => {
+    const today = localDayKey();
+    const had = warmupLog.includes(today);
+    const next = had ? warmupLog.filter((d) => d !== today) : [...warmupLog, today].sort().slice(-120);
+    setWarmupLog(next);
+    persist(snapshot({ warmupLog: next }));
+    if (!had) {
+      trackEvent('warmup_done');
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30);
+    }
+  };
 
   const toggleToday = () => {
     if (!selectedInjury) return;
@@ -5675,6 +5890,25 @@ export default function Offside() {
   const otherActiveKeys = activeInjuryKeys.filter((k) => k !== heroKey);
   const preventionDoneCount = Object.values(preventionProgress || {}).reduce((sum, region) => sum + Object.values(region || {}).filter(Boolean).length, 0);
   const totalInjuryCount = Object.values(regions).reduce((sum, r) => sum + r.injuries.filter((k) => injuriesData[k]).length, 0);
+  const preventionExtras = isEN ? preventionExtrasEN : preventionExtrasIT;
+  const warmupRoutine = isEN ? warmupRoutineEN : warmupRoutineIT;
+  const warmupExerciseCount = warmupRoutine.reduce((n, part) => n + part.exercises.length, 0);
+  const warmupMinutes = warmupRoutine.reduce((n, part) => n + part.minutes, 0);
+  const localToday = localDayKey();
+  const weekDays = (() => {
+    const now = new Date();
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7), 12);
+    const labels = isEN ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
+    return labels.map((label, i) => {
+      const iso = localDayKey(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i, 12));
+      return { label, iso, done: warmupLog.includes(iso), isToday: iso === localToday, future: iso > localToday };
+    });
+  })();
+  const warmupWeekCount = weekDays.filter((d) => d.done).length;
+  const warmupDoneToday = warmupLog.includes(localToday);
+  const coveredRegions = Object.keys(preventionData).filter((k) => Object.values(preventionProgress[k] || {}).some(Boolean));
+  const historyRegions = [...new Set(Object.keys(injuryDates).filter((k) => injuriesData[k]).map((k) => regionOfInjury(k, injuriesData)).filter(Boolean))];
+  const recommendedRegions = (historyRegions.length ? historyRegions : ['thigh', 'hip_groin', 'knee', 'ankle_foot']).slice(0, 4);
   const seasonLabel = (() => { const d = new Date(); const y = d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1; return `${y}/${String((y + 1) % 100).padStart(2, '0')}`; })();
 
   return (
@@ -5833,13 +6067,18 @@ export default function Offside() {
                 <p style={{ color: 'rgba(255,255,255,0.75)' }} className="relative text-sm leading-relaxed mt-2">
                   {isEN ? 'No active injury. Keep it that way: a few minutes of prevention are enough.' : 'Nessun infortunio in corso. Tienilo così: bastano pochi minuti di prevenzione.'}
                 </p>
-                {preventionDoneCount > 0 && (
-                  <span style={{ backgroundColor: 'rgba(125,255,168,0.12)', color: LED_GREEN }} className="relative inline-flex items-center gap-1 rounded-full px-2.5 py-1 mt-3 text-[11px] font-bold os-tabular">
-                    <ShieldCheck size={12} strokeWidth={2.5} />{isEN ? `${preventionDoneCount} prevention exercises done` : `${preventionDoneCount} esercizi di prevenzione fatti`}
+                <div className="relative flex flex-wrap gap-1.5 mt-3">
+                  <span style={{ backgroundColor: 'rgba(125,255,168,0.12)', color: LED_GREEN }} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold os-tabular">
+                    <Flame size={12} strokeWidth={2.5} />{warmupWeekCount >= 2 ? (isEN ? `Warm-up: weekly goal reached (${warmupWeekCount})` : `Riscaldamento: obiettivo settimana raggiunto (${warmupWeekCount})`) : (isEN ? `Warm-up: ${warmupWeekCount}/2 this week` : `Riscaldamento: ${warmupWeekCount}/2 questa settimana`)}
                   </span>
-                )}
+                  {coveredRegions.length > 0 && (
+                    <span style={{ backgroundColor: 'rgba(125,255,168,0.12)', color: LED_GREEN }} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold os-tabular">
+                      <ShieldCheck size={12} strokeWidth={2.5} />{isEN ? `${coveredRegions.length}/8 areas trained` : `${coveredRegions.length}/8 zone allenate`}
+                    </span>
+                  )}
+                </div>
                 <button
-                  onClick={() => { setRegionsTab('prevention'); setTimeout(() => scrollToId('home-tabs'), 80); }}
+                  onClick={() => { setRegionsTab('prevention'); setTimeout(() => scrollToId('prev-warmup'), 120); }}
                   style={{ backgroundColor: colors.accent, color: '#FFFFFF' }}
                   className="os-focus relative w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 mt-4 shadow-md hover:opacity-95 active:scale-[0.99] transition-all"
                 >
@@ -6006,7 +6245,94 @@ export default function Offside() {
                     <span style={{ color: colors.accentDark }} className="text-sm font-medium">{isEN ? `Back to ${injuriesData[selectedInjury].label}` : `Torna a ${injuriesData[selectedInjury].label}`}</span>
                   </button>
                 )}
-                <SectionTitle tone="teal" kicker={isEN ? 'Prevention' : 'Prevenzione'} title={isEN ? 'Train so you don\'t get hurt' : 'Allenati per non farti male'} hint={isEN ? 'The best time to work on an injury is before it happens. Choose an area — you don\'t need anything to actually hurt.' : 'Il momento migliore per lavorare su un infortunio è prima che succeda. Scegli una zona — non serve avere nulla che fa male.'} />
+                <SectionTitle tone="teal" kicker={isEN ? 'Prevention' : 'Prevenzione'} title={isEN ? 'Train so you don\'t get hurt' : 'Allenati per non farti male'} hint={isEN ? 'The best time to work on an injury is before it happens: nothing needs to hurt.' : 'Il momento migliore per lavorare su un infortunio è prima che succeda: non serve avere nulla che fa male.'} />
+                <SectionNav
+                  isEN={isEN}
+                  tone="teal"
+                  items={[
+                    { id: 'warmup', icon: Flame, label: isEN ? 'Warm-up' : 'Riscaldamento', badge: warmupWeekCount >= 2 ? '✓' : `${warmupWeekCount}/2`, onClick: () => scrollToId('prev-warmup') },
+                    { id: 'foryou', icon: Target, label: isEN ? 'For you' : 'Per te', onClick: () => scrollToId('prev-foryou') },
+                    { id: 'zones', icon: ShieldCheck, label: isEN ? 'Areas' : 'Zone', badge: `${coveredRegions.length}/${Object.keys(preventionData).length}`, onClick: () => scrollToId('prev-zones') },
+                  ]}
+                />
+
+                <SectionTitle id="prev-warmup" className="mt-7" tone="teal" kicker={isEN ? 'Before you play' : 'Prima di giocare'} title={isEN ? 'Preventive warm-up' : 'Riscaldamento preventivo'} hint={isEN ? `${warmupMinutes} minutes before training and matches. Do it at least twice a week: it works on several areas at once.` : `${warmupMinutes} minuti prima di allenamento e partita. Fallo almeno 2 volte a settimana: lavora su più zone insieme.`} />
+                <div style={{ background: PITCH_BG_TEAL }} className="relative overflow-hidden rounded-3xl p-5 mb-3 shadow-lg">
+                  <PitchArc size={190} />
+                  <div className="relative flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p style={{ fontFamily: BRICOLAGE, color: LED_TEAL, letterSpacing: '0.14em' }} className="text-[10px] font-bold uppercase mb-1">{isEN ? 'Your week' : 'La tua settimana'}</p>
+                      <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[40px] leading-[0.85] os-tabular">{warmupWeekCount}<span style={{ color: 'rgba(255,255,255,0.45)' }} className="text-[24px]"> {isEN ? (warmupWeekCount === 1 ? 'session' : 'sessions') : (warmupWeekCount === 1 ? 'sessione' : 'sessioni')}</span></p>
+                      <p style={{ color: 'rgba(255,255,255,0.7)' }} className="text-xs mt-1.5">{warmupWeekCount >= 2 ? (isEN ? 'Weekly goal reached. Keep it up.' : 'Obiettivo della settimana raggiunto. Continua così.') : (isEN ? `Goal: at least 2 a week (${2 - warmupWeekCount} to go)` : `Obiettivo: almeno 2 a settimana (ne mancano ${2 - warmupWeekCount})`)}</p>
+                    </div>
+                    <div style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)' }} className="flex-shrink-0 rounded-xl px-3 py-2 text-center">
+                      <p style={{ fontFamily: BEBAS, color: LED_TEAL, textShadow: `0 0 10px ${LED_TEAL}88` }} className="text-[26px] leading-none os-tabular">{coveredRegions.length}/{Object.keys(preventionData).length}</p>
+                      <p style={{ fontFamily: BRICOLAGE, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.1em' }} className="text-[9px] font-bold uppercase mt-1">{isEN ? 'Areas trained' : 'Zone allenate'}</p>
+                    </div>
+                  </div>
+                  <div className="relative grid grid-cols-7 gap-1.5 mt-4" role="img" aria-label={isEN ? `Warm-ups this week: ${warmupWeekCount}` : `Riscaldamenti questa settimana: ${warmupWeekCount}`}>
+                    {weekDays.map((d) => (
+                      <div key={d.iso} className="flex flex-col items-center gap-1">
+                        <span style={{ backgroundColor: d.done ? LED_TEAL : 'rgba(255,255,255,0.08)', border: d.isToday ? `2px solid ${d.done ? LED_TEAL : 'rgba(255,255,255,0.6)'}` : '2px solid transparent', boxShadow: d.done ? `0 0 12px ${LED_TEAL}88` : 'none', opacity: d.future ? 0.45 : 1 }} className="w-full aspect-square max-w-[34px] rounded-lg flex items-center justify-center">
+                          {d.done && <Check size={14} color="#06282D" />}
+                        </span>
+                        <span style={{ fontFamily: BRICOLAGE, color: d.isToday ? '#FFFFFF' : 'rgba(255,255,255,0.5)' }} className="text-[10px] font-bold">{d.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="relative flex gap-2 mt-4">
+                    <button onClick={toggleWarmupToday} aria-pressed={warmupDoneToday} style={{ backgroundColor: warmupDoneToday ? LED_TEAL : colors.prevention, color: warmupDoneToday ? '#06282D' : '#FFFFFF' }} className="os-focus flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold uppercase tracking-wide shadow-md active:scale-[0.98] transition">
+                      {warmupDoneToday ? <><Check size={16} className="os-check-pop" />{isEN ? 'Done today' : 'Fatto oggi'}</> : <><Flame size={16} />{isEN ? 'Mark today as done' : 'Segna fatto oggi'}</>}
+                    </button>
+                    <button onClick={() => setWarmupOpen(!warmupOpen)} aria-expanded={warmupOpen} style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#FFFFFF' }} className="os-focus flex-shrink-0 flex items-center gap-1 rounded-xl px-3.5 py-3 text-xs font-semibold hover:bg-white/20 transition-colors">
+                      {warmupOpen ? (isEN ? 'Hide' : 'Chiudi') : (isEN ? 'Exercises' : 'Esercizi')}<ChevronDown size={13} style={{ transform: warmupOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                    </button>
+                  </div>
+                </div>
+                {warmupOpen && (
+                  <div className="os-fadein mb-3">
+                    {warmupRoutine.map((part, pi) => (
+                      <div key={part.part} className="mb-4">
+                        <div className="flex items-center justify-between gap-2 mb-2 px-1">
+                          <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-2 text-sm font-bold">
+                            <span style={{ backgroundColor: '#06282D', color: LED_TEAL, fontFamily: BEBAS }} className="w-6 h-6 rounded-full flex items-center justify-center text-[14px] leading-none">{pi + 1}</span>{part.part}
+                          </p>
+                          <span style={{ color: colors.mutedInk }} className="text-[11px] font-semibold">~{part.minutes} min</span>
+                        </div>
+                        <div className="space-y-2">
+                          {part.exercises.map((ex, i) => {
+                            const wKey = `warmup-${pi}-${i}`;
+                            const wOpen = expandedPreventionTip === wKey;
+                            return (
+                              <DrillCard key={wKey} index={warmupRoutine.slice(0, pi).reduce((n, p) => n + p.exercises.length, 0) + i} ex={ex} tone="teal" catLabel={catLabels[ex.cat]} helpOpen={wOpen} onToggleHelp={() => setExpandedPreventionTip(wOpen ? null : wKey)} isEN={isEN} />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                    <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed px-1">
+                      {isEN ? `${warmupExerciseCount} exercises inspired by the preventive warm-ups studied in football, such as FIFA 11+. They work when done regularly: at least twice a week, all season long.` : `${warmupExerciseCount} esercizi ispirati ai riscaldamenti preventivi studiati nel calcio, come il FIFA 11+. Funzionano se fatti con costanza: almeno 2 volte a settimana, per tutta la stagione.`}
+                    </p>
+                  </div>
+                )}
+
+                <SectionTitle id="prev-foryou" className="mt-7" tone="teal" kicker={isEN ? 'For you' : 'Per te'} title={historyRegions.length ? (isEN ? 'So it doesn\'t happen again' : 'Per non ricaderci') : (isEN ? 'Where footballers get hurt most' : 'Dove i calciatori si fanno male di più')} hint={historyRegions.length ? (isEN ? 'Having been injured in an area raises the risk of it happening again: start here.' : 'Chi si è già fatto male in una zona ha più rischio di rifarselo: parti da qui.') : (isEN ? 'Thigh, groin, knee and ankle are the areas where footballers get injured most often.' : 'Coscia, inguine, ginocchio e caviglia sono le zone dove i calciatori si fanno male più spesso.')} />
+                <div className="grid grid-cols-2 gap-2.5 mb-7">
+                  {recommendedRegions.map((key) => {
+                    const data = preventionData[key];
+                    if (!data) return null;
+                    const done = Object.values(preventionProgress[key] || {}).filter(Boolean).length;
+                    return (
+                      <button key={key} onClick={() => { setExpandedPrevention(key); setTimeout(() => scrollToId(`prevention-${key}`), 120); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus flex items-center gap-2.5 rounded-2xl p-2.5 text-left shadow-sm hover:shadow-md active:scale-[0.98] transition">
+                        <span style={{ background: PITCH_BG_TEAL }} className="flex-shrink-0 w-10 h-12 rounded-lg flex items-center justify-center"><RegionFigure region={key} tone="teal" height={42} /></span>
+                        <span className="min-w-0">
+                          <span style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="block text-[13px] font-bold leading-tight">{data.label}</span>
+                          <span style={{ color: done ? colors.preventionDark : colors.mutedInk }} className="block text-[11px] font-semibold mt-0.5 os-tabular">{done}/{data.exercises.length} {isEN ? 'done' : 'fatti'}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
                 {!premiumUnlocked ? (
                   <button onClick={() => { trackEvent('movement_screening_teaser_clicked'); setScreen('premium'); }} style={{ background: 'linear-gradient(120deg, #F9DD85, #8A6414 38%, #F0B429 70%, #6B4D0C)' }} className="os-focus relative w-full overflow-hidden rounded-3xl p-[1.5px] mb-6 text-left shadow-md hover:brightness-110 active:scale-[0.99] transition">
@@ -6051,7 +6377,7 @@ export default function Offside() {
                   </button>
                 )}
 
-                <div className="mb-6">
+                <div className="mb-6 mt-1">
                   <BodyDiagram
                     onSelectRegion={(key) => { setExpandedPrevention(key); setTimeout(() => scrollToId(`prevention-${key}`), 120); }}
                     tone="teal"
@@ -6062,7 +6388,7 @@ export default function Offside() {
                   />
                 </div>
 
-                <SectionTitle className="mt-2" tone="teal" kicker={isEN ? 'Area by area' : 'Zona per zona'} title={isEN ? 'Prevention exercises' : 'Esercizi di prevenzione'} hint={isEN ? 'Tick the ones you do: they stay saved.' : 'Spunta quelli che fai: restano salvati.'} />
+                <SectionTitle id="prev-zones" className="mt-2" tone="teal" kicker={isEN ? 'Area by area' : 'Zona per zona'} title={isEN ? 'Prevention exercises' : 'Esercizi di prevenzione'} hint={isEN ? 'Each area: what it protects you from, how often, a quick test and practical tips. Tick what you do: it stays saved.' : 'Per ogni zona: da cosa ti protegge, quanto spesso, un test rapido e consigli pratici. Spunta quello che fai: resta salvato.'} />
                 <div className="space-y-2.5">
                   {Object.entries(preventionData).map(([key, data]) => {
                     const isExpanded = expandedPrevention === key;
@@ -6089,6 +6415,21 @@ export default function Offside() {
                         {isExpanded && (
                           <div className="px-3 pb-3 os-fadein">
                             <p style={{ color: colors.mutedInk, backgroundColor: colors.preventionPaper, borderLeft: `3px solid ${colors.prevention}` }} className="text-xs leading-relaxed mb-3 px-3 py-2.5 rounded-r-lg">{data.why}</p>
+                            {regions[key] && (
+                              <div className="mb-3">
+                                <p style={{ fontFamily: BRICOLAGE, color: colors.preventionDark, letterSpacing: '0.12em' }} className="text-[10px] font-bold uppercase mb-1.5">{isEN ? 'Protects you from' : 'Ti protegge da'}</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {regions[key].injuries.filter((k) => injuriesData[k]).map((k) => (
+                                    <button key={k} onClick={() => openRegion(key)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.prevention}55`, color: colors.ink }} className="os-focus inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-semibold hover:bg-teal-50 transition-colors">
+                                      <ShieldCheck size={11} color={colors.preventionDark} />{injuriesData[k].label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {preventionExtras[key] && (
+                              <p style={{ color: colors.ink }} className="flex items-start gap-2 text-xs leading-relaxed mb-3"><Timer size={14} color={colors.preventionDark} className="flex-shrink-0 mt-px" />{preventionExtras[key].dose}</p>
+                            )}
                             <div className="space-y-2.5">
                               {data.exercises.map((ex, i) => {
                                 const tipKey = `${key}-${i}`;
@@ -6109,6 +6450,24 @@ export default function Offside() {
                                 );
                               })}
                             </div>
+                            {preventionExtras[key] && (
+                              <>
+                                <div style={{ background: PITCH_BG_TEAL }} className="relative overflow-hidden rounded-2xl p-4 mt-3">
+                                  <p style={{ fontFamily: BRICOLAGE, color: LED_TEAL, letterSpacing: '0.14em' }} className="flex items-center gap-1.5 text-[10px] font-bold uppercase mb-1.5"><Gauge size={12} />{isEN ? 'Quick test' : 'Test rapido'}</p>
+                                  <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[15px] font-bold leading-snug mb-1">{preventionExtras[key].test.title}</p>
+                                  <p style={{ color: 'rgba(255,255,255,0.78)' }} className="text-xs leading-relaxed">{preventionExtras[key].test.how}</p>
+                                  <p style={{ backgroundColor: 'rgba(0,0,0,0.25)', color: '#E6FBFD' }} className="flex items-start gap-2 text-xs leading-relaxed mt-2.5 rounded-lg px-3 py-2"><Info size={13} color={LED_TEAL} className="flex-shrink-0 mt-px" />{preventionExtras[key].test.check}</p>
+                                </div>
+                                <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}30` }} className="rounded-2xl p-4 mt-3">
+                                  <p style={{ fontFamily: BRICOLAGE, color: colors.preventionDark, letterSpacing: '0.12em' }} className="text-[10px] font-bold uppercase mb-2">{isEN ? 'Practical tips' : 'Consigli pratici'}</p>
+                                  <ul className="space-y-2">
+                                    {preventionExtras[key].tips.map((tip, ti) => (
+                                      <li key={ti} style={{ color: colors.ink }} className="flex gap-2 text-[12.5px] leading-snug"><span style={{ backgroundColor: colors.prevention }} className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-[6px]" /><span>{tip}</span></li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
@@ -6432,10 +6791,15 @@ export default function Offside() {
                   </>
                 ) : (
                   <>
-                    <div style={{ background: 'linear-gradient(135deg, #0F766E, #0B4440)', border: `1px solid ${colors.prevention}40` }} className="rounded-2xl p-6 mb-5 text-center">
-                      <Users size={32} color="#5EEAD4" className="mx-auto mb-3" />
-                      <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-lg font-bold mb-2">{isEN ? 'One dashboard for the whole squad' : 'Una dashboard per tutta la squadra'}</p>
-                      <p style={{ color: '#BFE9E3' }} className="text-sm leading-relaxed">{isEN ? 'See every consenting player\'s injury, recovery phase and indicative return time — all in one place.' : 'Vedi infortunio, fase di recupero e rientro indicativo di ogni giocatore che ha dato il consenso — tutto in un posto.'}</p>
+                    <div style={{ background: PITCH_BG_TEAL }} className="relative overflow-hidden rounded-3xl p-6 mb-5 shadow-lg">
+                      <PitchArc size={200} />
+                      <div className="relative flex items-center gap-2 mb-3">
+                        <div style={{ backgroundColor: 'rgba(114,230,242,0.14)', border: '1px solid rgba(114,230,242,0.35)' }} className="w-10 h-10 rounded-xl flex items-center justify-center"><Users size={19} color={LED_TEAL} /></div>
+                        <span style={{ fontFamily: BRICOLAGE, color: LED_TEAL, letterSpacing: '0.16em' }} className="text-[10px] font-bold uppercase">{isEN ? 'For staff' : 'Per lo staff'}</span>
+                      </div>
+                      <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="relative text-[46px] leading-[0.85]">Offside <span style={{ color: LED_TEAL }}>{isEN ? 'Teams' : 'Squadre'}</span></p>
+                      <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[17px] font-bold mt-3 mb-1.5">{isEN ? 'One dashboard for the whole squad' : 'Una dashboard per tutta la squadra'}</p>
+                      <p style={{ color: 'rgba(255,255,255,0.75)' }} className="relative text-sm leading-relaxed">{isEN ? 'See every consenting player\'s injury, recovery phase and indicative return time — all in one place.' : 'Vedi infortunio, fase di recupero e rientro indicativo di ogni giocatore che ha dato il consenso — tutto in un posto.'}</p>
                     </div>
                     <div className="space-y-3 mb-6">
                       {[
@@ -6997,7 +7361,7 @@ export default function Offside() {
                     ))}
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}>
-                    <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full shadow-sm">{isEN ? 'Unlock' : 'Sblocca'}</span>
+                    <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full shadow-sm">{isEN ? 'Unlock' : 'Sblocca'}</span>
                   </div>
                 </div>
               </button>
@@ -7110,6 +7474,7 @@ export default function Offside() {
               <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Now choose where it hurts' : 'Ora scegli dove hai male'}</span><ArrowRight size={16} />
             </button>
 
+            <div className="h-5" aria-hidden="true" />
             <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'When you\'re ready to return, Premium has the right training for your role' : 'Quando sarai pronto a tornare in campo, Premium ha l\'allenamento giusto per il tuo ruolo'} />
           </div>
         )}
@@ -7520,7 +7885,7 @@ export default function Offside() {
                         ))}
                       </div>
                       <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.55)' }}>
-                        <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-full shadow-sm">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
+                        <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-full shadow-sm">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
                       </button>
                     </div>
                   )}
@@ -7555,7 +7920,7 @@ export default function Offside() {
                         </div>
                       </div>
                       <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.55)' }}>
-                        <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-full shadow-sm">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
+                        <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-full shadow-sm">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
                       </button>
                     </div>
                   )}
@@ -7571,7 +7936,7 @@ export default function Offside() {
                         <p style={{ color: colors.ink }} className="text-xs">{isEN ? 'Full phase breakdown, printable' : 'Scomposizione completa delle fasi, stampabile'}</p>
                       </div>
                       <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.55)' }}>
-                        <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-full shadow-sm">{isEN ? 'Unlock' : 'Sblocca'}</span>
+                        <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-full shadow-sm">{isEN ? 'Unlock' : 'Sblocca'}</span>
                       </button>
                     </div>
                   ) : (
@@ -7773,7 +8138,7 @@ export default function Offside() {
                             ))}
                           </div>
                           <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}>
-                            <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full shadow-sm">{isEN ? 'Unlock' : 'Sblocca'}</span>
+                            <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full shadow-sm">{isEN ? 'Unlock' : 'Sblocca'}</span>
                           </button>
                         </div>
                         <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">{isEN ? 'Get a return-to-play tip built for your exact position.' : 'Ricevi un consiglio sul rientro pensato per il tuo ruolo esatto.'}</p>
