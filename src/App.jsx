@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // SOSTITUISCI questo con il tuo vero Payment Link di Stripe una volta creato
 const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/dRmbJ1c2K3Zt1sB8mB7IY00';
+// Prezzo di Premium individuale mostrato nella pagina Premium (biglietto e bottone).
+// Deve restare uguale al prezzo impostato su Stripe (vedi anche api/stripe-webhook.js).
+const PREMIUM_PRICE = { it: '3,99 €', en: '€3.99' };
 
 // Payment Link per l'abbonamento "Offside Squadre" (50€/mese) — da creare su Stripe come
 // prodotto separato e incollare qui. Finché resta questo placeholder, il bottone di
@@ -44,13 +48,15 @@ import {
   Aperture, Camera, PersonSimple as PersonStanding, Ruler, Plant as Sprout, ArrowClockwise as RotateCw, CircleDashed, ShieldWarning as ShieldAlert,
   Snowflake, Bandaids as Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, DeviceMobile as Smartphone,
   User, Hand, DotsSixVertical as Grip, MapPin, Phone, Envelope as Mail, Stethoscope, ArrowSquareOut as ExternalLink, MagnifyingGlass as Search,
-  Users, SignOut as LogOut, Copy, UserPlus, Buildings as Building2, Eye, EyeSlash as EyeOff, SoccerBall
+  Users, SignOut as LogOut, Copy, UserPlus, Buildings as Building2, Eye, EyeSlash as EyeOff, SoccerBall, Trash, BookOpen
 } from '@phosphor-icons/react';
 
 const colors = {
   paper: '#EEF3F8', card: '#FFFFFF', hairline: '#D7E1EA', ink: '#101B26',
   mutedInk: '#57697A', accent: '#2FA766', accentTint: '#E1F3E8', accentDark: '#0E7C43',
-  red: '#AE3830', redTint: '#F6DEDB', laneBg: '#DFE7EF', orange: '#C96A22',
+  // testo sopra il verde pieno: il bianco su #2FA766 arriva solo a 3:1, questo a 6:1
+  onAccent: '#06140E',
+  red: '#AE3830', redTint: '#F6DEDB', laneBg: '#DFE7EF', orange: '#A4561C',
   prevention: '#1D8FA0', preventionTint: '#DAF1F3', preventionDark: '#0B6672', preventionPaper: '#EBF7F8',
   premiumGold: '#F0B429', premiumGoldTint: 'rgba(240,180,41,0.18)',
   heroBg: '#0C2B21',
@@ -95,6 +101,8 @@ const formCuesEN = {
 
 const severityLabelsIT = { lieve: 'Lieve', moderato: 'Moderato', severo: 'Severo' };
 const severityLabelsEN = { lieve: 'Mild', moderato: 'Moderate', severo: 'Severe' };
+// Dopo "gravità" (femminile): "gravità moderata", non "gravità moderato".
+const severityFemIT = { lieve: 'lieve', moderato: 'moderata', severo: 'severa' };
 const severityInfoIT = {
   lieve: 'Dolore lieve, riesci a muoverti e camminare quasi normalmente. Gonfiore minimo o assente.',
   moderato: 'Dolore evidente, difficoltà a muoverti liberamente nei primi giorni. Gonfiore visibile.',
@@ -2213,7 +2221,7 @@ const redFlagsEN = [
 
 const riceStepsIT = [
   { letter: 'R', title: 'Riposo', icon: Pause, text: 'Smetti subito l\'attività. Continuare a giocare sul dolore rischia di peggiorare l\'infortunio.' },
-  { letter: 'I', title: 'Ghiaccio', icon: Snowflake, text: 'Applica ghiaccio avvolto in un panno (mai direttamente sulla pelle) per 15-20 minuti, ogni 2-3 ore nelle prime 24-48 ore.' },
+  { letter: 'G', title: 'Ghiaccio', icon: Snowflake, text: 'Applica ghiaccio avvolto in un panno (mai direttamente sulla pelle) per 15-20 minuti, ogni 2-3 ore nelle prime 24-48 ore.' },
   { letter: 'C', title: 'Compressione', icon: Bandage, text: 'Una fascia elastica, non troppo stretta, aiuta a limitare il gonfiore.' },
   { letter: 'E', title: 'Elevazione', icon: ArrowUp, text: 'Tieni la zona sollevata sopra il livello del cuore quando possibile, specialmente nelle prime ore.' },
 ];
@@ -3227,26 +3235,26 @@ const swellingOptionsEN = [{ key: 'si', label: 'Yes' }, { key: 'no', label: 'No'
 
 function BottomNav({ screen, isEN, onNavigate }) {
   const items = [
-    { key: 'regions', label: isEN ? 'Home' : 'Home', icon: Compass, screens: ['regions', 'triage', 'injuries', 'firstaid'] },
+    { key: 'regions', label: isEN ? 'Home' : 'Home', icon: Compass, screens: ['regions', 'triage', 'triageResults', 'injuries', 'firstaid'] },
     { key: 'tracker', label: isEN ? 'Recovery' : 'Percorso', icon: Activity, screens: ['tracker'] },
     { key: 'physios', label: isEN ? 'Physio' : 'Fisio', icon: Stethoscope, screens: ['physios'] },
     { key: 'premium', label: 'Premium', icon: TrendingUp, screens: ['premium'] },
   ];
   return (
-    <div style={{ backgroundColor: colors.card, borderTop: `1px solid ${colors.hairline}`, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} className="fixed bottom-0 left-0 right-0 flex items-stretch z-20 shadow-[0_-2px_10px_rgba(16,27,38,0.06)]">
+    <nav aria-label={isEN ? 'Main navigation' : 'Navigazione principale'} style={{ backgroundColor: colors.card, borderTop: `1px solid ${colors.hairline}`, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} className="fixed bottom-0 left-0 right-0 mx-auto max-w-[560px] flex items-stretch z-20 shadow-[0_-2px_10px_rgba(16,27,38,0.06)]">
       {items.map((item) => {
         const isActive = item.screens.includes(screen);
         const Icon = item.icon;
         return (
-          <button key={item.key} onClick={() => onNavigate(item.key)} className="os-focus flex-1 flex flex-col items-center justify-center gap-1 pt-2 pb-2.5" style={{ color: isActive ? colors.accentDark : colors.mutedInk }} aria-current={isActive ? 'page' : undefined}>
-            <span style={{ backgroundColor: isActive ? colors.accentTint : 'transparent' }} className="flex items-center justify-center w-14 h-7 rounded-full transition-colors">
+          <button key={item.key} onClick={() => onNavigate(item.key)} className="os-focus group flex-1 flex flex-col items-center justify-center gap-1 pt-2 pb-2.5 min-h-[58px]" style={{ color: isActive ? colors.accentDark : colors.mutedInk }} aria-current={isActive ? 'page' : undefined}>
+            <span style={{ backgroundColor: isActive ? colors.accentTint : 'transparent' }} className="os-press-child flex items-center justify-center w-14 h-7 rounded-full">
               <Icon size={20} strokeWidth={isActive ? 2.4 : 1.8} />
             </span>
-            <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: isActive ? 700 : 500 }} className="text-[10px]">{item.label}</span>
+            <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: isActive ? 700 : 500 }} className="text-[11px]">{item.label}</span>
           </button>
         );
       })}
-    </div>
+    </nav>
   );
 }
 
@@ -3259,7 +3267,7 @@ function CookieBanner({ isEN, onChoice }) {
       role="dialog"
       aria-label={isEN ? 'Cookie preferences' : 'Preferenze cookie'}
       style={{ backgroundColor: colors.ink, paddingBottom: 'calc(14px + env(safe-area-inset-bottom, 0px))' }}
-      className="fixed bottom-0 left-0 right-0 z-40 px-5 pt-4 sm:px-8 shadow-[0_-4px_16px_rgba(16,27,38,0.25)]"
+      className="os-sheet fixed bottom-0 left-0 right-0 z-40 px-5 pt-4 sm:px-8 shadow-[0_-4px_16px_rgba(16,27,38,0.25)]"
     >
       <div className="max-w-md mx-auto">
         <p style={{ color: '#EEF3F8', fontFamily: "'Public Sans', sans-serif" }} className="text-xs leading-relaxed mb-3">
@@ -3280,7 +3288,7 @@ function CookieBanner({ isEN, onChoice }) {
           </button>
           <button
             onClick={() => onChoice(true)}
-            style={{ backgroundColor: colors.accent, color: '#FFFFFF' }}
+            style={{ backgroundColor: colors.accent, color: colors.onAccent }}
             className="os-focus flex-1 rounded-lg py-2.5 text-xs font-semibold hover:opacity-90 transition-opacity"
           >
             {isEN ? 'Accept' : 'Accetta'}
@@ -3306,7 +3314,7 @@ function PlayerMascot({ stage = 0, size = 28, color = colors.accent }) {
   ];
   const p = poses[Math.min(stage, poses.length - 1)];
   return (
-    <svg width={size} height={size * 1.2} viewBox="0 0 40 48" fill="none" aria-hidden="true" style={{ transition: 'all 0.3s ease' }}>
+    <svg width={size} height={size * 1.2} viewBox="0 0 40 48" fill="none" aria-hidden="true">
       <circle cx={p.head.cx} cy={p.head.cy} r="4" fill={color} />
       <path d={p.torso} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
       <path d={p.armL} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
@@ -3354,8 +3362,8 @@ const LED_GREEN = '#7DFFA8';
 function SubBoard({ daysLeft, isEN }) {
   const past = daysLeft <= 0;
   return (
-    <div style={{ backgroundColor: '#050B08', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 0 14px rgba(0,0,0,0.65)' }} className="flex-shrink-0 rounded-lg px-3 pt-1.5 pb-2 text-center min-w-[84px]">
-      <p style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.12em', fontFamily: "'Bricolage Grotesque', sans-serif" }} className="text-[9px] font-bold uppercase mb-1">{isEN ? 'Est. return' : 'Rientro stimato'}</p>
+    <div style={{ backgroundColor: '#050B08', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 0 14px rgba(0,0,0,0.65)' }} className="flex-shrink-0 rounded-lg px-2.5 pt-1.5 pb-2 text-center min-w-[84px]">
+      <p style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.08em', fontFamily: "'Bricolage Grotesque', sans-serif" }} className="text-[10px] font-bold uppercase mb-1">{isEN ? 'Est. return' : 'Rientro stimato'}</p>
       {past ? (
         <p style={{ fontFamily: "'Bebas Neue', sans-serif", color: colors.premiumGold, textShadow: `0 0 10px ${colors.premiumGold}99` }} className="text-[34px] leading-none">90'</p>
       ) : (
@@ -3384,7 +3392,7 @@ function MatchClock({ minute, overtime, segments, daysLeft, isEN }) {
             <span style={{ fontFamily: "'Bebas Neue', sans-serif", color: '#FFFFFF' }} className="text-[88px] leading-[0.8] os-tabular">{minute}{overtime ? '+' : ''}</span>
             <span style={{ fontFamily: "'Bebas Neue', sans-serif", color: fillColor }} className="text-4xl leading-none">'</span>
           </div>
-          <p style={{ ...label, color: 'rgba(255,255,255,0.62)', letterSpacing: '0.14em' }} className="text-[10px] font-bold uppercase mt-2">{isEN ? 'Minute of your recovery' : 'Minuto del tuo recupero'}</p>
+          <p style={{ ...label, color: 'rgba(255,255,255,0.62)', letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase mt-2">{isEN ? 'Minute of your recovery' : 'Minuto del tuo recupero'}</p>
         </div>
         <SubBoard daysLeft={daysLeft} isEN={isEN} />
       </div>
@@ -3393,12 +3401,12 @@ function MatchClock({ minute, overtime, segments, daysLeft, isEN }) {
           <div className="flex gap-1">
             {segments.map((seg, i) => (
               <div key={i} className="relative h-2 overflow-hidden rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.14)', flexGrow: seg.span, flexBasis: 0 }}>
-                <div className="os-fill absolute inset-y-0 left-0" style={{ width: `${seg.fill}%`, backgroundColor: fillColor }} />
+                <div className="os-fill absolute inset-0" style={{ transform: `scaleX(${seg.fill / 100})`, backgroundColor: fillColor }} />
               </div>
             ))}
           </div>
           <div className="absolute w-px" style={{ left: '50%', top: -5, bottom: -5, backgroundColor: 'rgba(255,255,255,0.6)' }} aria-hidden="true" />
-          <div className={`absolute w-3.5 h-3.5 rounded-full ${overtime ? '' : 'os-playhead'}`} style={{ left: `${pct}%`, top: '50%', transform: 'translate(-50%, -50%)', backgroundColor: '#FFFFFF', boxShadow: `0 0 0 3px ${fillColor}66, 0 0 14px ${fillColor}` }} aria-hidden="true" />
+          <div className={`absolute w-3.5 h-3.5 rounded-full ${overtime ? '' : 'os-ping'}`} style={{ left: `${pct}%`, top: '50%', transform: 'translate(-50%, -50%)', backgroundColor: '#FFFFFF', boxShadow: `0 0 0 3px ${fillColor}66, 0 0 14px ${fillColor}` }} aria-hidden="true" />
         </div>
         <div style={{ ...label, color: 'rgba(255,255,255,0.5)' }} className="grid grid-cols-5 mt-2 text-[10px] font-semibold uppercase">
           <span className="text-left">0'</span>
@@ -3420,9 +3428,14 @@ function MatchClock({ minute, overtime, segments, daysLeft, isEN }) {
 // Il "GOL" dopo aver segnato la sessione di oggi: il pallone entra in rete, la scritta esplode,
 // sotto la serie di presenze. Si chiude da solo o con un tocco. Con "riduci movimento" attivo
 // le animazioni sono spente (regola globale) e resta la schermata ferma, già leggibile.
-function GoalCelebration({ streak, isEN, onClose }) {
+function GoalCelebration({ streak, isEN, onClose, leaving = false }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
   return (
-    <div onClick={onClose} role="status" aria-live="polite" className="fixed inset-0 z-[60] flex items-center justify-center os-gol-backdrop cursor-pointer" style={{ background: `radial-gradient(70% 55% at 50% 45%, rgba(47,167,102,0.28), rgba(47,167,102,0) 70%), rgba(5,16,11,0.94)`, backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
+    <div onClick={onClose} role="status" aria-live="polite" className={`fixed inset-0 z-[60] flex items-center justify-center cursor-pointer ${leaving ? 'os-gol-leave' : 'os-gol-backdrop'}`} style={{ background: `radial-gradient(70% 55% at 50% 45%, rgba(47,167,102,0.28), rgba(47,167,102,0) 70%), rgba(5,16,11,0.94)`, backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
       <div className="text-center px-6">
         <svg width="220" height="124" viewBox="0 0 220 124" className="mx-auto mb-1" aria-hidden="true">
           <g className="os-net" stroke="rgba(255,255,255,0.4)" strokeWidth="1.1" fill="none">
@@ -3561,10 +3574,11 @@ function BodyDiagram({ onSelectRegion, labels = regionLabelsIT, isEN = false, ti
   const t = BOARD_TONES[tone] || BOARD_TONES.green;
   const led = t.led;
 
+  // Si apre subito: la zona è già accesa al tocco, l'attesa di 280 ms non aggiungeva nulla.
   const handleSelect = (region) => {
-    if (pinging) return;
     setPinging(region);
-    setTimeout(() => { onSelectRegion(region); setPinging(null); }, 280);
+    onSelectRegion(region);
+    setTimeout(() => setPinging(null), 600);
   };
   // Acceso = premuto, appena scelto o col focus da tastiera (fa da indicatore di focus visibile).
   const lit = (region) => pressed === region || pinging === region || focused === region;
@@ -3759,15 +3773,15 @@ function DrillCard({ index, ex, catLabel, done = false, onToggle, helpOpen = fal
                 aria-pressed={done}
                 aria-label={done ? (isEN ? `Mark as not done: ${main}` : `Segna come da fare: ${main}`) : (isEN ? `Mark as done: ${main}` : `Segna come fatto: ${main}`)}
                 style={{ backgroundColor: done ? t.main : dark ? 'rgba(255,255,255,0.06)' : colors.card, border: `2px solid ${done ? t.main : dark ? 'rgba(255,255,255,0.22)' : colors.hairline}`, boxShadow: done ? `0 4px 12px ${t.main}55` : 'none' }}
-                className="os-focus flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-colors"
+                className="os-focus os-press [--press:0.92] flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"
               >
                 {done ? <Check size={18} color="#FFFFFF" className="os-check-pop" /> : <Check size={16} color={dark ? 'rgba(255,255,255,0.3)' : colors.hairline} />}
               </button>
             )}
           </div>
-          <button type="button" onClick={onToggleHelp} aria-expanded={helpOpen} style={{ color: dark ? t.led : t.dark }} className="os-focus flex items-center gap-1.5 px-3 pb-3 text-[12px] font-semibold hover:opacity-75 transition-opacity">
-            <PlayCircle size={14} />{isEN ? 'How to do it' : 'Come si fa'}
-            <ChevronDown size={12} style={{ transform: helpOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+          <button type="button" onClick={onToggleHelp} aria-expanded={helpOpen} style={{ color: dark ? t.led : t.dark }} className="os-focus flex items-center gap-1.5 px-3 pt-1 pb-3 min-h-[40px] text-[12px] font-semibold hover:opacity-75 transition-opacity">
+            <BookOpen size={14} />{isEN ? 'How to do it' : 'Come si fa'}
+            <ChevronDown size={12} style={{ transform: helpOpen ? 'rotate(180deg)' : 'none', transition: 'transform 200ms var(--ease-in-out)' }} />
           </button>
           {helpOpen && (
             <div className="px-3 pb-3 os-fadein">
@@ -3905,7 +3919,7 @@ function InstallBanner({ isEN, onInstallClick, canInstall, onDismiss }) {
           : (isEN ? 'Add Offside to your home screen' : 'Aggiungi Offside alla schermata Home')}
       </p>
       {canInstall && !isIOS && (
-        <button onClick={onInstallClick} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus flex-shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full">{isEN ? 'Install' : 'Installa'}</button>
+        <button onClick={onInstallClick} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus flex-shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full">{isEN ? 'Install' : 'Installa'}</button>
       )}
       <button onClick={onDismiss} style={{ color: colors.accentDark }} className="os-focus flex-shrink-0"><X size={13} /></button>
     </div>
@@ -3923,7 +3937,7 @@ function SetupSection({ id, currentSection, onToggle, icon: Icon, label, badge, 
         </div>
         <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: colors.ink }} className="flex-1 text-sm font-semibold">{label}</span>
         {badge}
-        <ChevronDown size={16} color={colors.mutedInk} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }} />
+        <ChevronDown size={16} color={colors.mutedInk} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 200ms var(--ease-in-out)' }} />
       </button>
       {isOpen && <div className="px-4 pb-4 os-fadein">{children}</div>}
     </div>
@@ -3932,7 +3946,7 @@ function SetupSection({ id, currentSection, onToggle, icon: Icon, label, badge, 
 
 // Bottone oro di Premium, con un riflesso di luce che ci passa sopra ogni tanto.
 function GoldButton({ children, onClick, href, full = false }) {
-  const cls = `os-focus relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-xl font-bold uppercase tracking-wide shadow-md hover:brightness-105 active:scale-[0.98] transition ${full ? 'w-full py-4 text-sm' : 'px-5 py-3 text-xs'}`;
+  const cls = `os-focus os-press [--press:0.98] relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-xl font-bold uppercase tracking-wide shadow-md hover:brightness-105 ${full ? 'w-full py-4 text-sm' : 'px-5 py-3 text-xs'}`;
   const style = { background: GOLD_GRADIENT, color: '#0B121A', fontFamily: BRICOLAGE, letterSpacing: '0.06em', boxShadow: '0 8px 22px rgba(240,180,41,0.28)' };
   const inner = <>{children}<span className="os-sheen" aria-hidden="true" /></>;
   return href
@@ -3947,7 +3961,7 @@ function PremiumBanner({ text, onClick }) {
   const body = String(text || '').replace(/^Premium:\s*/i, '');
   const label = body.charAt(0).toUpperCase() + body.slice(1);
   return (
-    <button onClick={onClick} style={{ background: 'linear-gradient(120deg, #F9DD85, #8A6414 38%, #F0B429 70%, #6B4D0C)' }} className="os-focus relative w-full overflow-hidden rounded-2xl p-[1.5px] mb-5 text-left shadow-md hover:brightness-110 active:scale-[0.99] transition">
+    <button onClick={onClick} style={{ background: 'linear-gradient(120deg, #F9DD85, #8A6414 38%, #F0B429 70%, #6B4D0C)' }} className="os-focus os-press [--press:0.98] relative w-full overflow-hidden rounded-2xl p-[1.5px] mb-5 text-left shadow-md hover:brightness-110">
       <div style={{ background: 'radial-gradient(120% 140% at 0% 0%, rgba(240,180,41,0.24), rgba(240,180,41,0) 55%), #0E1620' }} className="relative flex items-center gap-3.5 overflow-hidden rounded-[15px] px-4 py-3.5">
         <div style={{ background: GOLD_GRADIENT }} className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center shadow-sm">
           <Trophy size={20} color="#0E1620" />
@@ -3957,7 +3971,6 @@ function PremiumBanner({ text, onClick }) {
           <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-sm font-semibold leading-snug">{label}</p>
         </div>
         <ChevronRight size={18} color={colors.premiumGold} className="flex-shrink-0" />
-        <span className="os-sheen" aria-hidden="true" />
       </div>
     </button>
   );
@@ -4091,13 +4104,17 @@ function loadFontsOnce() {
   document.head.appendChild(link);
 }
 
-function scrollToId(id) {
+function scrollToId(id, opts = {}) {
   if (typeof document === 'undefined') return;
   const el = document.getElementById(id);
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Con "riduci movimento" attivo, o arrivando da un'altra schermata, si salta subito al punto.
+  const reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (el) el.scrollIntoView({ behavior: opts.instant || reduce ? 'auto' : 'smooth', block: 'start' });
 }
 
-function toISODate(d) { return d.toISOString().slice(0, 10); }
+// Data di calendario LOCALE: con toISOString (UTC), tra mezzanotte e le 2 in Italia risultava
+// ancora "ieri" e la sessione segnata finiva sul giorno sbagliato.
+function toISODate(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 // Giorno di calendario locale (a mezzogiorno, così il fuso non lo sposta al giorno prima).
 function localDayKey(date = new Date()) { return toISODate(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12)); }
 function daysSince(isoDate) {
@@ -4160,8 +4177,13 @@ function computeStreak(log) {
       streak++;
       d.setDate(d.getDate() - 1);
     } else if (!graceUsed && streak > 0) {
+      // Un giorno saltato si "perdona" solo se prima c'è un'altra giornata fatta: altrimenti
+      // la serie semplicemente inizia qui (prima il messaggio compariva sempre, a torto).
+      const prev = new Date(d);
+      prev.setDate(prev.getDate() - 1);
+      if (!isDone(toISODate(prev))) break;
       graceUsed = true;
-      d.setDate(d.getDate() - 1);
+      d = prev;
     } else {
       break;
     }
@@ -4406,6 +4428,8 @@ function MovementCameraOverlay({ test, isEN, onCancel, onComplete }) {
   const [stage, setStage] = useState('loading');
   const [errorKind, setErrorKind] = useState(null);
   const [facingMode, setFacingMode] = useState('environment');
+  // "Riprova" deve far ripartire davvero la fotocamera (prima non cambiava nulla).
+  const [retryKey, setRetryKey] = useState(0);
   const [trackingOk, setTrackingOk] = useState(false);
   const [repCount, setRepCount] = useState(0);
   const [balancePhase, setBalancePhase] = useState('right');
@@ -4472,7 +4496,7 @@ function MovementCameraOverlay({ test, isEN, onCancel, onComplete }) {
       detectorRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facingMode]);
+  }, [facingMode, retryKey]);
 
   const stopCamera = () => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -4658,7 +4682,7 @@ function MovementCameraOverlay({ test, isEN, onCancel, onComplete }) {
                   {errorKind === 'permission' ? T.errPermission : errorKind === 'unsupported' ? T.errUnsupported : T.errGeneric}
                 </p>
                 {errorKind !== 'unsupported' && (
-                  <button onClick={() => setFacingMode((f) => f)} style={{ backgroundColor: colors.accent }} className="os-focus px-5 py-2.5 rounded-lg text-sm font-semibold" >
+                  <button onClick={() => setRetryKey((k) => k + 1)} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus px-5 py-2.5 rounded-lg text-sm font-semibold" >
                     {T.tryAgain}
                   </button>
                 )}
@@ -4672,7 +4696,7 @@ function MovementCameraOverlay({ test, isEN, onCancel, onComplete }) {
                   <span style={{ backgroundColor: trackingOk ? colors.accent : colors.orange }} className="w-2.5 h-2.5 rounded-full flex-shrink-0" />
                   <span style={{ color: '#FFFFFF' }} className="text-xs font-medium">{trackingOk ? T.trackingGood : T.trackingBad}</span>
                 </div>
-                <button onClick={startCalibration} disabled={!trackingOk} style={{ backgroundColor: trackingOk ? colors.accent : 'rgba(255,255,255,0.25)', color: '#FFFFFF' }} className="os-focus w-full py-3.5 rounded-xl text-sm font-semibold uppercase tracking-wide transition-colors">
+                <button onClick={startCalibration} disabled={!trackingOk} style={{ backgroundColor: trackingOk ? colors.accent : 'rgba(255,255,255,0.25)', color: trackingOk ? colors.onAccent : '#FFFFFF' }} className="os-focus w-full py-3.5 rounded-xl text-sm font-semibold uppercase tracking-wide transition-colors">
                   {T.ready}
                 </button>
               </div>
@@ -4685,7 +4709,7 @@ function MovementCameraOverlay({ test, isEN, onCancel, onComplete }) {
                 <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-5xl font-bold mb-1 os-tabular">{repCount}</p>
                 <p style={{ color: 'rgba(255,255,255,0.75)' }} className="text-xs uppercase tracking-wide mb-3">{T.repLabel}</p>
                 <p style={{ color: 'rgba(255,255,255,0.85)' }} className="text-xs leading-relaxed mb-4">{T.squatHint}</p>
-                <button onClick={finishSquat} disabled={repCount === 0} style={{ backgroundColor: repCount > 0 ? colors.accent : 'rgba(255,255,255,0.25)', color: '#FFFFFF' }} className="os-focus w-full py-3.5 rounded-xl text-sm font-semibold uppercase tracking-wide transition-colors">
+                <button onClick={finishSquat} disabled={repCount === 0} style={{ backgroundColor: repCount > 0 ? colors.accent : 'rgba(255,255,255,0.25)', color: repCount > 0 ? colors.onAccent : '#FFFFFF' }} className="os-focus w-full py-3.5 rounded-xl text-sm font-semibold uppercase tracking-wide transition-colors">
                   {T.done}
                 </button>
               </div>
@@ -4720,7 +4744,7 @@ function MovementCameraOverlay({ test, isEN, onCancel, onComplete }) {
             <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed text-center mb-6">{T.disclaimer}</p>
             <div className="space-y-2.5">
               {result.level !== 'insufficiente' && (
-                <button onClick={() => onComplete(result)} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full py-3.5 rounded-xl text-sm font-semibold uppercase tracking-wide">
+                <button onClick={() => onComplete(result)} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus w-full py-3.5 rounded-xl text-sm font-semibold uppercase tracking-wide">
                   {T.saveClose}
                 </button>
               )}
@@ -4752,7 +4776,7 @@ function downloadRecoveryReminders(isEN) {
   const ics = [
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Offside//Recovery Reminders//IT',
     'BEGIN:VEVENT',
-    `UID:offside-${Date.now()}@offside.app`,
+    `UID:offside-${Date.now()}@myoffside.com`,
     `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
     'RRULE:FREQ=DAILY;COUNT=28',
     `SUMMARY:${summary}`, `DESCRIPTION:${description}`,
@@ -4881,6 +4905,18 @@ export default function Offside() {
   const [expandedSymptoms, setExpandedSymptoms] = useState(null);
 
   // --- Offside Squadre: stato del responsabile (fisio/preparatore) ---
+  // Navigazione: "tab" quando si cambia sezione dalla barra in basso (niente animazione
+  // d'ingresso, come nelle app native), "push" quando si entra più in profondità.
+  const navKindRef = useRef('push');
+  // Annulla dopo un'eliminazione (percorso o "Ricomincia"): per qualche secondo resta una copia.
+  const [undoInfo, setUndoInfo] = useState(null);
+  const undoTimerRef = useRef(null);
+  // Il "GOL" ha un solo timer: un secondo gol non viene più chiuso da quello del primo.
+  const golTimerRef = useRef(null);
+  // Cronologia del browser, per il tasto/gesto "indietro" di Android.
+  const fromPopRef = useRef(false);
+  const historyReadyRef = useRef(false);
+  const navStateRef = useRef({});
   const [teamAuth, setTeamAuth] = useState(null); // { token, teamId, teamName, responsibleName, responsibleRole, inviteCode, subscriptionActive }
   const [teamForm, setTeamForm] = useState({ teamName: '', responsibleName: '', responsibleRole: 'fisioterapista', email: '', password: '', confirmPassword: '', minorConsentAttested: false });
   const [teamFormStatus, setTeamFormStatus] = useState('idle'); // idle | submitting | error
@@ -4906,7 +4942,7 @@ export default function Offside() {
       trackEvent('premium_unlocked_via_redirect');
       params.delete('premium');
       const cleanUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '') + window.location.hash;
-      window.history.replaceState({}, '', cleanUrl);
+      window.history.replaceState(window.history.state, '', cleanUrl);
     }
   }, []);
 
@@ -4962,7 +4998,7 @@ export default function Offside() {
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         } catch (err) {}
-        window.history.replaceState({}, '', window.location.pathname);
+        window.history.replaceState(window.history.state, '', window.location.pathname);
       }
 
       // Ritorno da un pagamento Squadre riuscito (mensile o Pass Stagionale): torna dritti alla
@@ -4973,7 +5009,7 @@ export default function Offside() {
         setScreen('teamDashboard');
         params.delete('team');
         const cleanUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '') + window.location.hash;
-        window.history.replaceState({}, '', cleanUrl);
+        window.history.replaceState(window.history.state, '', cleanUrl);
       }
     })();
   }, []);
@@ -4993,7 +5029,58 @@ export default function Offside() {
   // già a metà pagina se prima si era scrollato in basso in Home).
   useEffect(() => {
     window.scrollTo(0, 0);
+    navKindRef.current = 'push';
   }, [screen]);
+
+  // Lingua della pagina (per i lettori di schermo) e titolo della scheda, per ogni schermata.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const en = language === 'en';
+    document.documentElement.lang = en ? 'en' : 'it';
+    const titles = {
+      onboarding: en ? 'Welcome' : 'Benvenuto', regions: en ? 'Today' : 'Oggi', tracker: en ? 'Your recovery' : 'Il tuo percorso',
+      injuries: en ? 'Injuries' : 'Infortuni', triage: en ? 'Not sure what it is?' : 'Non sai cosa hai?', triageResults: en ? 'Possible matches' : 'Possibili corrispondenze',
+      firstaid: en ? 'First aid' : 'Primi soccorsi', premium: 'Premium', profile: en ? 'Your profile' : 'Il tuo profilo',
+      physios: en ? 'Physiotherapists' : 'Fisioterapisti', movementScreen: en ? 'Movement screening' : 'Screening del movimento',
+      teamRegister: en ? 'Register your team' : 'Registra la squadra', teamLogin: en ? 'Team login' : 'Accedi alla squadra', teamDashboard: en ? 'Team dashboard' : 'Dashboard squadra',
+    };
+    document.title = titles[screen] ? `${titles[screen]} · Offside` : 'Offside';
+  }, [screen, language]);
+
+  // Cronologia: ogni schermata diventa una voce, così "indietro" (tasto di Android, gesto,
+  // browser) riporta alla schermata precedente invece di chiudere l'app.
+  navStateRef.current = { screen, selectedRegion, triageRegion, hasInjury: !!(selectedInjury && injuriesData[selectedInjury]), ready: disclaimerAccepted && onboardingProfileDone, teamAuth };
+  useEffect(() => {
+    if (loading || typeof window === 'undefined') return;
+    if (fromPopRef.current) { fromPopRef.current = false; return; }
+    const current = window.history.state || {};
+    if (!historyReadyRef.current) {
+      historyReadyRef.current = true;
+      window.history.replaceState({ ...current, osScreen: screen }, '');
+      return;
+    }
+    if (current.osScreen === screen) return;
+    window.history.pushState({ osScreen: screen }, '');
+  }, [screen, loading]);
+  useEffect(() => {
+    const onPop = (e) => {
+      const target = e.state && e.state.osScreen;
+      if (!target) return;
+      const s = navStateRef.current;
+      let next = target;
+      if ((next === 'cover' || next === 'onboarding') && s.ready) next = 'regions';
+      if (next === 'tracker' && !s.hasInjury) next = 'regions';
+      if (next === 'injuries' && !s.selectedRegion) next = 'regions';
+      if (next === 'triageResults' && !s.triageRegion) next = 'triage';
+      if (next === 'teamDashboard' && !s.teamAuth) next = 'premium';
+      if (next === s.screen) return;
+      fromPopRef.current = true;
+      navKindRef.current = 'tab';
+      setScreen(next);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   // Sincronizza la scelta cookie con Google Consent Mode: in index.html il consenso
   // di default è "denied", quindi ad ogni caricamento riapplichiamo la scelta salvata
@@ -5035,12 +5122,12 @@ export default function Offside() {
   };
 
   const goBack = () => {
-    if (screen === 'tracker') setScreen('injuries');
+    if (screen === 'tracker') setScreen(selectedRegion ? 'injuries' : 'regions');
     else if (screen === 'injuries') { setScreen('regions'); setSelectedRegion(null); setTriageTag(null); }
     else if (screen === 'triage') setScreen('regions');
     else if (screen === 'triageResults') setScreen('triage');
     else if (screen === 'firstaid') setScreen('regions');
-    else if (screen === 'premium') setScreen('tracker');
+    else if (screen === 'premium') setScreen(selectedInjury && injuriesData[selectedInjury] ? 'tracker' : 'regions');
     else if (screen === 'movementScreen') { setScreen('regions'); setRegionsTab('prevention'); }
     else if (screen === 'profile') setScreen('regions');
     else if (screen === 'physios') setScreen('regions');
@@ -5305,7 +5392,7 @@ export default function Offside() {
   const shareTeamInviteCode = async () => {
     if (!teamAuth) return;
     const text = isEN
-      ? `Join our team on Offside to share your injury updates: code ${teamAuth.inviteCode} — offside.app`
+      ? `Join our team on Offside to share your injury updates: code ${teamAuth.inviteCode} — myoffside.com`
       : `Unisciti alla nostra squadra su Offside per condividere gli aggiornamenti sui tuoi infortuni: codice ${teamAuth.inviteCode} — myoffside.com`;
     try {
       if (navigator.share) {
@@ -5371,8 +5458,8 @@ export default function Offside() {
         <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-3.5">
           <p style={{ color: colors.mutedInk }} className="text-xs mb-2">{isEN ? 'Enter the email you used to pay' : 'Inserisci l\'email che hai usato per pagare'}</p>
           <div className="flex gap-2">
-            <input type="email" value={restoreEmail} onChange={(e) => { setRestoreEmail(e.target.value); setRestoreStatus('idle'); }} placeholder="email@esempio.com" style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus flex-1 min-w-0 rounded-lg px-3 py-2 text-sm" />
-            <button onClick={restorePremium} disabled={restoreStatus === 'checking'} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus px-3 py-2 rounded-lg text-xs font-semibold flex-shrink-0">
+            <input type="email" autoComplete="email" aria-label={isEN ? 'Email used to pay' : 'Email usata per pagare'} value={restoreEmail} onChange={(e) => { setRestoreEmail(e.target.value); setRestoreStatus('idle'); }} placeholder="email@esempio.com" style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus flex-1 min-w-0 rounded-lg px-3 py-2 text-base" />
+            <button onClick={restorePremium} disabled={restoreStatus === 'checking'} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus px-3 py-2 rounded-lg text-xs font-semibold flex-shrink-0">
               {restoreStatus === 'checking' ? '...' : (isEN ? 'Check' : 'Verifica')}
             </button>
           </div>
@@ -5427,6 +5514,12 @@ export default function Offside() {
     }
   };
 
+  const closeCelebration = () => {
+    clearTimeout(golTimerRef.current);
+    setCelebration((c) => (c ? { ...c, leaving: true } : c));
+    golTimerRef.current = setTimeout(() => setCelebration(null), 170);
+  };
+
   const toggleToday = () => {
     if (!selectedInjury) return;
     const today = todayKey();
@@ -5434,15 +5527,19 @@ export default function Offside() {
     const todayEntry = current[today] || {};
     const willBeDone = !todayEntry.done;
     if (willBeDone) trackEvent('session_logged', { injury: selectedInjury });
-    const nextEntry = { ...todayEntry, done: willBeDone };
+    // Il GOL parte una volta al giorno: togliere e rimettere la spunta per sbaglio non lo ripete.
+    const celebrate = willBeDone && !todayEntry.celebrated;
+    const nextEntry = { ...todayEntry, done: willBeDone, celebrated: !!(todayEntry.celebrated || willBeDone) };
     const nextForInjury = { ...current, [today]: nextEntry };
     const nextLog = { ...dailyLog, [selectedInjury]: nextForInjury };
     setDailyLog(nextLog);
     persist(snapshot({ dailyLog: nextLog }));
-    if (willBeDone) {
+    if (celebrate) {
+      clearTimeout(golTimerRef.current);
       setCelebration({ streak: computeStreak(nextForInjury).count });
-      try { if (navigator.vibrate) navigator.vibrate([30, 40, 70]); } catch (err) {}
-      setTimeout(() => setCelebration(null), 2600);
+      // la vibrazione arriva quando il pallone entra in rete, non prima
+      setTimeout(() => { try { if (navigator.vibrate) navigator.vibrate([40, 30, 60]); } catch (err) {} }, 220);
+      golTimerRef.current = setTimeout(closeCelebration, 2600);
     }
   };
 
@@ -5486,8 +5583,28 @@ export default function Offside() {
     trackEvent('wellness_checkin_field', { field });
   };
 
+  const offerUndo = (label, before) => {
+    clearTimeout(undoTimerRef.current);
+    setUndoInfo({ label, before });
+    undoTimerRef.current = setTimeout(() => setUndoInfo(null), 6000);
+  };
+  const undoLast = () => {
+    if (!undoInfo) return;
+    const b = undoInfo.before;
+    setProgress(b.progress);
+    setInjuryDates(b.injuryDates);
+    setDailyLog(b.dailyLog);
+    setSelectedInjury(b.selectedInjury);
+    setActivePhase(b.activePhase);
+    persist(snapshot({ selectedInjury: b.selectedInjury, activePhase: b.activePhase, progress: b.progress, injuryDates: b.injuryDates, dailyLog: b.dailyLog }));
+    if (b.screen) { setSelectedRegion(b.selectedRegion); setScreen(b.screen); }
+    clearTimeout(undoTimerRef.current);
+    setUndoInfo(null);
+  };
+
   const resetInjury = () => {
     if (!selectedInjury) return;
+    const before = { progress, injuryDates, dailyLog, selectedInjury, activePhase, screen, selectedRegion };
     const nextProgress = { ...progress };
     injuriesData[selectedInjury].phases.forEach((_, i) => delete nextProgress[`${selectedInjury}-${i}`]);
     const nextDates = { ...injuryDates };
@@ -5503,10 +5620,12 @@ export default function Offside() {
     setScreen('injuries');
     setSelectedRegion(region);
     persist(snapshot({ selectedInjury: null, activePhase: 0, progress: nextProgress, injuryDates: nextDates, dailyLog: nextLog }));
+    offerUndo(isEN ? 'Recovery reset' : 'Percorso azzerato', before);
   };
 
   const deleteInjuryData = (key) => {
     if (!injuriesData[key]) return;
+    const before = { progress, injuryDates, dailyLog, selectedInjury, activePhase };
     const nextProgress = { ...progress };
     injuriesData[key].phases.forEach((_, i) => delete nextProgress[`${key}-${i}`]);
     const nextDates = { ...injuryDates };
@@ -5520,6 +5639,7 @@ export default function Offside() {
     setSelectedInjury(nextSelected);
     setDeletingKey(null);
     persist(snapshot({ selectedInjury: nextSelected, progress: nextProgress, injuryDates: nextDates, dailyLog: nextLog }));
+    offerUndo(isEN ? 'Recovery deleted' : 'Percorso eliminato', before);
   };
 
   const answerTriage = (field, value) => { setTriageAnswers({ ...triageAnswers, [field]: value }); setTriageCandidateIndex(0); };
@@ -5614,35 +5734,50 @@ export default function Offside() {
   }
 
   const sharedStyle = `
-    @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
-    .os-focus:focus-visible { outline: 2px solid ${colors.accent}; outline-offset: 2px; }
+    :root { --ease-out: cubic-bezier(0.23, 1, 0.32, 1); --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1); --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1); --ease-celebrate: cubic-bezier(0.34, 1.56, 0.64, 1); --enter-y: 6px; }
+    html { scroll-padding-top: 12px; scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+    .os-focus:focus-visible { outline: 2px solid ${colors.accentDark}; outline-offset: 2px; }
     .os-tabular { font-variant-numeric: tabular-nums; }
-    .os-fill { transition: width 0.4s ease; }
+    .os-press { transition: scale 140ms var(--ease-out), background-color 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, opacity 150ms ease; }
+    .os-press:active:not(:disabled) { scale: var(--press, 0.97); }
+    .os-press-child { transition: scale 140ms var(--ease-out), background-color 150ms ease; }
+    .group:active .os-press-child { scale: 0.9; }
+    .os-fill { transform-origin: left center; transition: transform 300ms var(--ease-in-out); }
     input[type="date"].os-date { font-family: 'Public Sans', sans-serif; color-scheme: light; }
-    @keyframes os-fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-    .os-fadein { animation: os-fadein 0.25s ease-out; }
+    @keyframes os-fadein { from { opacity: 0; transform: translateY(var(--enter-y)); } to { opacity: 1; transform: translateY(0); } }
+    .os-fadein { animation: os-fadein 220ms var(--ease-out); }
+    @keyframes os-fade { from { opacity: 0; } to { opacity: 1; } }
     @keyframes os-gol-backdrop { from { opacity: 0; } to { opacity: 1; } }
-    .os-gol-backdrop { animation: os-gol-backdrop 0.2s ease-out; }
+    .os-gol-backdrop { animation: os-gol-backdrop 200ms ease-out; }
+    .os-gol-leave { opacity: 0; transition: opacity 160ms var(--ease-out); }
     @keyframes os-ball-shot { 0% { transform: translate(18px, 150px) scale(0.55) rotate(0deg); } 100% { transform: translate(112px, 66px) scale(1) rotate(300deg); } }
-    .os-ball { animation: os-ball-shot 0.5s cubic-bezier(0.2, 0.75, 0.3, 1) both; }
+    .os-ball { animation: os-ball-shot 450ms var(--ease-out) both; }
     @keyframes os-net-shake { 0%, 100% { transform: translateY(0) scaleY(1); } 35% { transform: translateY(3px) scaleY(1.04); } 70% { transform: translateY(-1px) scaleY(0.99); } }
-    .os-net { transform-origin: 110px 22px; animation: os-net-shake 0.45s ease-out 0.45s both; }
-    @keyframes os-gol-pop { 0% { opacity: 0; transform: scale(0.35); } 60% { opacity: 1; transform: scale(1.12); } 100% { opacity: 1; transform: scale(1); } }
-    .os-gol-text { display: inline-block; animation: os-gol-pop 0.5s cubic-bezier(0.2, 1.3, 0.4, 1) 0.35s both; }
-    @keyframes os-playhead { 0%, 100% { box-shadow: 0 0 0 3px rgba(47,167,102,0.45), 0 0 10px rgba(47,167,102,0.9); } 50% { box-shadow: 0 0 0 6px rgba(47,167,102,0.15), 0 0 18px rgba(47,167,102,1); } }
-    .os-playhead { animation: os-playhead 2.4s ease-in-out infinite; }
+    .os-net { transform-origin: 110px 22px; animation: os-net-shake 450ms var(--ease-out) 220ms both; }
+    @keyframes os-gol-pop { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+    .os-gol-text { display: inline-block; animation: os-gol-pop 420ms var(--ease-celebrate) 220ms both; }
+    .os-ping:not(.absolute):not(.fixed) { position: relative; }
+    .os-ping::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 0 2px rgba(125,255,168,0.7); animation: os-ping 1.6s var(--ease-out) 3; pointer-events: none; }
+    @keyframes os-ping { from { transform: scale(1); opacity: 1; } to { transform: scale(2.4); opacity: 0; } }
     @keyframes os-radar { 0% { transform: scale(0.15); opacity: 0.95; } 100% { transform: scale(1.5); opacity: 0; } }
     .os-radar-ring { transform-box: fill-box; transform-origin: center; animation: os-radar 0.6s ease-out both; }
     @keyframes os-breathe { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
-    .os-breathe { animation: os-breathe 2.6s ease-in-out infinite; }
-    @keyframes os-check-pop { 0% { transform: scale(0.6); } 55% { transform: scale(1.18); } 100% { transform: scale(1); } }
-    .os-check-pop { animation: os-check-pop 0.35s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+    .os-breathe { animation: os-breathe 2.6s ease-in-out 2; }
+    @keyframes os-check-pop { from { transform: scale(0.85); opacity: 0.5; } to { transform: scale(1); opacity: 1; } }
+    .os-check-pop { animation: os-check-pop 160ms var(--ease-out) both; }
     @keyframes os-sheen { 0%, 62% { transform: translateX(-130%) skewX(-18deg); } 100% { transform: translateX(330%) skewX(-18deg); } }
-    .os-sheen { position: absolute; top: 0; bottom: 0; left: 0; width: 40%; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.3), rgba(255,255,255,0)); transform: translateX(-130%); animation: os-sheen 4s ease-in-out infinite; pointer-events: none; }
-    @keyframes os-live { 0%, 100% { box-shadow: 0 0 0 0 rgba(125,255,168,0.65); } 50% { box-shadow: 0 0 0 4px rgba(125,255,168,0); } }
-    .os-live-dot { animation: os-live 1.8s ease-in-out infinite; }
+    .os-sheen { position: absolute; top: 0; bottom: 0; left: 0; width: 40%; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.3), rgba(255,255,255,0)); transform: translateX(-130%); animation: os-sheen 4s ease-in-out 2; pointer-events: none; }
     .os-gold-text { background: linear-gradient(180deg, #FFF3C9 0%, #F7D774 38%, #F0B429 66%, #B7800A 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    @media (prefers-reduced-motion: reduce) { .os-sheen { display: none; } }
+    .os-sheet { transition: transform 320ms var(--ease-drawer); }
+    @starting-style { .os-sheet { transform: translateY(100%); } }
+    @media (prefers-reduced-motion: reduce) {
+      :root { --enter-y: 0px; }
+      .os-press:active:not(:disabled), .group:active .os-press-child { scale: none; }
+      .os-gol-text, .os-check-pop { animation-name: os-fade; }
+      .os-ball, .os-net, .os-radar-ring, .os-breathe, .os-sheen, .os-ping::after { animation: none; }
+      .os-sheen { display: none; }
+      .os-sheet, .os-fill { transition: none; }
+    }
     .os-print-only { display: none; }
     @media print {
       body * { visibility: hidden; }
@@ -5658,13 +5793,13 @@ export default function Offside() {
 
   if (screen === 'cover') {
     return (
-      <div style={{ background: `linear-gradient(165deg, ${colors.preventionPaper} 0%, ${colors.paper} 55%, #FFFFFF 100%)`, ...bodyFont }} className="w-full min-h-[100dvh] relative flex flex-col overflow-hidden">
+      <div style={{ background: `linear-gradient(165deg, ${colors.preventionPaper} 0%, ${colors.paper} 55%, #FFFFFF 100%)`, ...bodyFont }} className="w-full max-w-[560px] mx-auto min-h-[100dvh] relative flex flex-col overflow-hidden md:shadow-[0_0_48px_rgba(0,0,0,0.35)]">
         <style>{sharedStyle}</style>
         <svg className="absolute pointer-events-none" style={{ top: '8%', right: '-22%', width: '150%', height: 'auto', opacity: 0.05, transform: 'rotate(-8deg)' }} viewBox="0 0 512 512" fill="none">
           <circle cx="140" cy="256" r="32" fill={colors.ink} />
           <path d="M178 256 H222 L270 104 L322 408 L374 256 H428" stroke={colors.ink} strokeWidth="30" fill="none" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        <div className="relative px-6 sm:px-10 pt-12 pb-8 flex flex-col flex-1">
+        <div className={`relative px-6 sm:px-10 pt-12 flex flex-col flex-1 ${!cookieChoice ? 'pb-48' : 'pb-8'}`}>
           <div className="flex items-center justify-between mb-5">
             <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `2px solid ${colors.accent}44` }} className="w-16 h-16 rounded-full flex items-center justify-center shadow-sm">
               <LogoMark size={30} color={colors.accent} />
@@ -5728,7 +5863,7 @@ export default function Offside() {
               setScreen(onboardingProfileDone ? 'regions' : 'onboarding');
             }}
             disabled={!disclaimerAccepted}
-            style={{ backgroundColor: disclaimerAccepted ? colors.accent : colors.hairline, color: disclaimerAccepted ? '#FFFFFF' : colors.mutedInk }}
+            style={{ backgroundColor: disclaimerAccepted ? colors.accent : colors.hairline, color: disclaimerAccepted ? colors.onAccent : colors.mutedInk }}
             className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium transition-colors shadow-sm"
           >
             <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Start your recovery' : 'Inizia il tuo percorso'}</span><ArrowRight size={16} />
@@ -5749,12 +5884,12 @@ export default function Offside() {
   if (screen === 'onboarding') {
     const finishOnboarding = () => { setOnboardingProfileDone(true); persist(snapshot({ onboardingProfileDone: true })); setScreen('regions'); };
     return (
-      <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full min-h-[100dvh] relative flex flex-col">
+      <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full max-w-[560px] mx-auto min-h-[100dvh] relative flex flex-col md:shadow-[0_0_48px_rgba(0,0,0,0.35)]">
         <style>{sharedStyle}</style>
-        <div className="px-6 sm:px-10 pt-14 pb-8 flex flex-col flex-1">
+        <div className={`px-6 sm:px-10 pt-14 flex flex-col flex-1 ${!cookieChoice ? 'pb-48' : 'pb-8'}`}>
           <div className="flex items-start justify-between mb-2">
             <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[11px] font-bold uppercase">{isEN ? 'One quick thing' : 'Una cosa veloce'}</p>
-            <button onClick={finishOnboarding} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Skip' : 'Salta'}>
+            <button onClick={finishOnboarding} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus os-press flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Skip' : 'Salta'}>
               <X size={17} color={colors.mutedInk} />
             </button>
           </div>
@@ -5764,7 +5899,7 @@ export default function Offside() {
           <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Playing level' : 'Categoria'}</p>
           <div className="flex flex-wrap gap-2 mb-8">
             {playerLevels.map((lvl) => (
-              <button key={lvl.key} onClick={() => { const next = { ...userProfile, level: lvl.key }; setUserProfile(next); }} style={{ backgroundColor: userProfile.level === lvl.key ? colors.accent : colors.card, color: userProfile.level === lvl.key ? '#FFFFFF' : colors.ink, border: `1.5px solid ${userProfile.level === lvl.key ? colors.accent : colors.hairline}` }} className="os-focus px-4 py-2.5 rounded-full text-sm font-medium transition-colors shadow-sm">
+              <button aria-pressed={userProfile.level === lvl.key} key={lvl.key} onClick={() => { const next = { ...userProfile, level: lvl.key }; setUserProfile(next); }} style={{ backgroundColor: userProfile.level === lvl.key ? colors.accent : colors.card, color: userProfile.level === lvl.key ? colors.onAccent : colors.ink, border: `1.5px solid ${userProfile.level === lvl.key ? colors.accent : colors.hairline}` }} className="os-focus px-4 py-2.5 rounded-full text-sm font-medium transition-colors shadow-sm">
                 {lvl.label}
               </button>
             ))}
@@ -5790,7 +5925,7 @@ export default function Offside() {
 
           <div className="flex-1" />
 
-          <button onClick={finishOnboarding} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
+          <button onClick={finishOnboarding} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
             <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Continue without Premium' : 'Continua senza Premium'}</span><ArrowRight size={16} />
           </button>
           <p style={{ color: colors.mutedInk }} className="text-[11px] text-center">{isEN ? 'You can unlock Premium anytime from your profile.' : 'Puoi sbloccare Premium quando vuoi dal tuo profilo.'}</p>
@@ -5819,10 +5954,13 @@ export default function Offside() {
     : [];
 
   const handleBottomNav = (key) => {
+    navKindRef.current = 'tab';
     if (key === 'regions') { setScreen('regions'); }
     else if (key === 'tracker') {
+      // Senza percorsi attivi: il percorso da avviare (se c'è) oppure una schermata che spiega
+      // da dove partire, invece di rimandare in silenzio alla Home.
       if (activeInjuryKeys.length > 0) resumeInjury(activeInjuryKeys[0]);
-      else { setRegionsTab('injury'); setScreen('regions'); }
+      else setScreen('tracker');
     }
     else if (key === 'physios') { setScreen('physios'); }
     else if (key === 'premium') { setScreen('premium'); }
@@ -5839,10 +5977,16 @@ export default function Offside() {
           <AlertTriangle size={15} color={colors.red} strokeWidth={2.25} />
           <span style={{ ...displayFont, color: colors.red }} className="text-[13px] font-semibold">{isEN ? 'When to stop and call a professional' : 'Quando fermarti e chiamare un professionista'}</span>
         </span>
-        <ChevronRight size={16} color={colors.red} style={{ transform: showRedFlags ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s ease' }} />
+        <ChevronRight size={16} color={colors.red} style={{ transform: showRedFlags ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 200ms var(--ease-in-out)' }} />
       </button>
       {showRedFlags && (
         <div className="px-4 pb-4">
+          <p style={{ backgroundColor: colors.card, border: `1px solid ${colors.red}33`, color: colors.ink }} className="flex items-start gap-2 rounded-lg px-3 py-2.5 mb-3 text-sm font-semibold leading-snug">
+            <Phone size={16} color={colors.red} className="flex-shrink-0 mt-0.5" aria-hidden="true" />
+            {isEN
+              ? <span>Severe pain, a deformity or you can't put weight on it: call <a href="tel:112" style={{ color: colors.red }} className="underline">112</a> or go to the emergency room.</span>
+              : <span>Dolore fortissimo, deformità o non riesci a caricare il peso: chiama il <a href="tel:112" style={{ color: colors.red }} className="underline">112</a> o vai al pronto soccorso.</span>}
+          </p>
           <ul style={{ color: colors.ink }} className="space-y-1.5 text-sm">
             {redFlags.map((flag, i) => <li key={i} className="flex gap-2"><span style={{ color: colors.red }} className="mt-1 flex-shrink-0">●</span><span>{flag}</span></li>)}
           </ul>
@@ -5854,9 +5998,16 @@ export default function Offside() {
               </ul>
             </>
           )}
-          <button onClick={() => setScreen('physios')} style={{ backgroundColor: 'rgba(255,255,255,0.5)', color: colors.red, border: `1px solid ${colors.red}33` }} className="os-focus w-full flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold mt-3 hover:opacity-80 transition-opacity">
-            <Stethoscope size={13} />{isEN ? 'Find a physiotherapist near you' : 'Trova un fisioterapista vicino a te'}
-          </button>
+          {physiosData.length > 0 ? (
+            <button onClick={() => setScreen('physios')} style={{ backgroundColor: 'rgba(255,255,255,0.5)', color: colors.red, border: `1px solid ${colors.red}33` }} className="os-focus os-press w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 min-h-[40px] text-xs font-semibold mt-3 hover:opacity-80">
+              <Stethoscope size={13} />{isEN ? 'Find a physiotherapist near you' : 'Trova un fisioterapista vicino a te'}
+            </button>
+          ) : (
+            // Finché l'elenco interno è vuoto, una ricerca vera è meglio di una pagina "Arriva presto".
+            <a href={`https://www.google.com/maps/search/${encodeURIComponent(isEN ? 'sports physiotherapist near me' : 'fisioterapista sportivo vicino a me')}`} target="_blank" rel="noopener noreferrer" style={{ backgroundColor: 'rgba(255,255,255,0.5)', color: colors.red, border: `1px solid ${colors.red}33` }} className="os-focus os-press w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 min-h-[40px] text-xs font-semibold mt-3 hover:opacity-80">
+              <MapPin size={13} />{isEN ? 'Find a physiotherapist near you on Maps' : 'Trova un fisioterapista vicino a te su Maps'}<ExternalLink size={12} />
+            </a>
+          )}
         </div>
       )}
     </div>
@@ -5912,17 +6063,17 @@ export default function Offside() {
   const seasonLabel = (() => { const d = new Date(); const y = d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1; return `${y}/${String((y + 1) % 100).padStart(2, '0')}`; })();
 
   return (
-    <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full min-h-[100dvh] relative">
+    <div style={{ backgroundColor: colors.paper, ...bodyFont }} className={`w-full ${TEAM_SCREENS.includes(screen) ? 'max-w-[1040px]' : 'max-w-[560px]'} mx-auto min-h-[100dvh] relative md:shadow-[0_0_48px_rgba(0,0,0,0.35)]`}>
       <style>{sharedStyle}</style>
       <svg className="fixed inset-0 w-full h-full opacity-[0.035] pointer-events-none" viewBox="0 0 400 800" fill="none" preserveAspectRatio="xMidYMid slice">
         <circle cx="200" cy="160" r="150" stroke={colors.accent} strokeWidth="1.5" />
         <line x1="-20" y1="160" x2="420" y2="160" stroke={colors.accent} strokeWidth="1.5" />
       </svg>
 
-      <div style={{ borderBottom: `1px solid ${colors.hairline}` }} className="relative px-5 sm:px-8 pt-5 pb-4 flex items-center gap-3">
+      <header style={{ borderBottom: `1px solid ${colors.hairline}` }} className="relative px-5 sm:px-8 pt-5 pb-4 flex items-center gap-2.5">
         {screen !== 'regions' && (
-          <button onClick={goBack} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Go back' : 'Torna indietro'}>
-            <ArrowLeft size={16} color={colors.accentDark} />
+          <button onClick={goBack} style={{ backgroundColor: colors.accentTint }} className="os-focus os-press [--press:0.94] flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center hover:opacity-80" aria-label={isEN ? 'Go back' : 'Torna indietro'}>
+            <ArrowLeft size={18} color={colors.accentDark} />
           </button>
         )}
         <div className="flex-1 min-w-0">
@@ -5932,35 +6083,35 @@ export default function Offside() {
               {screen === 'regions' ? `Offside · ${formatTodayLabel(isEN)}` : 'Offside'}
             </p>
           </div>
-          <h1 style={{ ...displayFont, color: colors.ink }} className="text-lg sm:text-xl font-semibold truncate">
-            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : regionsTab === 'technique' ? (isEN ? 'Technique' : 'Tecnica') : (isEN ? 'Today' : 'Oggi')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'triageResults' ? (isEN ? 'Most likely matches' : 'Probabilmente è questo') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'movementScreen' ? (isEN ? 'Movement screening' : 'Screening del movimento') : screen === 'teamRegister' ? (isEN ? 'Register your team' : 'Registra la squadra') : screen === 'teamLogin' ? (isEN ? 'Team login' : 'Accedi alla squadra') : screen === 'teamDashboard' ? (teamAuth?.teamName || 'Offside Squadre') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
+          <h1 style={{ ...displayFont, color: colors.ink }} className="text-base min-[360px]:text-lg sm:text-xl font-semibold truncate">
+            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : regionsTab === 'technique' ? (isEN ? 'Technique' : 'Tecnica') : (isEN ? 'Today' : 'Oggi')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'triageResults' ? (isEN ? 'Possible matches' : 'Possibili corrispondenze') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'movementScreen' ? (isEN ? 'Movement screening' : 'Screening del movimento') : screen === 'teamRegister' ? (isEN ? 'Register your team' : 'Registra la squadra') : screen === 'teamLogin' ? (isEN ? 'Team login' : 'Accedi alla squadra') : screen === 'teamDashboard' ? (teamAuth?.teamName || 'Offside Squadre') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
           </h1>
         </div>
         {screen === 'tracker' && injury && (
-          <button onClick={shareProgress} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Share your progress' : 'Condividi il tuo percorso'}>
+          <button onClick={shareProgress} style={{ backgroundColor: colors.accentTint }} className="os-focus os-press [--press:0.94] flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center hover:opacity-80" aria-label={isEN ? 'Share your progress' : 'Condividi il tuo percorso'}>
             {shareCopied ? <Check size={15} color={colors.accentDark} /> : <Share2 size={15} color={colors.accentDark} />}
           </button>
         )}
-        <div className="flex-shrink-0" style={{ width: 20 }}>
+        <div className="flex-shrink-0 hidden min-[360px]:block" style={{ width: 20 }} aria-hidden="true">
           <PlayerMascot stage={mascotStageForScreen(screen)} size={20} color={colors.accentDark} />
         </div>
         {screen !== 'profile' && !TEAM_SCREENS.includes(screen) && (
-          <button onClick={() => setScreen('profile')} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Your profile' : 'Il tuo profilo'}>
+          <button onClick={() => setScreen('profile')} style={{ backgroundColor: colors.accentTint }} className="os-focus os-press [--press:0.94] flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80" aria-label={isEN ? 'Your profile' : 'Il tuo profilo'}>
             <User size={17} color={colors.accentDark} />
           </button>
         )}
         {screen === 'teamDashboard' && teamAuth && (
-          <button onClick={logoutTeam} style={{ backgroundColor: colors.accentTint }} className="os-focus flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Log out' : 'Esci'}>
+          <button onClick={logoutTeam} style={{ backgroundColor: colors.accentTint }} className="os-focus os-press [--press:0.94] flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80" aria-label={isEN ? 'Log out' : 'Esci'}>
             <LogOut size={16} color={colors.accentDark} />
           </button>
         )}
-      </div>
+      </header>
 
-      {RED_FLAG_SCREENS.includes(screen) && (
+      {RED_FLAG_SCREENS.includes(screen) && !(screen === 'tracker' && !injury) && (
         <div className="px-5 sm:px-8 pt-5">{renderRedFlags()}</div>
       )}
 
-      <div key={screen} className="px-5 sm:px-8 py-6 os-fadein">
+      <main key={screen} id="contenuto" className={`px-5 sm:px-8 py-6 ${navKindRef.current === 'tab' ? '' : 'os-fadein'}`}>
         {screen === 'regions' && (
           <>
             {hero ? (
@@ -5973,10 +6124,11 @@ export default function Offside() {
                       else { setDeletingKey(hero.key); setTimeout(() => setDeletingKey((k) => (k === hero.key ? null : k)), 3000); }
                     }}
                     style={{ backgroundColor: deletingKey === hero.key ? colors.red : 'rgba(255,255,255,0.1)' }}
-                    className="os-focus absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/20 active:scale-90 transition-all z-10"
-                    aria-label={deletingKey === hero.key ? (isEN ? 'Confirm deletion' : 'Conferma eliminazione') : (isEN ? 'Delete this recovery' : 'Elimina questo percorso')}
+                    className="os-focus os-press [--press:0.95] absolute top-3 right-3 h-10 min-w-10 px-3 rounded-full flex items-center justify-center gap-1.5 hover:bg-white/20 z-10"
+                    aria-label={deletingKey === hero.key ? (isEN ? 'Tap again to delete this recovery' : 'Tocca di nuovo per eliminare il percorso') : (isEN ? 'Delete this recovery' : 'Elimina questo percorso')}
                   >
-                    <X size={14} color={deletingKey === hero.key ? '#FFFFFF' : colors.accent} />
+                    <Trash size={15} color={deletingKey === hero.key ? '#FFFFFF' : 'rgba(255,255,255,0.7)'} />
+                    {deletingKey === hero.key && <span className="text-[12px] font-bold text-white">{isEN ? 'Delete?' : 'Elimina?'}</span>}
                   </button>
                   <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.14em' }} className="relative text-[11px] font-bold uppercase mb-1 pr-10">
                     {isEN ? `Phase ${hero.phaseIdx + 1} of ${hero.inj.phases.length} · day ${hero.dayNum}` : `Fase ${hero.phaseIdx + 1} di ${hero.inj.phases.length} · giorno ${hero.dayNum}`}
@@ -6000,9 +6152,9 @@ export default function Offside() {
                     </div>
                   )}
                   <button
-                    onClick={() => resumeInjury(hero.key)}
-                    style={{ backgroundColor: hero.doneToday ? 'rgba(125,255,168,0.12)' : colors.accent, color: hero.doneToday ? LED_GREEN : '#FFFFFF', border: hero.doneToday ? `1px solid ${LED_GREEN}55` : '1px solid transparent' }}
-                    className="os-focus relative w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 mt-4 shadow-md hover:opacity-95 active:scale-[0.99] transition-all"
+                    onClick={() => { resumeInjury(hero.key); setTimeout(() => scrollToId('sez-oggi', { instant: true }), 60); }}
+                    style={{ backgroundColor: hero.doneToday ? 'rgba(125,255,168,0.12)' : colors.accent, color: hero.doneToday ? LED_GREEN : colors.onAccent, border: hero.doneToday ? `1px solid ${LED_GREEN}55` : '1px solid transparent' }}
+                    className="os-focus os-press relative w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 mt-4 shadow-md hover:opacity-95"
                   >
                     {hero.doneToday ? <CheckCircle2 size={18} strokeWidth={2.4} /> : <PlayCircle size={18} strokeWidth={2.2} />}
                     <span style={displayFont} className="text-sm font-bold uppercase tracking-wide">
@@ -6036,10 +6188,11 @@ export default function Offside() {
                               else { setDeletingKey(key); setTimeout(() => setDeletingKey((k) => (k === key ? null : k)), 3000); }
                             }}
                             style={{ backgroundColor: deletingKey === key ? colors.red : colors.paper }}
-                            className="os-focus flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-all"
-                            aria-label={deletingKey === key ? (isEN ? 'Confirm deletion' : 'Conferma eliminazione') : (isEN ? 'Delete this recovery' : 'Elimina questo percorso')}
+                            className="os-focus os-press [--press:0.95] flex-shrink-0 h-10 min-w-10 px-3 rounded-full flex items-center justify-center gap-1.5"
+                            aria-label={deletingKey === key ? (isEN ? 'Tap again to delete this recovery' : 'Tocca di nuovo per eliminare il percorso') : (isEN ? 'Delete this recovery' : 'Elimina questo percorso')}
                           >
-                            <X size={14} color={deletingKey === key ? '#FFFFFF' : colors.mutedInk} />
+                            <Trash size={15} color={deletingKey === key ? '#FFFFFF' : colors.mutedInk} />
+                            {deletingKey === key && <span className="text-[12px] font-bold text-white">{isEN ? 'Delete?' : 'Elimina?'}</span>}
                           </button>
                         </div>
                       );
@@ -6054,7 +6207,7 @@ export default function Offside() {
                 <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.14em' }} className="relative text-[11px] font-bold uppercase mb-1">{isEN ? 'Recovery to start' : 'Percorso da avviare'}</p>
                 <p style={{ ...displayFont, color: '#FFFFFF' }} className="relative text-lg font-bold uppercase leading-tight mb-2">{injuriesData[selectedInjury].label}</p>
                 <p style={{ color: 'rgba(255,255,255,0.75)' }} className="relative text-sm leading-relaxed">{isEN ? 'Add the date you got hurt to start the clock of your recovery.' : 'Aggiungi la data dell\'infortunio per far partire il cronometro del tuo recupero.'}</p>
-                <button onClick={() => chooseInjury(selectedInjury)} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus relative w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 mt-4 shadow-md hover:opacity-95 active:scale-[0.99] transition-all">
+                <button onClick={() => chooseInjury(selectedInjury)} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus os-press relative w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 mt-4 shadow-md hover:opacity-95">
                   <Timer size={18} strokeWidth={2.2} />
                   <span style={displayFont} className="text-sm font-bold uppercase tracking-wide">{isEN ? 'Start the clock' : 'Avvia il cronometro'}</span>
                 </button>
@@ -6079,11 +6232,19 @@ export default function Offside() {
                 </div>
                 <button
                   onClick={() => { setRegionsTab('prevention'); setTimeout(() => scrollToId('prev-warmup'), 120); }}
-                  style={{ backgroundColor: colors.accent, color: '#FFFFFF' }}
-                  className="os-focus relative w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 mt-4 shadow-md hover:opacity-95 active:scale-[0.99] transition-all"
+                  style={{ backgroundColor: colors.accent, color: colors.onAccent }}
+                  className="os-focus os-press relative w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 mt-4 shadow-md hover:opacity-95"
                 >
                   <ShieldCheck size={18} strokeWidth={2.2} />
                   <span style={displayFont} className="text-sm font-bold uppercase tracking-wide">{isEN ? "Today's prevention" : 'Prevenzione di oggi'}</span>
+                </button>
+                <button
+                  onClick={() => { setRegionsTab('injury'); setTimeout(() => scrollToId('sez-trova'), 60); }}
+                  style={{ color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.24)' }}
+                  className="os-focus os-press relative w-full flex items-center justify-center gap-2 rounded-2xl py-3 mt-2.5 hover:bg-white/5"
+                >
+                  <Bandage size={17} strokeWidth={2.2} />
+                  <span style={displayFont} className="text-sm font-semibold"><span className="min-[360px]:hidden">{isEN ? 'Got hurt?' : 'Ti sei fatto male?'}</span><span className="hidden min-[360px]:inline">{isEN ? 'Got hurt? Find your injury' : 'Ti sei fatto male? Trova il tuo infortunio'}</span></span>
                 </button>
               </div>
             )}
@@ -6124,8 +6285,9 @@ export default function Offside() {
                       <button
                         key={opt.key}
                         onClick={() => setTodayWellness(field, opt.key)}
-                        style={{ backgroundColor: todayW[field] === opt.key ? activeColor : colors.paper, color: todayW[field] === opt.key ? '#FFFFFF' : colors.ink }}
-                        className="os-focus flex-1 py-1.5 rounded-lg text-[10.5px] font-medium transition-colors"
+                        aria-pressed={todayW[field] === opt.key}
+                        style={{ backgroundColor: todayW[field] === opt.key ? activeColor : colors.paper, color: todayW[field] === opt.key ? (activeColor === colors.accent ? colors.onAccent : '#FFFFFF') : colors.ink }}
+                        className="os-focus os-press flex-1 py-2 min-h-[36px] rounded-lg text-[11px] font-medium"
                       >
                         {isEN ? opt.en : opt.it}
                       </button>
@@ -6161,15 +6323,15 @@ export default function Offside() {
 
             <div id="home-tabs" role="tablist" aria-label={isEN ? 'App sections' : 'Sezioni dell\'app'} style={{ backgroundColor: colors.laneBg }} className="grid grid-cols-3 gap-1 p-1 rounded-2xl mb-6 scroll-mt-4">
               {[
-                { key: 'injury', icon: Snowflake, label: isEN ? 'Injury' : 'Infortunio', sub: isEN ? 'to recover' : 'per recuperare', color: colors.accentDark },
+                { key: 'injury', icon: Bandage, label: isEN ? 'Injury' : 'Infortunio', sub: isEN ? 'to recover' : 'per recuperare', color: colors.accentDark },
                 { key: 'prevention', icon: ShieldCheck, label: isEN ? 'Prevention' : 'Prevenzione', sub: isEN ? 'to stay fit' : 'per non farti male', color: colors.preventionDark },
                 { key: 'technique', icon: SoccerBall, label: isEN ? 'Technique' : 'Tecnica', sub: isEN ? 'for your role' : 'per il tuo ruolo', color: '#8A5A00', lock: !premiumUnlocked },
               ].map((tab) => {
                 const on = regionsTab === tab.key;
                 return (
-                  <button key={tab.key} role="tab" aria-selected={on} onClick={() => setRegionsTab(tab.key)} style={{ backgroundColor: on ? colors.card : 'transparent', boxShadow: on ? '0 1px 3px rgba(16,27,38,0.14)' : 'none' }} className="os-focus flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 px-1 transition-colors">
-                    <span style={{ color: on ? tab.color : colors.mutedInk }} className="flex items-center gap-1 text-[11.5px] font-bold uppercase tracking-wide">{tab.lock && <Lock size={10} />}<tab.icon size={14} />{tab.label}</span>
-                    <span style={{ color: on ? colors.ink : colors.mutedInk }} className="text-[10px] leading-tight opacity-80">{tab.sub}</span>
+                  <button key={tab.key} role="tab" aria-selected={on} onClick={() => setRegionsTab(tab.key)} style={{ backgroundColor: on ? colors.card : 'transparent', boxShadow: on ? '0 1px 3px rgba(16,27,38,0.14)' : 'none' }} className="os-focus os-press flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 px-1 min-h-[48px]">
+                    <span style={{ color: on ? tab.color : colors.mutedInk }} className="flex items-center gap-1 text-[10.5px] min-[360px]:text-[11.5px] font-bold uppercase min-[360px]:tracking-wide">{tab.lock && <Lock size={10} />}<tab.icon size={14} className="hidden min-[360px]:inline" />{tab.label}</span>
+                    <span style={{ color: on ? colors.ink : colors.mutedInk }} className="text-[10px] leading-tight">{tab.sub}</span>
                   </button>
                 );
               })}
@@ -6177,16 +6339,16 @@ export default function Offside() {
 
             {regionsTab === 'injury' ? (
               <>
-                <button onClick={() => setScreen('firstaid')} style={{ backgroundColor: colors.accent }} className="os-focus w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-6 hover:opacity-90 transition-opacity shadow-sm">
-                  <div style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"><Snowflake size={20} color="#FFFFFF" /></div>
+                <button onClick={() => setScreen('firstaid')} style={{ backgroundColor: colors.accent }} className="os-focus os-press [--press:0.98] w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-6 hover:opacity-90 shadow-sm">
+                  <div style={{ backgroundColor: 'rgba(6,20,14,0.12)' }} className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"><Bandage size={20} color={colors.onAccent} /></div>
                   <div className="flex-1">
-                    <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-medium">{isEN ? 'Just got hurt?' : 'Ti sei appena fatto male?'}</p>
-                    <p style={{ color: colors.ink, fontWeight: 500 }} className="text-xs opacity-80">{isEN ? 'What to do in the first few minutes' : 'Cosa fare nei primi minuti'}</p>
+                    <p style={{ ...displayFont, color: colors.onAccent }} className="text-sm font-semibold">{isEN ? 'Just got hurt?' : 'Ti sei appena fatto male?'}</p>
+                    <p style={{ color: colors.onAccent, fontWeight: 500 }} className="text-xs">{isEN ? 'What to do in the first few minutes' : 'Cosa fare nei primi minuti'}</p>
                   </div>
-                  <ChevronRight size={18} color={colors.ink} className="opacity-60" />
+                  <ChevronRight size={18} color={colors.onAccent} />
                 </button>
 
-                <SectionTitle kicker={isEN ? 'Your recovery' : 'Il tuo recupero'} title={isEN ? 'Find your injury' : 'Trova il tuo infortunio'} hint={isEN ? 'Four steps to a phase-by-phase plan.' : 'Quattro tappe per avere un percorso fase per fase.'} />
+                <SectionTitle id="sez-trova" kicker={isEN ? 'Your recovery' : 'Il tuo recupero'} title={isEN ? 'Find your injury' : 'Trova il tuo infortunio'} hint={isEN ? 'Four steps to a phase-by-phase plan.' : 'Quattro tappe per avere un percorso fase per fase.'} />
                 <FlowSteps current={0} isEN={isEN} />
                 <div className="mb-4">
                   <BodyDiagram
@@ -6204,12 +6366,12 @@ export default function Offside() {
                   </div>
                   <div className="flex-1">
                     <p style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Not sure what it is?' : 'Non sai cosa hai?'}</p>
-                    <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? 'Answer 4 fixed questions, ranked by likelihood' : 'Rispondi a 4 domande fisse, ordinate per probabilità'}</p>
+                    <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? '4 quick questions to narrow it down' : '4 domande veloci per restringere il campo'}</p>
                   </div>
                   <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0" />
                 </button>
 
-                <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.1em' }} className="text-xs font-semibold uppercase mb-3">{isEN ? 'Or choose the area' : 'Oppure scegli il distretto'}</p>
+                <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.1em' }} className="text-xs font-semibold uppercase mb-3">{isEN ? 'Or choose the area' : 'Oppure scegli la zona'}</p>
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   {Object.entries(regions).map(([key, data]) => {
                     const count = data.injuries.filter((k) => injuriesData[k]).length;
@@ -6224,7 +6386,7 @@ export default function Offside() {
                           </div>
                           {live && (
                             <span style={{ backgroundColor: 'rgba(0,0,0,0.35)', color: LED_GREEN, fontFamily: BEBAS, letterSpacing: '0.06em' }} className="absolute top-2 right-2 flex items-center gap-1 rounded px-1.5 py-1 text-[11px] leading-none">
-                              <span style={{ backgroundColor: LED_GREEN }} className="w-1.5 h-1.5 rounded-full os-live-dot" />{isEN ? 'In progress' : 'In corso'}
+                              <span style={{ backgroundColor: LED_GREEN }} className="w-1.5 h-1.5 rounded-full os-ping" />{isEN ? 'In progress' : 'In corso'}
                             </span>
                           )}
                         </div>
@@ -6281,11 +6443,11 @@ export default function Offside() {
                     ))}
                   </div>
                   <div className="relative flex gap-2 mt-4">
-                    <button onClick={toggleWarmupToday} aria-pressed={warmupDoneToday} style={{ backgroundColor: warmupDoneToday ? LED_TEAL : colors.prevention, color: warmupDoneToday ? '#06282D' : '#FFFFFF' }} className="os-focus flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold uppercase tracking-wide shadow-md active:scale-[0.98] transition">
+                    <button onClick={toggleWarmupToday} aria-pressed={warmupDoneToday} style={{ backgroundColor: warmupDoneToday ? LED_TEAL : colors.preventionDark, color: warmupDoneToday ? '#06282D' : '#FFFFFF' }} className="os-focus flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold uppercase tracking-wide shadow-md active:scale-[0.98] transition">
                       {warmupDoneToday ? <><Check size={16} className="os-check-pop" />{isEN ? 'Done today' : 'Fatto oggi'}</> : <><Flame size={16} />{isEN ? 'Mark today as done' : 'Segna fatto oggi'}</>}
                     </button>
                     <button onClick={() => setWarmupOpen(!warmupOpen)} aria-expanded={warmupOpen} style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#FFFFFF' }} className="os-focus flex-shrink-0 flex items-center gap-1 rounded-xl px-3.5 py-3 text-xs font-semibold hover:bg-white/20 transition-colors">
-                      {warmupOpen ? (isEN ? 'Hide' : 'Chiudi') : (isEN ? 'Exercises' : 'Esercizi')}<ChevronDown size={13} style={{ transform: warmupOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                      {warmupOpen ? (isEN ? 'Hide' : 'Chiudi') : (isEN ? 'Exercises' : 'Esercizi')}<ChevronDown size={13} style={{ transform: warmupOpen ? 'rotate(180deg)' : 'none', transition: 'transform 200ms var(--ease-in-out)' }} />
                     </button>
                   </div>
                 </div>
@@ -6346,7 +6508,7 @@ export default function Offside() {
                       <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[17px] font-bold mb-1.5">{isEN ? 'Movement screening' : 'Screening del movimento'}</p>
                       <p style={{ color: '#A9B7C4' }} className="relative text-sm leading-relaxed mb-4">{isEN ? 'Use your camera for a real-time look at squats and balance: symmetry, knee control, stability. It all runs on your phone.' : 'Usa la fotocamera per uno sguardo in tempo reale a squat ed equilibrio: simmetria, controllo del ginocchio, stabilità. Gira tutto sul telefono.'}</p>
                       <span style={{ background: GOLD_GRADIENT, color: '#0B121A', fontFamily: BRICOLAGE }} className="relative inline-flex items-center gap-1.5 overflow-hidden px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide shadow-sm">
-                        <Lock size={12} />{isEN ? 'Unlock Premium' : 'Sblocca Premium'}<span className="os-sheen" aria-hidden="true" />
+                        <Lock size={12} />{isEN ? 'Unlock Premium' : 'Sblocca Premium'}
                       </span>
                     </div>
                   </button>
@@ -6397,7 +6559,7 @@ export default function Offside() {
                     const doneCount = doneFlags.filter(Boolean).length;
                     return (
                       <div key={key} id={`prevention-${key}`} style={{ backgroundColor: colors.card, border: `1.5px solid ${isExpanded ? colors.prevention + '66' : colors.hairline}` }} className="rounded-2xl overflow-hidden shadow-sm scroll-mt-4">
-                        <button onClick={() => setExpandedPrevention(isExpanded ? null : key)} aria-expanded={isExpanded} className="os-focus w-full flex items-center gap-3.5 p-3 text-left">
+                        <button onClick={(e) => { const el = e.currentTarget; const y = el.getBoundingClientRect().top; flushSync(() => setExpandedPrevention(isExpanded ? null : key)); window.scrollBy(0, el.getBoundingClientRect().top - y); }} aria-expanded={isExpanded} className="os-focus w-full flex items-center gap-3.5 p-3 text-left">
                           <div style={{ background: PITCH_BG_TEAL }} className="flex-shrink-0 w-14 h-[68px] rounded-xl flex items-center justify-center">
                             <RegionFigure region={key} tone="teal" height={60} />
                           </div>
@@ -6410,7 +6572,7 @@ export default function Offside() {
                               <span style={{ color: doneCount ? colors.preventionDark : colors.mutedInk }} className="text-[11px] font-semibold os-tabular">{isEN ? `${doneCount}/${data.exercises.length} done` : `${doneCount}/${data.exercises.length} fatti`}</span>
                             </div>
                           </div>
-                          <ChevronDown size={20} color={colors.mutedInk} className="flex-shrink-0" style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                          <ChevronDown size={20} color={colors.mutedInk} className="flex-shrink-0" style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 200ms var(--ease-in-out)' }} />
                         </button>
                         {isExpanded && (
                           <div className="px-3 pb-3 os-fadein">
@@ -6535,11 +6697,11 @@ export default function Offside() {
               </>
             )}
 
-            <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="pt-5 mt-2">
-              {regionsTab !== 'technique' && (
-                <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: exercises for your role AND this area' : 'Premium: esercizi per il tuo ruolo E questa zona'} />
-              )}
-            </div>
+            {regionsTab !== 'technique' && !premiumUnlocked && (
+              <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="pt-5 mt-2">
+                <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: exercises for your role and this area' : 'Premium: esercizi per il tuo ruolo e per questa zona'} />
+              </div>
+            )}
 
             <button onClick={() => setScreen('cover')} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-5 block mx-auto">{isEN ? 'Back to cover' : 'Torna alla copertina'}</button>
           </>
@@ -6569,7 +6731,11 @@ export default function Offside() {
                     </div>
                     <p style={{ fontFamily: BEBAS, letterSpacing: '0.02em', filter: 'drop-shadow(0 4px 18px rgba(240,180,41,0.35))' }} className="os-gold-text text-[78px] leading-[0.82]">Premium</p>
                     <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[18px] font-bold leading-snug mt-3">{isEN ? 'Train like your role and injury need' : 'Allenati come richiedono ruolo e infortunio'}</p>
-                    <p style={{ color: '#A9B7C4' }} className="text-sm leading-relaxed mt-1.5">{isEN ? 'Exercises tailored to your position AND the specific area — plus your real progress over time.' : 'Esercizi su misura per il tuo ruolo E la zona specifica — più il tuo vero andamento nel tempo.'}</p>
+                    <p style={{ color: '#A9B7C4' }} className="text-sm leading-relaxed mt-1.5">{isEN ? 'Exercises tailored to your position and the specific area, plus your real progress over time.' : 'Esercizi su misura per il tuo ruolo e la zona specifica, più il tuo vero andamento nel tempo.'}</p>
+                    <p className="flex items-baseline gap-2 mt-4">
+                      <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-[44px] leading-none">{isEN ? PREMIUM_PRICE.en : PREMIUM_PRICE.it}</span>
+                      <span style={{ color: '#A9B7C4' }} className="text-sm">{isEN ? 'per month' : 'al mese'}</span>
+                    </p>
                   </div>
                   <div className="relative h-5" aria-hidden="true">
                     <span style={{ backgroundColor: colors.paper }} className="absolute -left-2.5 top-0 w-5 h-5 rounded-full" />
@@ -6601,9 +6767,11 @@ export default function Offside() {
                     </div>
                   </div>
                 </div>
-                <GoldButton full href={STRIPE_PAYMENT_LINK} onClick={() => trackEvent('premium_unlock_clicked')}>{isEN ? 'Unlock Premium' : 'Sblocca Premium'}<ArrowRight size={16} /></GoldButton>
-                <p style={{ color: colors.mutedInk }} className="text-[10.5px] text-center mt-2.5">
-                  {isEN ? 'Payments handled securely by Stripe. ' : 'Pagamenti gestiti in sicurezza da Stripe. '}
+                <GoldButton full href={STRIPE_PAYMENT_LINK} onClick={() => trackEvent('premium_unlock_clicked')}>
+                  <span>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{isEN ? `${PREMIUM_PRICE.en}/month` : `${PREMIUM_PRICE.it}/mese`}</span><ArrowRight size={16} />
+                </GoldButton>
+                <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed text-center mt-2.5">
+                  {isEN ? 'Secure payment with Stripe: after paying you come back here and Premium turns on by itself. ' : 'Pagamento sicuro con Stripe: dopo il pagamento torni qui e Premium si attiva da solo. '}
                   <a href="/privacy.html" style={{ color: colors.mutedInk }} className="underline hover:opacity-70">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>
                 </p>
                 <div className="text-center mt-3">{renderRestoreBox()}</div>
@@ -6691,8 +6859,8 @@ export default function Offside() {
                             <CartesianGrid strokeDasharray="3 3" stroke={colors.hairline} />
                             <XAxis dataKey="date" tick={{ fontSize: 11, fill: colors.mutedInk }} />
                             <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tickFormatter={feelingLabel} tick={{ fontSize: 11, fill: colors.mutedInk }} width={70} />
-                            <Tooltip formatter={feelingLabel} />
-                            <Line type="monotone" dataKey="feeling" stroke={colors.accent} strokeWidth={2.5} dot={{ r: 4, fill: colors.accent }} connectNulls />
+                            <Tooltip formatter={feelingLabel} isAnimationActive={false} />
+                            <Line type="monotone" dataKey="feeling" stroke={colors.accent} strokeWidth={2.5} dot={{ r: 4, fill: colors.accent }} connectNulls animationDuration={500} animationEasing="ease-out" />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
@@ -6704,8 +6872,8 @@ export default function Offside() {
                             <CartesianGrid strokeDasharray="3 3" stroke={colors.hairline} />
                             <XAxis dataKey="date" tick={{ fontSize: 11, fill: colors.mutedInk }} />
                             <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tickFormatter={stiffnessLabel} tick={{ fontSize: 11, fill: colors.mutedInk }} width={70} />
-                            <Tooltip formatter={stiffnessLabel} />
-                            <Line type="monotone" dataKey="stiffness" stroke={colors.orange} strokeWidth={2.5} dot={{ r: 4, fill: colors.orange }} connectNulls />
+                            <Tooltip formatter={stiffnessLabel} isAnimationActive={false} />
+                            <Line type="monotone" dataKey="stiffness" stroke={colors.orange} strokeWidth={2.5} dot={{ r: 4, fill: colors.orange }} connectNulls animationDuration={500} animationEasing="ease-out" />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
@@ -6806,7 +6974,7 @@ export default function Offside() {
                         isEN ? 'Real injury name and indicative recovery time for every player who joins' : 'Nome vero dell\'infortunio e tempi di recupero indicativi di ogni giocatore che aderisce',
                         isEN ? 'Who\'s available, doubtful or out for your next match, at a glance' : 'Chi è disponibile, in dubbio o fuori per la prossima partita, a colpo d\'occhio',
                         isEN ? 'A weekly wellness signal (sleep, soreness, training load) flagging who\'s worth checking in with — before an injury happens, not after' : 'Un segnale settimanale di benessere (sonno, indolenzimento, carico) che segnala a chi vale la pena chiedere come sta — prima che si faccia male, non dopo',
-                        isEN ? 'Team-wide stats: where your squad gets injured most, over time' : 'Statistiche di squadra: dove si infortura di più il gruppo nel tempo',
+                        isEN ? 'Team-wide stats: where your squad gets injured most, over time' : 'Statistiche di squadra: dove si infortuna di più il gruppo nel tempo',
                         isEN ? 'A clear signal when a player\'s recovery is taking longer than typical' : 'Un segnale chiaro quando il recupero di un giocatore richiede più tempo del previsto',
                         isEN ? 'Players decide themselves whether to share, and can revoke consent any time' : 'Sono i giocatori a scegliere se condividere, e possono revocare il consenso quando vogliono',
                         isEN ? 'Their daily journal and personal notes are never visible to the team' : 'Il loro diario giornaliero e le note personali non sono mai visibili alla squadra',
@@ -6819,10 +6987,10 @@ export default function Offside() {
                     </div>
                     <div className="space-y-2.5 mb-6">
                       <div style={{ backgroundColor: colors.preventionPaper, border: `2px solid ${colors.prevention}` }} className="rounded-xl p-4 pt-5 text-center relative">
-                        <span style={{ backgroundColor: colors.prevention, color: '#FFFFFF' }} className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full whitespace-nowrap">{isEN ? `Save €${TEAM_SEASON_FULL_PRICE - TEAM_SEASON_PASS_PRICE}` : `Risparmi ${TEAM_SEASON_FULL_PRICE - TEAM_SEASON_PASS_PRICE}€`}</span>
+                        <span style={{ backgroundColor: colors.preventionDark, color: '#FFFFFF' }} className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full whitespace-nowrap">{isEN ? `Save €${TEAM_SEASON_FULL_PRICE - TEAM_SEASON_PASS_PRICE}` : `Risparmi ${TEAM_SEASON_FULL_PRICE - TEAM_SEASON_PASS_PRICE}€`}</span>
                         <p style={{ color: colors.mutedInk }} className="text-[11px] font-medium mb-1">{isEN ? 'Season Pass — one payment' : 'Pass Stagionale — un pagamento unico'}</p>
                         <p style={{ ...displayFont, color: colors.preventionDark }} className="text-2xl font-bold">
-                          <span style={{ textDecoration: 'line-through' }} className="text-base font-medium mr-1.5 opacity-60">{TEAM_SEASON_FULL_PRICE}€</span>{TEAM_SEASON_PASS_PRICE}€
+                          <span style={{ textDecoration: 'line-through', color: colors.mutedInk }} className="text-base font-medium mr-1.5">{TEAM_SEASON_FULL_PRICE}€</span>{TEAM_SEASON_PASS_PRICE}€
                         </p>
                         <p style={{ color: colors.preventionDark }} className="text-xs font-semibold mt-1">{isEN ? 'Valid until end of season (May)' : 'Valido fino a fine stagione (maggio)'}</p>
                       </div>
@@ -6832,7 +7000,7 @@ export default function Offside() {
                       </div>
                       <p style={{ color: colors.preventionDark }} className="text-xs font-semibold text-center pt-1">{isEN ? 'First month free for new teams, either way' : 'Primo mese gratis per le nuove squadre, in entrambi i casi'}</p>
                     </div>
-                    <button onClick={() => { trackEvent('team_register_clicked'); setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamRegister'); }} style={{ backgroundColor: colors.prevention, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
+                    <button onClick={() => { trackEvent('team_register_clicked'); setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamRegister'); }} style={{ backgroundColor: colors.preventionDark, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
                       <Building2 size={16} /><span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Register your team' : 'Registra la tua squadra'}</span>
                     </button>
                     <button onClick={() => { setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamLogin'); }} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">
@@ -6849,36 +7017,36 @@ export default function Offside() {
           <div>
             <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">{isEN ? 'One account per team. You choose who on your staff manages it.' : 'Un account per squadra. Scegliete voi chi dello staff lo gestisce.'}</p>
 
-            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Team name' : 'Nome squadra'}</label>
-            <input type="text" value={teamForm.teamName} onChange={(e) => setTeamForm({ ...teamForm, teamName: e.target.value })} placeholder={isEN ? 'e.g. ASD Real Offside' : 'es. ASD Real Offside'} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-sm mb-3.5" />
+            <label htmlFor="tr-team" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Team name' : 'Nome squadra'}</label>
+            <input id="tr-team" autoComplete="organization" type="text" value={teamForm.teamName} onChange={(e) => setTeamForm({ ...teamForm, teamName: e.target.value })} placeholder={isEN ? 'e.g. ASD Real Offside' : 'es. ASD Real Offside'} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-base mb-3.5" />
 
-            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Your name' : 'Il tuo nome'}</label>
-            <input type="text" value={teamForm.responsibleName} onChange={(e) => setTeamForm({ ...teamForm, responsibleName: e.target.value })} placeholder={isEN ? 'Full name' : 'Nome e cognome'} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-sm mb-3.5" />
+            <label htmlFor="tr-name" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Your name' : 'Il tuo nome'}</label>
+            <input id="tr-name" autoComplete="name" type="text" value={teamForm.responsibleName} onChange={(e) => setTeamForm({ ...teamForm, responsibleName: e.target.value })} placeholder={isEN ? 'Full name' : 'Nome e cognome'} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-base mb-3.5" />
 
             <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Your role' : 'Il tuo ruolo'}</label>
             <div className="flex flex-wrap gap-2 mb-3.5">
               {TEAM_ROLE_OPTIONS.map((opt) => (
-                <button key={opt.key} onClick={() => setTeamForm({ ...teamForm, responsibleRole: opt.key })} style={{ backgroundColor: teamForm.responsibleRole === opt.key ? colors.prevention : colors.card, color: teamForm.responsibleRole === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${teamForm.responsibleRole === opt.key ? colors.prevention : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                <button aria-pressed={teamForm.responsibleRole === opt.key} key={opt.key} onClick={() => setTeamForm({ ...teamForm, responsibleRole: opt.key })} style={{ backgroundColor: teamForm.responsibleRole === opt.key ? colors.preventionDark : colors.card, color: teamForm.responsibleRole === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${teamForm.responsibleRole === opt.key ? colors.prevention : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
                   {isEN ? opt.labelEN : opt.labelIT}
                 </button>
               ))}
             </div>
             <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-3.5">{isEN ? 'Not a restriction — just so players know who they\'re sharing with. The team decides.' : 'Non è un vincolo — serve solo a far sapere ai giocatori con chi condividono. Decide la squadra.'}</p>
 
-            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Email</label>
-            <input type="email" value={teamForm.email} onChange={(e) => setTeamForm({ ...teamForm, email: e.target.value })} placeholder="email@esempio.com" style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-sm mb-3.5" />
+            <label htmlFor="tr-email" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Email</label>
+            <input id="tr-email" autoComplete="email" type="email" value={teamForm.email} onChange={(e) => setTeamForm({ ...teamForm, email: e.target.value })} placeholder="email@esempio.com" style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-base mb-3.5" />
             <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-3.5 -mt-2.5">{isEN ? 'Use the same email when you pay, so the subscription activates automatically.' : 'Usa la stessa email al momento del pagamento, così l\'abbonamento si attiva in automatico.'}</p>
 
-            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Password</label>
+            <label htmlFor="tr-password" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Password</label>
             <div className="relative mb-3.5">
-              <input type={showTeamPassword ? 'text' : 'password'} value={teamForm.password} onChange={(e) => setTeamForm({ ...teamForm, password: e.target.value })} placeholder={isEN ? 'At least 8 characters' : 'Almeno 8 caratteri'} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg pl-3 pr-10 py-2.5 text-sm" />
-              <button type="button" onClick={() => setShowTeamPassword(!showTeamPassword)} className="os-focus absolute right-3 top-1/2 -translate-y-1/2" aria-label={showTeamPassword ? (isEN ? 'Hide password' : 'Nascondi password') : (isEN ? 'Show password' : 'Mostra password')}>
+              <input id="tr-password" autoComplete="new-password" type={showTeamPassword ? 'text' : 'password'} value={teamForm.password} onChange={(e) => setTeamForm({ ...teamForm, password: e.target.value })} placeholder={isEN ? 'At least 8 characters' : 'Almeno 8 caratteri'} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg pl-3 pr-10 py-2.5 text-base" />
+              <button type="button" onClick={() => setShowTeamPassword(!showTeamPassword)} className="os-focus absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-lg" aria-label={showTeamPassword ? (isEN ? 'Hide password' : 'Nascondi password') : (isEN ? 'Show password' : 'Mostra password')}>
                 {showTeamPassword ? <EyeOff size={16} color={colors.mutedInk} /> : <Eye size={16} color={colors.mutedInk} />}
               </button>
             </div>
 
-            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Confirm password' : 'Conferma password'}</label>
-            <input type={showTeamPassword ? 'text' : 'password'} value={teamForm.confirmPassword} onChange={(e) => setTeamForm({ ...teamForm, confirmPassword: e.target.value })} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-sm mb-4" />
+            <label htmlFor="tr-password2" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Confirm password' : 'Conferma password'}</label>
+            <input id="tr-password2" autoComplete="new-password" type={showTeamPassword ? 'text' : 'password'} value={teamForm.confirmPassword} onChange={(e) => setTeamForm({ ...teamForm, confirmPassword: e.target.value })} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-base mb-4" />
 
             <button onClick={() => setTeamForm({ ...teamForm, minorConsentAttested: !teamForm.minorConsentAttested })} role="checkbox" aria-checked={teamForm.minorConsentAttested} className="os-focus w-full flex items-start gap-2.5 mb-5 text-left">
               <div style={{ backgroundColor: teamForm.minorConsentAttested ? colors.prevention : colors.card, border: `1.5px solid ${teamForm.minorConsentAttested ? colors.prevention : colors.hairline}` }} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5">
@@ -6892,11 +7060,11 @@ export default function Offside() {
               <a href="/privacy.html" style={{ color: colors.preventionDark }} className="os-focus underline font-medium hover:opacity-70">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>.
             </p>
 
-            {teamFormStatus === 'error' && <p style={{ color: colors.red }} className="text-xs mb-3">{teamFormError}</p>}
+            {teamFormStatus === 'error' && <p role="alert" style={{ color: colors.red }} className="text-xs mb-3">{teamFormError}</p>}
 
             <p style={{ color: colors.preventionDark }} className="text-xs font-semibold text-center mb-3">{isEN ? 'First month free — no card required to start' : 'Primo mese gratis — nessuna carta richiesta per iniziare'}</p>
 
-            <button onClick={submitTeamRegister} disabled={teamFormStatus === 'submitting'} style={{ backgroundColor: colors.prevention, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
+            <button onClick={submitTeamRegister} disabled={teamFormStatus === 'submitting'} style={{ backgroundColor: colors.preventionDark, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
               <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{teamFormStatus === 'submitting' ? '...' : (isEN ? 'Create account' : 'Crea account')}</span>
             </button>
             <button onClick={() => { setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamLogin'); }} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">
@@ -6909,20 +7077,20 @@ export default function Offside() {
           <div>
             <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">{isEN ? 'Log in with the email and password you used to register your team.' : 'Accedi con l\'email e la password usate per registrare la squadra.'}</p>
 
-            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Email</label>
-            <input type="email" value={teamForm.email} onChange={(e) => setTeamForm({ ...teamForm, email: e.target.value })} placeholder="email@esempio.com" style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-sm mb-3.5" />
+            <label htmlFor="tl-email" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Email</label>
+            <input id="tl-email" autoComplete="email" type="email" value={teamForm.email} onChange={(e) => setTeamForm({ ...teamForm, email: e.target.value })} placeholder="email@esempio.com" style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-base mb-3.5" />
 
-            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Password</label>
+            <label htmlFor="tl-password" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Password</label>
             <div className="relative mb-5">
-              <input type={showTeamPassword ? 'text' : 'password'} value={teamForm.password} onChange={(e) => setTeamForm({ ...teamForm, password: e.target.value })} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg pl-3 pr-10 py-2.5 text-sm" />
-              <button type="button" onClick={() => setShowTeamPassword(!showTeamPassword)} className="os-focus absolute right-3 top-1/2 -translate-y-1/2" aria-label={showTeamPassword ? (isEN ? 'Hide password' : 'Nascondi password') : (isEN ? 'Show password' : 'Mostra password')}>
+              <input id="tl-password" autoComplete="current-password" type={showTeamPassword ? 'text' : 'password'} value={teamForm.password} onChange={(e) => setTeamForm({ ...teamForm, password: e.target.value })} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg pl-3 pr-10 py-2.5 text-base" />
+              <button type="button" onClick={() => setShowTeamPassword(!showTeamPassword)} className="os-focus absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-lg" aria-label={showTeamPassword ? (isEN ? 'Hide password' : 'Nascondi password') : (isEN ? 'Show password' : 'Mostra password')}>
                 {showTeamPassword ? <EyeOff size={16} color={colors.mutedInk} /> : <Eye size={16} color={colors.mutedInk} />}
               </button>
             </div>
 
-            {teamFormStatus === 'error' && <p style={{ color: colors.red }} className="text-xs mb-3">{teamFormError}</p>}
+            {teamFormStatus === 'error' && <p role="alert" style={{ color: colors.red }} className="text-xs mb-3">{teamFormError}</p>}
 
-            <button onClick={submitTeamLogin} disabled={teamFormStatus === 'submitting'} style={{ backgroundColor: colors.prevention, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
+            <button onClick={submitTeamLogin} disabled={teamFormStatus === 'submitting'} style={{ backgroundColor: colors.preventionDark, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
               <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{teamFormStatus === 'submitting' ? '...' : (isEN ? 'Log in' : 'Accedi')}</span>
             </button>
             <button onClick={() => { setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamRegister'); }} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">
@@ -7165,7 +7333,8 @@ export default function Offside() {
                 onChange={(e) => setPhysioSearch(e.target.value)}
                 placeholder={isEN ? 'Search by city...' : 'Cerca per città...'}
                 style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }}
-                className="os-focus w-full rounded-xl pl-10 pr-4 py-3 text-sm"
+                aria-label={isEN ? 'Search physiotherapists by city' : 'Cerca fisioterapisti per città'}
+                className="os-focus w-full rounded-xl pl-10 pr-4 py-3 text-base"
               />
             </div>
 
@@ -7209,7 +7378,7 @@ export default function Offside() {
                           href={href}
                           target={p.contactType === 'instagram' || p.contactType === 'website' ? '_blank' : undefined}
                           rel="noopener noreferrer"
-                          style={{ backgroundColor: colors.accent, color: '#FFFFFF' }}
+                          style={{ backgroundColor: colors.accent, color: colors.onAccent }}
                           className="os-focus w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold hover:opacity-90 transition-opacity"
                         >
                           <ContactIcon size={13} />{isEN ? 'Contact' : 'Contatta'}
@@ -7311,29 +7480,42 @@ export default function Offside() {
 
         {screen === 'profile' && (
           <div>
+            <div className="flex items-center justify-between gap-3 mb-6">
+              <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Language' : 'Lingua'}</p>
+              <div role="radiogroup" aria-label={isEN ? 'Language' : 'Lingua'} style={{ backgroundColor: colors.laneBg }} className="flex gap-1 p-1 rounded-xl">
+                {[{ key: 'it', label: 'Italiano' }, { key: 'en', label: 'English' }].map((opt) => {
+                  const on = (isEN ? 'en' : 'it') === opt.key;
+                  return (
+                    <button key={opt.key} role="radio" aria-checked={on} lang={opt.key} onClick={() => { setLanguage(opt.key); persist(snapshot({ language: opt.key })); }} style={{ backgroundColor: on ? colors.card : 'transparent', color: on ? colors.accentDark : colors.mutedInk, boxShadow: on ? '0 1px 3px rgba(16,27,38,0.14)' : 'none' }} className="os-focus os-press px-3.5 min-h-[36px] rounded-lg text-xs font-semibold">
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <p style={{ color: colors.mutedInk }} className="text-sm mb-6 leading-relaxed">
               {isEN ? 'Optional — helps make the app feel a bit more yours, and gets added to your printable summary for a professional. Stays only on this device.' : 'Facoltativo — aiuta a rendere l\'app un po\' più tua, e viene aggiunto al riepilogo stampabile per un professionista. Resta solo su questo dispositivo.'}
             </p>
 
             <div className="grid grid-cols-3 gap-2.5 mb-5">
               <div>
-                <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Age' : 'Età'}</label>
-                <input type="number" inputMode="numeric" min="5" max="99" value={userProfile.age} onChange={(e) => { const next = { ...userProfile, age: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-2.5 py-2.5 text-sm text-center" placeholder="—" />
+                <label htmlFor="pf-age" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Age' : 'Età'}</label>
+                <input id="pf-age" type="number" inputMode="numeric" min="5" max="99" value={userProfile.age} onChange={(e) => { const next = { ...userProfile, age: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-2.5 py-2.5 text-base text-center" placeholder="—" />
               </div>
               <div>
-                <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Weight (kg)' : 'Peso (kg)'}</label>
-                <input type="number" inputMode="numeric" min="20" max="200" value={userProfile.weight} onChange={(e) => { const next = { ...userProfile, weight: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-2.5 py-2.5 text-sm text-center" placeholder="—" />
+                <label htmlFor="pf-weight" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Weight (kg)' : 'Peso (kg)'}</label>
+                <input id="pf-weight" type="number" inputMode="numeric" min="20" max="200" value={userProfile.weight} onChange={(e) => { const next = { ...userProfile, weight: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-2.5 py-2.5 text-base text-center" placeholder="—" />
               </div>
               <div>
-                <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Height (cm)' : 'Altezza (cm)'}</label>
-                <input type="number" inputMode="numeric" min="100" max="220" value={userProfile.height} onChange={(e) => { const next = { ...userProfile, height: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-2.5 py-2.5 text-sm text-center" placeholder="—" />
+                <label htmlFor="pf-height" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Height (cm)' : 'Altezza (cm)'}</label>
+                <input id="pf-height" type="number" inputMode="numeric" min="100" max="220" value={userProfile.height} onChange={(e) => { const next = { ...userProfile, height: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-2.5 py-2.5 text-base text-center" placeholder="—" />
               </div>
             </div>
 
             <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Sex' : 'Sesso'}</p>
             <div className="flex flex-wrap gap-2 mb-5">
               {[{ key: 'm', label: isEN ? 'Male' : 'Maschio' }, { key: 'f', label: isEN ? 'Female' : 'Femmina' }, { key: 'na', label: isEN ? 'Prefer not to say' : 'Preferisco non dire' }].map((opt) => (
-                <button key={opt.key} onClick={() => { const next = { ...userProfile, sex: opt.key }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: userProfile.sex === opt.key ? colors.accent : colors.card, color: userProfile.sex === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${userProfile.sex === opt.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                <button aria-pressed={userProfile.sex === opt.key} key={opt.key} onClick={() => { const next = { ...userProfile, sex: opt.key }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: userProfile.sex === opt.key ? colors.accent : colors.card, color: userProfile.sex === opt.key ? colors.onAccent : colors.ink, border: `1px solid ${userProfile.sex === opt.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
                   {opt.label}
                 </button>
               ))}
@@ -7342,7 +7524,7 @@ export default function Offside() {
             <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Playing level' : 'Livello di gioco'}</p>
             <div className="flex flex-wrap gap-2 mb-5">
               {playerLevels.map((lvl) => (
-                <button key={lvl.key} onClick={() => { const next = { ...userProfile, level: lvl.key }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: userProfile.level === lvl.key ? colors.accent : colors.card, color: userProfile.level === lvl.key ? '#FFFFFF' : colors.ink, border: `1px solid ${userProfile.level === lvl.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                <button aria-pressed={userProfile.level === lvl.key} key={lvl.key} onClick={() => { const next = { ...userProfile, level: lvl.key }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: userProfile.level === lvl.key ? colors.accent : colors.card, color: userProfile.level === lvl.key ? colors.onAccent : colors.ink, border: `1px solid ${userProfile.level === lvl.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
                   {lvl.label}
                 </button>
               ))}
@@ -7368,7 +7550,7 @@ export default function Offside() {
             ) : (
               <div className="flex flex-wrap gap-2 mb-2">
                 {playerPositions.map((pos) => (
-                  <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.card, color: playerPosition === pos.key ? '#FFFFFF' : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                  <button aria-pressed={playerPosition === pos.key} key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.card, color: playerPosition === pos.key ? colors.onAccent : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
                     {pos.label}
                   </button>
                 ))}
@@ -7401,8 +7583,8 @@ export default function Offside() {
                 </button>
               ) : (
                 <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-3.5">
-                  <input type="text" value={joinTeamCode} onChange={(e) => { setJoinTeamCode(e.target.value.toUpperCase()); setJoinTeamStatus('idle'); }} placeholder={isEN ? 'Team code' : 'Codice squadra'} style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink, letterSpacing: '0.08em' }} className="os-focus w-full rounded-lg px-3 py-2.5 text-sm mb-2 uppercase" />
-                  <input type="text" value={joinTeamPlayerName} onChange={(e) => { setJoinTeamPlayerName(e.target.value); setJoinTeamStatus('idle'); }} placeholder={isEN ? 'Your name or nickname' : 'Il tuo nome o soprannome'} maxLength={40} style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-sm mb-3" />
+                  <input type="text" aria-label={isEN ? 'Team code' : 'Codice squadra'} value={joinTeamCode} onChange={(e) => { setJoinTeamCode(e.target.value.toUpperCase()); setJoinTeamStatus('idle'); }} placeholder={isEN ? 'Team code' : 'Codice squadra'} style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink, letterSpacing: '0.08em' }} className="os-focus w-full rounded-lg px-3 py-2.5 text-base mb-2 uppercase" />
+                  <input type="text" autoComplete="nickname" aria-label={isEN ? 'Your name or nickname' : 'Il tuo nome o soprannome'} value={joinTeamPlayerName} onChange={(e) => { setJoinTeamPlayerName(e.target.value); setJoinTeamStatus('idle'); }} placeholder={isEN ? 'Your name or nickname' : 'Il tuo nome o soprannome'} maxLength={40} style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-base mb-3" />
 
                   <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-3 mb-3">
                     <p style={{ color: colors.ink }} className="text-xs font-semibold mb-1.5">{isEN ? 'What gets shared with your team:' : 'Cosa viene condiviso con la squadra:'}</p>
@@ -7428,7 +7610,7 @@ export default function Offside() {
                   </button>
 
                   <div className="flex gap-2">
-                    <button onClick={joinTeam} disabled={joinTeamStatus === 'submitting'} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus flex-1 rounded-lg py-2.5 text-xs font-semibold">
+                    <button onClick={joinTeam} disabled={joinTeamStatus === 'submitting'} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus flex-1 rounded-lg py-2.5 text-xs font-semibold">
                       {joinTeamStatus === 'submitting' ? '...' : (isEN ? 'Confirm' : 'Conferma')}
                     </button>
                     <button onClick={() => { setShowJoinTeamBox(false); setJoinTeamStatus('idle'); }} style={{ color: colors.mutedInk }} className="os-focus px-3 text-xs">{isEN ? 'Cancel' : 'Annulla'}</button>
@@ -7451,7 +7633,7 @@ export default function Offside() {
                 <div key={i} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 flex gap-3 shadow-sm">
                   <div style={{ backgroundColor: colors.accentTint }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center relative">
                     <step.icon size={20} color={colors.accentDark} strokeWidth={2} />
-                    <span style={{ ...displayFont, backgroundColor: colors.accent, color: '#FFFFFF' }} className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shadow-sm">{step.letter}</span>
+                    <span style={{ ...displayFont, backgroundColor: colors.accent, color: colors.onAccent }} className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shadow-sm">{step.letter}</span>
                   </div>
                   <div className="flex-1">
                     <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold mb-0.5">{step.title}</p>
@@ -7470,12 +7652,10 @@ export default function Offside() {
               </ul>
             </div>
 
-            <button onClick={() => setScreen('regions')} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium shadow-sm hover:opacity-90 transition-opacity">
+            <button onClick={() => { setRegionsTab('injury'); setScreen('regions'); setTimeout(() => scrollToId('sez-trova', { instant: true }), 60); }} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus os-press w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium shadow-sm hover:opacity-90">
               <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Now choose where it hurts' : 'Ora scegli dove hai male'}</span><ArrowRight size={16} />
             </button>
 
-            <div className="h-5" aria-hidden="true" />
-            <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'When you\'re ready to return, Premium has the right training for your role' : 'Quando sarai pronto a tornare in campo, Premium ha l\'allenamento giusto per il tuo ruolo'} />
           </div>
         )}
 
@@ -7508,9 +7688,9 @@ export default function Offside() {
                     <div className="space-y-2">
                       {mechanismOptions.map((opt) => (
                         <button key={opt.key} onClick={() => answerTriage('mechanism', opt.key)}
-                          style={{ backgroundColor: triageAnswers.mechanism === opt.key ? colors.accent : colors.card, color: triageAnswers.mechanism === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.mechanism === opt.key ? colors.accent : colors.hairline}` }}
+                          style={{ backgroundColor: triageAnswers.mechanism === opt.key ? colors.accent : colors.card, color: triageAnswers.mechanism === opt.key ? colors.onAccent : colors.ink, border: `1px solid ${triageAnswers.mechanism === opt.key ? colors.accent : colors.hairline}` }}
                           className="os-focus w-full flex items-center gap-2.5 text-left px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">
-                          <opt.icon size={16} color={triageAnswers.mechanism === opt.key ? '#FFFFFF' : colors.accent} className="flex-shrink-0" />
+                          <opt.icon size={16} color={triageAnswers.mechanism === opt.key ? colors.onAccent : colors.accent} className="flex-shrink-0" />
                           {opt.label}
                         </button>
                       ))}
@@ -7524,7 +7704,7 @@ export default function Offside() {
                     <div className="flex gap-2">
                       {popOptions.map((opt) => (
                         <button key={opt.key} onClick={() => answerTriage('pop', opt.key)}
-                          style={{ backgroundColor: triageAnswers.pop === opt.key ? colors.accent : colors.card, color: triageAnswers.pop === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.pop === opt.key ? colors.accent : colors.hairline}` }}
+                          style={{ backgroundColor: triageAnswers.pop === opt.key ? colors.accent : colors.card, color: triageAnswers.pop === opt.key ? colors.onAccent : colors.ink, border: `1px solid ${triageAnswers.pop === opt.key ? colors.accent : colors.hairline}` }}
                           className="os-focus flex-1 text-center px-4 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm">{opt.label}</button>
                       ))}
                     </div>
@@ -7537,7 +7717,7 @@ export default function Offside() {
                     <div className="space-y-2">
                       {weightOptions.map((opt) => (
                         <button key={opt.key} onClick={() => answerTriage('weight', opt.key)}
-                          style={{ backgroundColor: triageAnswers.weight === opt.key ? colors.accent : colors.card, color: triageAnswers.weight === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.weight === opt.key ? colors.accent : colors.hairline}` }}
+                          style={{ backgroundColor: triageAnswers.weight === opt.key ? colors.accent : colors.card, color: triageAnswers.weight === opt.key ? colors.onAccent : colors.ink, border: `1px solid ${triageAnswers.weight === opt.key ? colors.accent : colors.hairline}` }}
                           className="os-focus w-full text-left px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">{opt.label}</button>
                       ))}
                     </div>
@@ -7550,7 +7730,7 @@ export default function Offside() {
                     <div className="flex gap-2">
                       {swellingOptions.map((opt) => (
                         <button key={opt.key} onClick={() => answerTriage('swelling', opt.key)}
-                          style={{ backgroundColor: triageAnswers.swelling === opt.key ? colors.accent : colors.card, color: triageAnswers.swelling === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${triageAnswers.swelling === opt.key ? colors.accent : colors.hairline}` }}
+                          style={{ backgroundColor: triageAnswers.swelling === opt.key ? colors.accent : colors.card, color: triageAnswers.swelling === opt.key ? colors.onAccent : colors.ink, border: `1px solid ${triageAnswers.swelling === opt.key ? colors.accent : colors.hairline}` }}
                           className="os-focus flex-1 text-center px-3 py-3 rounded-lg text-xs font-medium transition-colors shadow-sm">{opt.label}</button>
                       ))}
                     </div>
@@ -7568,7 +7748,7 @@ export default function Offside() {
                   </div>
                 )}
                 {triageComplete && !triageRedirect && (
-                  <button onClick={finishTriage} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 shadow-sm mt-6">
+                  <button onClick={finishTriage} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 shadow-sm mt-6">
                     <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'See the results' : 'Vedi i risultati'}</span><ArrowRight size={16} />
                   </button>
                 )}
@@ -7620,7 +7800,7 @@ export default function Offside() {
                   </div>
 
                   <div className="flex gap-2 mt-4">
-                    <button onClick={() => { setSelectedInjury(key); setScreen('tracker'); setEditingSetup(true); setSetupSection('gravita'); }} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus flex-1 flex items-center justify-center gap-1.5 rounded-lg py-3 text-sm font-semibold hover:opacity-90 transition-opacity">
+                    <button onClick={() => { setSelectedInjury(key); setScreen('tracker'); setEditingSetup(true); setSetupSection('gravita'); }} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus flex-1 flex items-center justify-center gap-1.5 rounded-lg py-3 text-sm font-semibold hover:opacity-90 transition-opacity">
                       {isEN ? 'Yes, this is it' : 'Sì, è questo'}<ArrowRight size={15} />
                     </button>
                     {triageCandidateIndex < triageResults.length - 1 && (
@@ -7677,12 +7857,12 @@ export default function Offside() {
                     <button onClick={() => chooseInjury(key)} className="os-focus w-full flex items-start gap-3.5 p-4 text-left">
                       <div style={{ background: PITCH_BG }} className="relative flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm">
                         <Icon size={26} color={LED_GREEN} />
-                        {live && <span style={{ backgroundColor: LED_GREEN, border: `2px solid ${colors.card}` }} className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full os-live-dot" />}
+                        {live && <span style={{ backgroundColor: LED_GREEN, border: `2px solid ${colors.card}` }} className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full os-ping" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         {(matches || live) && (
                           <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                            {matches && <span style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">{isEN ? 'Most likely this' : 'Probabilmente questo'}</span>}
+                            {matches && <span style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">{isEN ? 'Most likely this' : 'Probabilmente questo'}</span>}
                             {live && <span style={{ backgroundColor: colors.heroBg, color: LED_GREEN, fontFamily: BEBAS, letterSpacing: '0.05em' }} className="text-[13px] leading-none px-2 py-1 rounded-md">{isEN ? 'In progress' : 'In corso'} · {liveMinute}'</span>}
                           </div>
                         )}
@@ -7708,7 +7888,7 @@ export default function Offside() {
                       <>
                         <button onClick={() => setExpandedSymptoms(symptomsOpen ? null : key)} style={{ color: colors.accentDark, borderTop: `1px dashed ${colors.hairline}` }} className="os-focus w-full flex items-center justify-between gap-1.5 px-4 py-2.5 text-xs font-semibold">
                           <span className="flex items-center gap-1.5"><Info size={13} />{isEN ? 'Typical symptoms' : 'Sintomi tipici'}</span>
-                          <ChevronDown size={13} style={{ transform: symptomsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                          <ChevronDown size={13} style={{ transform: symptomsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 200ms var(--ease-in-out)' }} />
                         </button>
                         {symptomsOpen && (
                           <div style={{ backgroundColor: colors.paper }} className="px-4 py-3 os-fadein">
@@ -7727,12 +7907,26 @@ export default function Offside() {
               })}
             </div>
             <div className="mt-5">
-              <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: training designed for each injury, matched to your role' : 'Premium: allenamento pensato per ogni infortunio, in base al tuo ruolo'} />
+              {!premiumUnlocked && <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: training designed for each injury, matched to your role' : 'Premium: allenamento pensato per ogni infortunio, in base al tuo ruolo'} />}
             </div>
           </div>
           );
         })()}
 
+
+        {screen === 'tracker' && !injury && (
+          <div style={{ background: PITCH_BG }} className="rounded-3xl p-6 mb-5 shadow-lg relative overflow-hidden">
+            <PitchArc size={190} />
+            <p style={{ fontFamily: "'Bebas Neue', sans-serif", color: '#FFFFFF' }} className="relative text-[44px] leading-[0.9]">{isEN ? 'No recovery in progress' : 'Nessun percorso in corso'}</p>
+            <p style={{ color: 'rgba(255,255,255,0.8)' }} className="relative text-sm leading-relaxed mt-2">{isEN ? 'Pick your injury and your recovery clock starts here: phase, today\'s session and estimated return.' : 'Scegli il tuo infortunio e qui parte il cronometro del recupero: fase, sessione di oggi e rientro stimato.'}</p>
+            <button onClick={() => { navKindRef.current = 'tab'; setRegionsTab('injury'); setScreen('regions'); setTimeout(() => scrollToId('sez-trova', { instant: true }), 60); }} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus os-press relative w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 mt-5 shadow-md">
+              <Search size={17} strokeWidth={2.2} /><span style={displayFont} className="text-sm font-bold uppercase tracking-wide">{isEN ? 'Find your injury' : 'Trova il tuo infortunio'}</span>
+            </button>
+            <button onClick={startTriage} style={{ color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.24)' }} className="os-focus os-press relative w-full flex items-center justify-center gap-2 rounded-2xl py-3 mt-2.5 hover:bg-white/5">
+              <HelpCircle size={17} /><span style={displayFont} className="text-sm font-semibold">{isEN ? 'Not sure what it is?' : 'Non sai cosa hai?'}</span>
+            </button>
+          </div>
+        )}
 
         {screen === 'tracker' && injury && phase && (
           <>
@@ -7750,7 +7944,7 @@ export default function Offside() {
                   else { setConfirmingReset(true); setTimeout(() => setConfirmingReset(false), 3000); }
                 }}
                 style={{ color: confirmingReset ? colors.red : colors.mutedInk }}
-                className="os-focus flex items-center gap-1.5 text-xs hover:opacity-70 transition-opacity flex-shrink-0"
+                className="os-focus os-press flex items-center gap-1.5 text-xs hover:opacity-70 flex-shrink-0 min-h-[40px] px-1"
               >
                 <RotateCcw size={13} />{confirmingReset ? (isEN ? 'Tap to confirm' : 'Tocca per confermare') : (isEN ? 'Start over' : 'Ricomincia')}
               </button>
@@ -7798,20 +7992,20 @@ export default function Offside() {
                       const chipDate = (() => { const d = new Date(); d.setDate(d.getDate() - chip.days); return toISODate(d); })();
                       const isChosen = currentDate === chipDate;
                       return (
-                        <button key={chip.label} onClick={() => commitDate(chipDate)} style={{ backgroundColor: isChosen ? colors.accent : colors.accentTint, color: isChosen ? '#FFFFFF' : colors.accentDark, border: `1.5px solid ${isChosen ? colors.accent : 'transparent'}` }} className="os-focus px-3 py-2 rounded-lg text-sm text-center font-medium hover:opacity-80 transition-colors flex items-center justify-center gap-1">
+                        <button key={chip.label} aria-pressed={isChosen} onClick={() => commitDate(chipDate)} style={{ backgroundColor: isChosen ? colors.accent : colors.accentTint, color: isChosen ? colors.onAccent : colors.accentDark, border: `1.5px solid ${isChosen ? colors.accent : 'transparent'}` }} className="os-focus px-3 py-2 rounded-lg text-sm text-center font-medium hover:opacity-80 transition-colors flex items-center justify-center gap-1">
                           {isChosen && <Check size={13} strokeWidth={3} />}{chip.label}
                         </button>
                       );
                     })}
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <input type="date" value={pendingDate} className="os-date os-focus text-sm px-3 py-1.5 rounded-lg flex-1" style={{ border: `1px solid ${colors.hairline}`, color: colors.ink }} max={toISODate(new Date())} onChange={(e) => setPendingDate(e.target.value)} />
-                    <button onClick={() => pendingDate && commitDate(pendingDate)} disabled={!pendingDate} style={{ backgroundColor: pendingDate ? colors.accent : colors.hairline, color: pendingDate ? '#FFFFFF' : colors.mutedInk }} className="os-focus px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">{isEN ? 'Confirm' : 'Conferma'}</button>
+                    <input type="date" aria-label={isEN ? 'Date of the injury' : 'Data dell\'infortunio'} value={pendingDate} className="os-date os-focus text-base px-3 py-1.5 rounded-lg flex-1" style={{ border: `1px solid ${colors.hairline}`, color: colors.ink }} max={toISODate(new Date())} onChange={(e) => setPendingDate(e.target.value)} />
+                    <button onClick={() => pendingDate && commitDate(pendingDate)} disabled={!pendingDate} style={{ backgroundColor: pendingDate ? colors.accent : colors.hairline, color: pendingDate ? colors.onAccent : colors.mutedInk }} className="os-focus px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">{isEN ? 'Confirm' : 'Conferma'}</button>
                   </div>
                   <button onClick={skipDate} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-2 block">{isEN ? 'I\'d rather not say' : 'Preferisco non specificarla'}</button>
                 </div>
 
-                <button onClick={skipDate} style={{ backgroundColor: colors.accent, color: '#FFFFFF', boxShadow: `0 8px 22px ${colors.accent}40` }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium hover:opacity-90 active:scale-[0.99] transition">
+                <button onClick={skipDate} style={{ backgroundColor: colors.accent, color: colors.onAccent, boxShadow: `0 8px 22px ${colors.accent}40` }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium hover:opacity-90 active:scale-[0.99] transition">
                   <span style={{ fontFamily: BRICOLAGE }} className="uppercase tracking-wide text-sm font-bold">{isEN ? 'Go to my recovery' : 'Vai al mio percorso'}</span><ArrowRight size={16} />
                 </button>
                 {!currentDate && <p style={{ color: colors.mutedInk }} className="text-[11px] text-center mt-2">{isEN ? 'You can add the date later too, with the pencil on your plan.' : 'Puoi aggiungere la data anche dopo, con la matita nel percorso.'}</p>}
@@ -7820,7 +8014,7 @@ export default function Offside() {
                 <SetupSection id="recidiva" currentSection={setupSection} onToggle={setSetupSection} icon={RotateCcw} label={isEN ? 'First time?' : 'Prima volta?'} badge={injuryRecurrence[selectedInjury] && <CheckCircle2 size={15} color={colors.accent} className="mr-1" />}>
                   <div className="flex gap-2 mb-2.5">
                     {[{ key: 'prima', label: isEN ? 'First time' : 'Prima volta' }, { key: 'recidiva', label: isEN ? 'Happened before' : 'Già successo prima' }].map((opt) => (
-                      <button key={opt.key} onClick={() => { const next = { ...injuryRecurrence, [selectedInjury]: opt.key }; setInjuryRecurrence(next); persist(snapshot({ injuryRecurrence: next })); }} style={{ backgroundColor: injuryRecurrence[selectedInjury] === opt.key ? colors.accent : colors.paper, color: injuryRecurrence[selectedInjury] === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${injuryRecurrence[selectedInjury] === opt.key ? colors.accent : colors.hairline}` }} className="os-focus flex-1 rounded-lg py-2 text-sm font-medium transition-colors">{opt.label}</button>
+                      <button aria-pressed={injuryRecurrence[selectedInjury] === opt.key} key={opt.key} onClick={() => { const next = { ...injuryRecurrence, [selectedInjury]: opt.key }; setInjuryRecurrence(next); persist(snapshot({ injuryRecurrence: next })); }} style={{ backgroundColor: injuryRecurrence[selectedInjury] === opt.key ? colors.accent : colors.paper, color: injuryRecurrence[selectedInjury] === opt.key ? colors.onAccent : colors.ink, border: `1px solid ${injuryRecurrence[selectedInjury] === opt.key ? colors.accent : colors.hairline}` }} className="os-focus flex-1 rounded-lg py-2 text-sm font-medium transition-colors">{opt.label}</button>
                     ))}
                   </div>
                   {injuryRecurrence[selectedInjury] === 'recidiva' && (
@@ -7835,7 +8029,7 @@ export default function Offside() {
                       const isChosen = i === activePhase;
                       return (
                         <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isChosen ? colors.accentTint : colors.paper, border: `1.5px solid ${isChosen ? colors.accent : 'transparent'}` }} className="os-focus w-full flex items-center gap-3 rounded-lg p-2.5 text-left transition-colors">
-                          <div style={{ backgroundColor: isChosen ? colors.accent : colors.card, color: isChosen ? '#FFFFFF' : colors.accentDark }} className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold">{isChosen ? <Check size={13} strokeWidth={3} /> : i + 1}</div>
+                          <div style={{ backgroundColor: isChosen ? colors.accent : colors.card, color: isChosen ? colors.onAccent : colors.accentDark }} className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold">{isChosen ? <Check size={13} strokeWidth={3} /> : i + 1}</div>
                           <div className="flex-1 min-w-0">
                             <p style={{ color: colors.ink }} className="text-sm font-medium">{p.name}</p>
                             <p style={{ color: colors.mutedInk }} className="text-[11px] os-tabular">{phaseRangeLabel(i, injury.severityData[severity].dayThresholds, isEN)}</p>
@@ -7872,7 +8066,7 @@ export default function Offside() {
                   {premiumUnlocked ? (
                     <div className="flex flex-wrap gap-2">
                       {playerPositions.map((pos) => (
-                        <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.paper, color: playerPosition === pos.key ? '#FFFFFF' : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                        <button aria-pressed={playerPosition === pos.key} key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.paper, color: playerPosition === pos.key ? colors.onAccent : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
                           {pos.label}
                         </button>
                       ))}
@@ -7903,8 +8097,8 @@ export default function Offside() {
                           <CartesianGrid strokeDasharray="3 3" stroke={colors.hairline} />
                           <XAxis dataKey="date" tick={{ fontSize: 10, fill: colors.mutedInk }} />
                           <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tick={{ fontSize: 10, fill: colors.mutedInk }} width={60} />
-                          <Tooltip />
-                          <Line type="monotone" dataKey="feeling" stroke={colors.accent} strokeWidth={2.5} dot={{ r: 3, fill: colors.accent }} connectNulls />
+                          <Tooltip isAnimationActive={false} />
+                          <Line type="monotone" dataKey="feeling" stroke={colors.accent} strokeWidth={2.5} dot={{ r: 3, fill: colors.accent }} connectNulls animationDuration={500} animationEasing="ease-out" />
                         </LineChart>
                       </ResponsiveContainer>
                     );
@@ -7948,7 +8142,7 @@ export default function Offside() {
               <>
                 <div style={{ background: PITCH_BG }} className="rounded-3xl p-5 mb-3 shadow-lg relative overflow-hidden">
                   <PitchArc size={190} />
-                  <button onClick={() => setEditingSetup(true)} style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} className="os-focus absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/20 active:scale-90 transition-all z-10" aria-label={isEN ? 'Edit severity, date and more' : 'Modifica gravità, data e altro'}>
+                  <button onClick={() => setEditingSetup(true)} style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} className="os-focus os-press [--press:0.95] absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/20 z-10" aria-label={isEN ? 'Edit severity, date and more' : 'Modifica gravità, data e altro'}>
                     <Pencil size={14} color={colors.accent} />
                   </button>
                   <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.14em' }} className="text-[11px] font-bold uppercase mb-2 relative">{isEN ? `Phase ${activePhase + 1} of ${injury.phases.length}` : `Fase ${activePhase + 1} di ${injury.phases.length}`}</p>
@@ -7971,7 +8165,7 @@ export default function Offside() {
                       </div>
                     )}
                     <p style={{ ...displayFont, color: '#FFFFFF', letterSpacing: '-0.01em' }} className="text-xl font-bold uppercase leading-[1.15] mb-1">{phase.name}</p>
-                    <p style={{ color: '#9FB3A8' }} className="text-[13px] leading-snug">{phaseRangeLabel(activePhase, dayThresholds, isEN)} · {isEN ? 'severity' : 'gravità'} {severityLabels[severity].toLowerCase()}</p>
+                    <p style={{ color: '#9FB3A8' }} className="text-[13px] leading-snug">{phaseRangeLabel(activePhase, dayThresholds, isEN)} · {isEN ? `${severityLabels[severity].toLowerCase()} severity` : `gravità ${severityFemIT[severity] || severityLabels[severity].toLowerCase()}`}</p>
                     {premiumUnlocked && playerPosition && <p style={{ ...displayFont, color: colors.premiumGold }} className="text-[11px] font-bold mt-1.5">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>}
                   </div>
                 </div>
@@ -7985,7 +8179,7 @@ export default function Offside() {
                     ...(injury.relatedInjuries && injury.relatedInjuries.length > 0 ? [{ id: 'collegati', icon: ArrowLeftRight, label: isEN ? 'Related' : 'Collegati', onClick: () => scrollToId('sez-collegati') }] : []),
                   ]}
                 />
-                <SectionTitle id="sez-oggi" className="mt-6" kicker={isEN ? 'Today' : 'Oggi'} title={isEN ? "Today's session" : 'La sessione di oggi'} hint={currentDate ? (isEN ? 'How you feel, then tick the session: it keeps your streak alive.' : 'Come ti senti, poi spunta la sessione: tiene viva la serie.') : null} />
+                <SectionTitle id="sez-oggi" className="mt-6" kicker={isEN ? 'Today' : 'Oggi'} title={isEN ? "Today's session" : 'La sessione di oggi'} hint={currentDate ? (isEN ? 'Log how you feel, then tick the session to keep your streak alive.' : 'Segna come ti senti, poi spunta la sessione: tiene viva la serie.') : null} />
                 <div style={{ backgroundColor: todayEntry.done ? colors.accentDark : colors.card, border: `1px solid ${todayEntry.done ? colors.accentDark : colors.hairline}` }} className="rounded-xl p-3.5 mb-5 shadow-sm transition-colors">
                   {!currentDate ? (
                     <button onClick={() => setEditingSetup(true)} className="os-focus w-full flex items-center justify-between gap-2">
@@ -7997,29 +8191,29 @@ export default function Offside() {
                       <div className="flex items-center justify-between mb-1">
                         <span style={{ ...displayFont, color: todayEntry.done ? '#FFFFFF' : colors.ink }} className="text-sm font-semibold capitalize">{isEN ? 'Day' : 'Giorno'} {dayCount} · {formatTodayLabel(isEN)}</span>
                         {streak.count > 0 && (
-                          <span style={{ ...displayFont, color: todayEntry.done ? '#FFD9A0' : colors.orange }} className="flex items-center gap-1 text-sm font-bold os-tabular">
+                          <span style={{ ...displayFont, color: todayEntry.done ? '#FFF3E0' : colors.orange }} className="flex items-center gap-1 text-sm font-bold os-tabular">
                             <Flame size={14} strokeWidth={2.5} />{streak.count}
                           </span>
                         )}
                       </div>
                       {streak.graceUsed && (
-                        <p style={{ color: todayEntry.done ? '#C9D8E5' : colors.mutedInk }} className="text-[11px] mb-2 -mt-1">❄️ {isEN ? 'A missed day doesn\'t break your streak — picked up right where you left off.' : 'Un giorno saltato non rompe la serie — ripresa da dove l\'avevi lasciata.'}</p>
+                        <p style={{ color: todayEntry.done ? '#EEF3F8' : colors.mutedInk }} className="flex items-start gap-1.5 text-[11px] mb-2 -mt-1"><Snowflake size={12} className="mt-0.5 flex-shrink-0" />{isEN ? 'One missed day doesn\'t break your streak: you picked up where you left off.' : 'Un giorno saltato non rompe la serie: hai ripreso da dove avevi lasciato.'}</p>
                       )}
                       <div className="flex items-center gap-2.5 mb-1.5">
-                        <span style={{ color: todayEntry.done ? '#C9D8E5' : colors.mutedInk }} className="text-[11px] font-medium flex-shrink-0 w-14">{isEN ? 'Feeling' : 'Come va'}</span>
+                        <span style={{ color: todayEntry.done ? '#EEF3F8' : colors.mutedInk }} className="text-[11px] font-medium flex-shrink-0 w-14">{isEN ? 'Feeling' : 'Come va'}</span>
                         <div className="flex gap-1 flex-1">
                           {feelingOptions.map((opt) => (
-                            <button key={opt.key} onClick={() => setTodayFeeling(opt.key)} style={{ backgroundColor: todayEntry.feeling === opt.key ? colors.accent : (todayEntry.done ? 'rgba(255,255,255,0.1)' : colors.paper), color: todayEntry.feeling === opt.key ? '#FFFFFF' : (todayEntry.done ? '#D7E1EA' : colors.ink) }} className="os-focus flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors">
+                            <button aria-pressed={todayEntry.feeling === opt.key} key={opt.key} onClick={() => setTodayFeeling(opt.key)} style={{ backgroundColor: todayEntry.feeling === opt.key ? colors.accent : (todayEntry.done ? 'rgba(6,20,14,0.28)' : colors.paper), color: todayEntry.feeling === opt.key ? colors.onAccent : (todayEntry.done ? '#FFFFFF' : colors.ink) }} className="os-focus os-press flex-1 py-2 min-h-[36px] rounded-lg text-[11.5px] font-medium">
                               {opt.label}
                             </button>
                           ))}
                         </div>
                       </div>
                       <div className="flex items-center gap-2.5 mb-2.5">
-                        <span style={{ color: todayEntry.done ? '#C9D8E5' : colors.mutedInk }} className="text-[11px] font-medium flex-shrink-0 w-14">{isEN ? 'Stiffness' : 'Rigidità'}</span>
+                        <span style={{ color: todayEntry.done ? '#EEF3F8' : colors.mutedInk }} className="text-[11px] font-medium flex-shrink-0 w-14">{isEN ? 'Stiffness' : 'Rigidità'}</span>
                         <div className="flex gap-1 flex-1">
                           {stiffnessOptions.map((opt) => (
-                            <button key={opt.key} onClick={() => setTodayStiffness(opt.key)} style={{ backgroundColor: todayEntry.stiffness === opt.key ? colors.orange : (todayEntry.done ? 'rgba(255,255,255,0.1)' : colors.paper), color: todayEntry.stiffness === opt.key ? '#FFFFFF' : (todayEntry.done ? '#D7E1EA' : colors.ink) }} className="os-focus flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors">
+                            <button aria-pressed={todayEntry.stiffness === opt.key} key={opt.key} onClick={() => setTodayStiffness(opt.key)} style={{ backgroundColor: todayEntry.stiffness === opt.key ? colors.orange : (todayEntry.done ? 'rgba(6,20,14,0.28)' : colors.paper), color: todayEntry.stiffness === opt.key ? '#FFFFFF' : (todayEntry.done ? '#FFFFFF' : colors.ink) }} className="os-focus os-press flex-1 py-2 min-h-[36px] rounded-lg text-[11.5px] font-medium">
                               {opt.label}
                             </button>
                           ))}
@@ -8034,8 +8228,9 @@ export default function Offside() {
 
                       <button
                         onClick={toggleToday}
-                        style={{ backgroundColor: todayEntry.done ? 'rgba(255,255,255,0.15)' : colors.accentTint, color: todayEntry.done ? '#FFFFFF' : colors.accentDark, border: todayEntry.done ? '1px solid rgba(255,255,255,0.3)' : 'none' }}
-                        className="os-focus w-full flex items-center justify-center gap-2 rounded-lg py-2.5 transition-all hover:opacity-90"
+                        aria-pressed={!!todayEntry.done}
+                        style={{ backgroundColor: todayEntry.done ? 'rgba(6,20,14,0.25)' : colors.accentTint, color: todayEntry.done ? '#FFFFFF' : colors.accentDark, border: `1px solid ${todayEntry.done ? 'rgba(255,255,255,0.3)' : 'transparent'}` }}
+                        className="os-focus os-press w-full flex items-center justify-center gap-2 rounded-lg py-2.5 min-h-[44px] hover:opacity-90"
                       >
                         {todayEntry.done ? <CheckCircle2 size={16} strokeWidth={2.25} /> : <Circle size={16} strokeWidth={1.75} />}
                         <span style={displayFont} className="text-xs font-semibold uppercase tracking-wide">
@@ -8045,7 +8240,7 @@ export default function Offside() {
 
                       <button
                         onClick={() => { trackEvent('calendar_reminders_downloaded'); downloadRecoveryReminders(isEN); }}
-                        style={{ color: todayEntry.done ? '#C9D8E5' : colors.mutedInk }}
+                        style={{ color: todayEntry.done ? '#EEF3F8' : colors.mutedInk }}
                         className="os-focus w-full flex items-center justify-center gap-1.5 pt-2.5 text-[11px] font-medium hover:opacity-70 transition-opacity"
                       >
                         <CalendarPlus size={12} />{isEN ? 'Add daily reminders to your calendar' : 'Aggiungi promemoria giornalieri al calendario'}
@@ -8062,9 +8257,9 @@ export default function Offside() {
                     const pProgress = progress[pKey] || {};
                     const pDone = p.exercises.length > 0 && p.exercises.filter((_, ei) => pProgress[ei]).length === p.exercises.length;
                     return (
-                      <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isActive ? colors.accent : colors.card, border: `1px solid ${isActive ? colors.accent : colors.hairline}`, color: isActive ? '#FFFFFF' : colors.mutedInk }} className="os-focus flex-1 flex flex-col items-center justify-center gap-0.5 rounded-lg py-2 transition-colors shadow-sm">
+                      <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isActive ? colors.accent : colors.card, border: `1px solid ${isActive ? colors.accent : colors.hairline}`, color: isActive ? colors.onAccent : colors.mutedInk }} className="os-focus flex-1 flex flex-col items-center justify-center gap-0.5 rounded-lg py-2 transition-colors shadow-sm">
                         <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wide">{isEN ? `Phase ${i + 1}` : `Fase ${i + 1}`}{pDone && <CheckCircle2 size={12} strokeWidth={2.5} />}</span>
-                        <span style={{ color: isActive ? 'rgba(255,255,255,0.85)' : colors.mutedInk }} className="text-[10px] font-normal normal-case os-tabular">{phaseRangeLabel(i, dayThresholds, isEN)}</span>
+                        <span style={{ color: isActive ? colors.onAccent : colors.mutedInk }} className="text-[10px] font-medium normal-case os-tabular">{phaseRangeLabel(i, dayThresholds, isEN)}</span>
                       </button>
                     );
                   })}
@@ -8099,7 +8294,7 @@ export default function Offside() {
                         <div style={{ backgroundColor: colors.accentTint, borderTop: `1px solid ${colors.hairline}` }} className="rounded-lg p-3 mt-3">
                           <p style={{ color: colors.accentDark, fontWeight: 600 }} className="text-sm mb-2.5">{isEN ? 'Looks like you\'re ready.' : 'Sembra che tu sia pronto.'}</p>
                           {!isLastPhase && (
-                            <button onClick={() => changePhase(activePhase + 1)} style={{ backgroundColor: colors.accent, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wide hover:opacity-90 transition-opacity">
+                            <button onClick={() => changePhase(activePhase + 1)} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wide hover:opacity-90 transition-opacity">
                               {isEN ? 'Move to the next phase' : 'Passa alla fase successiva'}<ArrowRight size={13} />
                             </button>
                           )}
@@ -8147,7 +8342,7 @@ export default function Offside() {
                       <>
                         <div className="flex flex-wrap gap-2 mb-3">
                           {playerPositions.map((pos) => (
-                            <button key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.paper, color: playerPosition === pos.key ? '#FFFFFF' : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                            <button aria-pressed={playerPosition === pos.key} key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.paper, color: playerPosition === pos.key ? colors.onAccent : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
                               {pos.label}
                             </button>
                           ))}
@@ -8158,61 +8353,6 @@ export default function Offside() {
                       </>
                     )}
                   </SetupSection>
-                )}
-
-                {completedCount === phase.exercises.length && phase.exercises.length > 0 && (
-                  activePhase === injury.phases.length - 1 ? (
-                    <div style={{ background: 'linear-gradient(160deg, #16283A 0%, #0A1118 100%)', border: `1px solid ${colors.accent}55` }} className="rounded-xl p-5 mb-4 relative overflow-hidden os-fadein shadow-lg">
-                      <svg className="absolute inset-0 w-full h-full opacity-[0.08]" viewBox="0 0 300 150" fill="none" preserveAspectRatio="xMidYMid slice">
-                        <circle cx="150" cy="20" r="120" stroke={colors.accent} strokeWidth="1.5" />
-                      </svg>
-                      <div className="relative text-center">
-                        <div style={{ backgroundColor: 'rgba(255,255,255,0.1)', border: `1.5px solid ${colors.accent}` }} className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3">
-                          <Trophy size={26} color={colors.accent} strokeWidth={2} />
-                        </div>
-                        <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase mb-1">{isEN ? 'Recovery completed' : 'Percorso completato'}</p>
-                        <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-lg font-bold mb-2">{injury.label}</p>
-                        <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed mb-4 max-w-xs mx-auto">{isEN ? 'You\'ve completed every phase of the guided plan. If you feel ready for a full return, one last check with a professional never hurts.' : 'Hai portato a termine tutte le fasi del percorso guidato. Se ti senti pronto per il rientro pieno, un ultimo controllo con un professionista non fa mai male.'}</p>
-                        <button
-                          onClick={async () => {
-                            const text = isEN
-                              ? `I completed my ${injury.label.toLowerCase()} recovery plan on Offside — every phase done. Back on the pitch! 💪`
-                              : `Ho completato il percorso di recupero da ${injury.label.toLowerCase()} su Offside — tutte le fasi fatte. Si torna in campo! 💪`;
-                            try {
-                              if (navigator.share) await navigator.share({ text });
-                              else if (navigator.clipboard) { await navigator.clipboard.writeText(text); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); }
-                            } catch (err) {}
-                          }}
-                          style={{ backgroundColor: colors.accent, color: '#101B26' }}
-                          className="os-focus flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold mx-auto"
-                        >
-                          <Share2 size={13} />{shareCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Share the milestone' : 'Condividi il traguardo')}
-                        </button>
-                        <button
-                          onClick={() => {
-                            const region = regionOfInjury(selectedInjury, injuriesData);
-                            setRegionsTab('prevention');
-                            setScreen('regions');
-                            if (region) { setExpandedPrevention(region); setTimeout(() => scrollToId(`prevention-${region}`), 200); }
-                          }}
-                          style={{ color: colors.accent }}
-                          className="os-focus block mx-auto mt-3 text-xs font-medium underline hover:opacity-70"
-                        >
-                          {isEN ? 'Don\'t let it happen again — see prevention exercises for this area' : 'Non farlo ripetere — vedi gli esercizi di prevenzione per questa zona'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mb-4 flex items-center gap-3 os-fadein shadow-md">
-                      <div style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
-                        <Trophy size={19} color={colors.accent} strokeWidth={2} />
-                      </div>
-                      <div>
-                        <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-semibold">{isEN ? 'Phase completed' : 'Fase completata'}</p>
-                        <p style={{ color: '#B9C4CF' }} className="text-xs leading-snug">{isEN ? 'When you feel ready, move to the next phase above.' : 'Quando ti senti pronto, passa alla fase successiva in alto.'}</p>
-                      </div>
-                    </div>
-                  )
                 )}
 
                 <SetupSection id="esercizi" currentSection={trackerSection} onToggle={setTrackerSection} icon={Dumbbell} label={isEN ? 'Exercises' : 'Esercizi'} badge={<span style={{ ...displayFont, color: colors.accentDark }} className="os-tabular text-sm font-bold mr-1">{completedCount}<span style={{ color: colors.mutedInk }} className="text-xs font-normal"> /{phase.exercises.length}</span></span>}>
@@ -8239,9 +8379,63 @@ export default function Offside() {
                       );
                     })}
                   </div>
+                    {completedCount === phase.exercises.length && phase.exercises.length > 0 && (
+                      activePhase === injury.phases.length - 1 ? (
+                        <div style={{ background: 'linear-gradient(160deg, #16283A 0%, #0A1118 100%)', border: `1px solid ${colors.accent}55` }} className="rounded-xl p-5 mt-4 relative overflow-hidden os-fadein shadow-lg">
+                          <svg className="absolute inset-0 w-full h-full opacity-[0.08]" viewBox="0 0 300 150" fill="none" preserveAspectRatio="xMidYMid slice">
+                            <circle cx="150" cy="20" r="120" stroke={colors.accent} strokeWidth="1.5" />
+                          </svg>
+                          <div className="relative text-center">
+                            <div style={{ backgroundColor: 'rgba(255,255,255,0.1)', border: `1.5px solid ${colors.accent}` }} className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3">
+                              <Trophy size={26} color={colors.accent} strokeWidth={2} />
+                            </div>
+                            <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase mb-1">{isEN ? 'Recovery completed' : 'Percorso completato'}</p>
+                            <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-lg font-bold mb-2">{injury.label}</p>
+                            <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed mb-4 max-w-xs mx-auto">{isEN ? 'You\'ve completed every phase of the guided plan. If you feel ready for a full return, one last check with a professional never hurts.' : 'Hai portato a termine tutte le fasi del percorso guidato. Se ti senti pronto per il rientro pieno, un ultimo controllo con un professionista non fa mai male.'}</p>
+                            <button
+                              onClick={async () => {
+                                const text = isEN
+                                  ? `I completed my ${injury.label.toLowerCase()} recovery plan on Offside — every phase done. Back on the pitch! 💪`
+                                  : `Ho completato il percorso di recupero da ${injury.label.toLowerCase()} su Offside — tutte le fasi fatte. Si torna in campo! 💪`;
+                                try {
+                                  if (navigator.share) await navigator.share({ text });
+                                  else if (navigator.clipboard) { await navigator.clipboard.writeText(text); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); }
+                                } catch (err) {}
+                              }}
+                              style={{ backgroundColor: colors.accent, color: '#101B26' }}
+                              className="os-focus flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold mx-auto"
+                            >
+                              <Share2 size={13} />{shareCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Share the milestone' : 'Condividi il traguardo')}
+                            </button>
+                            <button
+                              onClick={() => {
+                                const region = regionOfInjury(selectedInjury, injuriesData);
+                                setRegionsTab('prevention');
+                                setScreen('regions');
+                                if (region) { setExpandedPrevention(region); setTimeout(() => scrollToId(`prevention-${region}`), 200); }
+                              }}
+                              style={{ color: colors.accent }}
+                              className="os-focus block mx-auto mt-3 text-xs font-medium underline hover:opacity-70"
+                            >
+                              {isEN ? 'Don\'t let it happen again — see prevention exercises for this area' : 'Non farlo ripetere — vedi gli esercizi di prevenzione per questa zona'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mt-4 flex items-center gap-3 os-fadein shadow-md">
+                          <div style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
+                            <Trophy size={19} color={colors.accent} strokeWidth={2} />
+                          </div>
+                          <div>
+                            <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-semibold">{isEN ? 'Phase completed' : 'Fase completata'}</p>
+                            <p style={{ color: '#B9C4CF' }} className="text-xs leading-snug">{isEN ? 'When you feel ready, move to the next phase above.' : 'Quando ti senti pronto, passa alla fase successiva in alto.'}</p>
+                          </div>
+                        </div>
+                      )
+                    )}
                 </SetupSection>
 
-                <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: your progress over time + a document for your physio' : 'Premium: il tuo andamento nel tempo + un documento per il fisio'} />
+                {!premiumUnlocked && <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: your progress over time + a document for your physio' : 'Premium: il tuo andamento nel tempo + un documento per il fisio'} />}
 
                     {injury.relatedInjuries && injury.relatedInjuries.length > 0 && (
                       <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="mt-6 pt-5">
@@ -8264,21 +8458,29 @@ export default function Offside() {
                 )}
               </>
             )}
-      </div>
+      </main>
 
-      <div style={{ borderTop: `1px solid ${colors.hairline}`, color: colors.mutedInk }} className="px-5 sm:px-8 py-4 pb-24 text-xs leading-relaxed text-center">
+      <footer style={{ borderTop: `1px solid ${colors.hairline}`, color: colors.mutedInk }} className="px-5 sm:px-8 py-4 pb-28 text-xs leading-relaxed text-center">
         {isEN ? 'General informational content. Not a substitute for a medical assessment. If in doubt, see a professional.' : 'Contenuto informativo generale. Non sostituisce una valutazione medica. In caso di dubbi rivolgiti a un professionista.'}
         {saveError && <div style={{ color: colors.red }} className="mt-2 flex items-center justify-center gap-1.5"><X size={13} /> {isEN ? 'Data could not be saved.' : 'Salvataggio dati non riuscito.'}</div>}
-        <a href="mailto:manuelegusella@icloud.com?subject=Feedback%20Offside" style={{ color: colors.accentDark }} className="os-focus flex items-center justify-center gap-1.5 mt-3 hover:underline">
-          <Share2 size={11} />{isEN ? 'Found a problem or have a suggestion? Let me know' : 'Hai trovato un problema o hai un suggerimento? Scrivimelo'}
+        <a href="mailto:manuelegusella@icloud.com?subject=Feedback%20Offside" style={{ color: colors.accentDark }} className="os-focus flex items-center justify-center gap-1.5 mt-2 py-2 hover:underline">
+          <Mail size={12} />{isEN ? 'Found a problem or have a suggestion? Let me know' : 'Hai trovato un problema o hai un suggerimento? Scrivimelo'}
         </a>
-        <a href="/privacy.html" style={{ color: colors.mutedInk }} className="os-focus block mt-2 underline hover:opacity-70">
+        <a href="/privacy.html" style={{ color: colors.mutedInk }} className="os-focus block py-2 underline hover:opacity-70">
           {isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}
         </a>
-      </div>
+      </footer>
 
+      {undoInfo && (
+        <div role="status" className="os-sheet fixed left-0 right-0 mx-auto max-w-[560px] px-4 z-30" style={{ bottom: 'calc(70px + env(safe-area-inset-bottom, 0px))' }}>
+          <div style={{ backgroundColor: colors.ink, color: '#EEF3F8' }} className="rounded-xl shadow-lg flex items-center justify-between gap-3 pl-4 pr-1.5 py-1.5">
+            <span className="text-sm">{undoInfo.label}</span>
+            <button onClick={undoLast} style={{ color: LED_GREEN, ...displayFont }} className="os-focus os-press min-h-[40px] px-3 rounded-lg text-sm font-bold uppercase tracking-wide">{isEN ? 'Undo' : 'Annulla'}</button>
+          </div>
+        </div>
+      )}
       {!TEAM_SCREENS.includes(screen) && <BottomNav screen={screen} isEN={isEN} onNavigate={handleBottomNav} />}
-      {celebration && <GoalCelebration streak={celebration.streak} isEN={isEN} onClose={() => setCelebration(null)} />}
+      {celebration && <GoalCelebration streak={celebration.streak} leaving={!!celebration.leaving} isEN={isEN} onClose={closeCelebration} />}
       {!cookieChoice && <CookieBanner isEN={isEN} onChoice={handleCookieChoice} />}
     </div>
   );

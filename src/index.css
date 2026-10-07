@@ -1,9 +1,22 @@
 @import "tailwindcss";
 
+/* Hover solo dove esiste davvero un puntatore (mouse/trackpad): sul telefono un tocco non
+   deve lasciare l'effetto hover "appiccicato". */
+@custom-variant hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
+
 /* Ombre leggermente colorate (tono navy del brand invece del nero puro di default
    di Tailwind) al posto delle shadow-sm/md/lg generiche: si applica automaticamente
    a tutte le utility "shadow-*" già usate nel file, senza toccare il JSX. */
 @theme {
+  /* I cambi di colore/opacità usano "ease" (più naturale per uno stato), non la curva
+     standard di Tailwind che parte lenta. */
+  --default-transition-timing-function: ease;
   --shadow-sm: 0 1px 3px 0 rgb(16 27 38 / 0.07), 0 1px 2px -1px rgb(16 27 38 / 0.05);
   --shadow-md: 0 4px 10px -2px rgb(16 27 38 / 0.10), 0 2px 6px -3px rgb(16 27 38 / 0.08);
   --shadow-lg: 0 12px 22px -6px rgb(16 27 38 / 0.15), 0 4px 8px -4px rgb(16 27 38 / 0.08);
