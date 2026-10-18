@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -48,18 +48,27 @@ import {
   Aperture, Camera, PersonSimple as PersonStanding, Ruler, Plant as Sprout, ArrowClockwise as RotateCw, CircleDashed, ShieldWarning as ShieldAlert,
   Snowflake, Bandaids as Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, DeviceMobile as Smartphone,
   User, Hand, DotsSixVertical as Grip, MapPin, Phone, Envelope as Mail, Stethoscope, ArrowSquareOut as ExternalLink, MagnifyingGlass as Search,
-  Users, SignOut as LogOut, Copy, UserPlus, Buildings as Building2, Eye, EyeSlash as EyeOff, SoccerBall, Trash, BookOpen
+  Users, SignOut as LogOut, Copy, UserPlus, Buildings as Building2, Eye, EyeSlash as EyeOff, SoccerBall, Trash, BookOpen,
+  Play, Heartbeat, ChartLineUp, Siren, FirstAid
 } from '@phosphor-icons/react';
 
+// Palette "Notte allo stadio": tutta l'app vive su un campo di notte sotto i riflettori.
+// Le chiavi sono le stesse di prima (così il resto del file non cambia nome), ma ora sono
+// pensate per il fondo scuro: "ink" è il testo chiaro, "card" la superficie dei pannelli,
+// "accentDark"/"preventionDark" il verde e l'azzurro accesi da usare come testo e icone.
+// I contrasti sono controllati sul fondo dei pannelli (#0C1A14): testo secondario 8:1,
+// terziario 5,7:1, rosso 6,4:1.
 const colors = {
-  paper: '#EEF3F8', card: '#FFFFFF', hairline: '#D7E1EA', ink: '#101B26',
-  mutedInk: '#57697A', accent: '#2FA766', accentTint: '#E1F3E8', accentDark: '#0E7C43',
-  // testo sopra il verde pieno: il bianco su #2FA766 arriva solo a 3:1, questo a 6:1
-  onAccent: '#06140E',
-  red: '#AE3830', redTint: '#F6DEDB', laneBg: '#DFE7EF', orange: '#A4561C',
-  prevention: '#1D8FA0', preventionTint: '#DAF1F3', preventionDark: '#0B6672', preventionPaper: '#EBF7F8',
-  premiumGold: '#F0B429', premiumGoldTint: 'rgba(240,180,41,0.18)',
+  paper: '#06120D', card: '#0C1A14', hairline: 'rgba(255,255,255,0.09)', ink: '#ECF5EF',
+  mutedInk: '#9DB3A7', accent: '#34C97A', accentTint: 'rgba(52,201,122,0.14)', accentDark: '#7DFFA8',
+  // testo sopra il verde pieno
+  onAccent: '#03130A',
+  red: '#FF6B5E', redTint: 'rgba(255,107,94,0.12)', laneBg: 'rgba(255,255,255,0.05)', orange: '#FFB25C',
+  prevention: '#3CC6D6', preventionTint: 'rgba(114,230,242,0.12)', preventionDark: '#72E6F2', preventionPaper: 'rgba(114,230,242,0.06)',
+  premiumGold: '#F5C451', premiumGoldTint: 'rgba(245,196,81,0.16)',
   heroBg: '#0C2B21',
+  // superfici e luci della notte
+  night: '#040A07', panel2: '#11231A', line2: 'rgba(255,255,255,0.15)', faint: '#7F978A',
 };
 
 const STORAGE_KEY = 'injury-recovery-progress-v3';
@@ -3233,27 +3242,33 @@ const weightOptionsEN = [
 ];
 const swellingOptionsEN = [{ key: 'si', label: 'Yes' }, { key: 'no', label: 'No' }, { key: 'nonso', label: 'Not sure / not visible yet' }];
 
+// ---------------------------------------------------------------------------------------
+// Barra in basso: la "panchina" che galleggia sopra il campo. L'indicatore acceso scorre
+// sotto la sezione attiva come una striscia LED a bordo campo.
+// ---------------------------------------------------------------------------------------
 function BottomNav({ screen, isEN, onNavigate }) {
   const items = [
     { key: 'regions', label: isEN ? 'Home' : 'Home', icon: Compass, screens: ['regions', 'triage', 'triageResults', 'injuries', 'firstaid'] },
     { key: 'tracker', label: isEN ? 'Recovery' : 'Percorso', icon: Activity, screens: ['tracker'] },
     { key: 'physios', label: isEN ? 'Physio' : 'Fisio', icon: Stethoscope, screens: ['physios'] },
-    { key: 'premium', label: 'Premium', icon: TrendingUp, screens: ['premium'] },
+    { key: 'premium', label: 'Premium', icon: Trophy, screens: ['premium'] },
   ];
+  const activeIdx = items.findIndex((it) => it.screens.includes(screen));
   return (
-    <nav aria-label={isEN ? 'Main navigation' : 'Navigazione principale'} style={{ backgroundColor: colors.card, borderTop: `1px solid ${colors.hairline}`, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} className="fixed bottom-0 left-0 right-0 mx-auto max-w-[560px] flex items-stretch z-20 shadow-[0_-2px_10px_rgba(16,27,38,0.06)]">
-      {items.map((item) => {
-        const isActive = item.screens.includes(screen);
-        const Icon = item.icon;
-        return (
-          <button key={item.key} onClick={() => onNavigate(item.key)} className="os-focus group flex-1 flex flex-col items-center justify-center gap-1 pt-2 pb-2.5 min-h-[58px]" style={{ color: isActive ? colors.accentDark : colors.mutedInk }} aria-current={isActive ? 'page' : undefined}>
-            <span style={{ backgroundColor: isActive ? colors.accentTint : 'transparent' }} className="os-press-child flex items-center justify-center w-14 h-7 rounded-full">
-              <Icon size={20} strokeWidth={isActive ? 2.4 : 1.8} />
-            </span>
-            <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: isActive ? 700 : 500 }} className="text-[11px]">{item.label}</span>
-          </button>
-        );
-      })}
+    <nav aria-label={isEN ? 'Main navigation' : 'Navigazione principale'} className="os-nav fixed bottom-0 left-0 right-0 z-30 pointer-events-none" style={{ paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))' }}>
+      <div className="os-nav-bar pointer-events-auto relative mx-auto max-w-[536px]" style={{ '--n': items.length, '--i': Math.max(activeIdx, 0) }}>
+        {activeIdx >= 0 && <span className="os-nav-ind" aria-hidden="true" />}
+        {items.map((item) => {
+          const isActive = item.screens.includes(screen);
+          const Icon = item.icon;
+          return (
+            <button key={item.key} type="button" onClick={() => { haptic(8); onNavigate(item.key); }} className="os-focus os-nav-btn rounded-2xl" aria-current={isActive ? 'page' : undefined}>
+              <span className="os-nav-ic"><Icon size={22} weight={isActive ? 'fill' : 'bold'} /></span>
+              <span style={{ fontFamily: BRICOLAGE, fontWeight: isActive ? 700 : 600 }} className="text-[11px] leading-none">{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 }
@@ -3266,31 +3281,23 @@ function CookieBanner({ isEN, onChoice }) {
     <div
       role="dialog"
       aria-label={isEN ? 'Cookie preferences' : 'Preferenze cookie'}
-      style={{ backgroundColor: colors.ink, paddingBottom: 'calc(14px + env(safe-area-inset-bottom, 0px))' }}
-      className="os-sheet fixed bottom-0 left-0 right-0 z-40 px-5 pt-4 sm:px-8 shadow-[0_-4px_16px_rgba(16,27,38,0.25)]"
+      style={{ paddingBottom: 'calc(14px + env(safe-area-inset-bottom, 0px))' }}
+      className="os-sheet fixed bottom-0 left-0 right-0 z-40 px-3 pt-0"
     >
-      <div className="max-w-md mx-auto">
-        <p style={{ color: '#EEF3F8', fontFamily: "'Public Sans', sans-serif" }} className="text-xs leading-relaxed mb-3">
+      <div className="os-panel mx-auto max-w-[536px] px-4 pt-4 pb-3.5" style={{ background: 'rgba(10,22,16,0.94)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}>
+        <p style={{ color: colors.ink, fontFamily: "'Public Sans', sans-serif" }} className="text-[12.5px] leading-relaxed mb-3">
           {isEN
             ? 'We use Google Analytics to understand how the app is used. Your recovery diary and personal notes are never included. '
             : 'Usiamo Google Analytics per capire come viene usata l\'app. Il tuo diario di recupero e le tue note personali non vengono mai inclusi. '}
-          <a href="/privacy.html" style={{ color: colors.accent }} className="underline font-medium">
+          <a href="/privacy.html" style={{ color: LED_GREEN }} className="underline font-medium">
             {isEN ? 'Privacy Policy' : 'Leggi la Privacy Policy'}
           </a>
         </p>
         <div className="flex gap-2.5">
-          <button
-            onClick={() => onChoice(false)}
-            style={{ backgroundColor: 'transparent', color: '#EEF3F8', border: '1px solid rgba(255,255,255,0.3)' }}
-            className="os-focus flex-1 rounded-lg py-2.5 text-xs font-semibold hover:opacity-80 transition-opacity"
-          >
+          <button onClick={() => onChoice(false)} className="os-focus os-btn os-btn-ghost flex-1 py-2.5 text-[13px]">
             {isEN ? 'Decline' : 'Rifiuta'}
           </button>
-          <button
-            onClick={() => onChoice(true)}
-            style={{ backgroundColor: colors.accent, color: colors.onAccent }}
-            className="os-focus flex-1 rounded-lg py-2.5 text-xs font-semibold hover:opacity-90 transition-opacity"
-          >
+          <button onClick={() => onChoice(true)} className="os-focus os-btn os-btn-primary flex-1 py-2.5 text-[13px]">
             {isEN ? 'Accept' : 'Accetta'}
           </button>
         </div>
@@ -3299,39 +3306,13 @@ function CookieBanner({ isEN, onChoice }) {
   );
 }
 
-function PlayerMascot({ stage = 0, size = 28, color = colors.accent }) {
-  const poses = [
-    // 0 — in piedi, pronto
-    { head: { cx: 20, cy: 8 }, torso: 'M20 12 L20 27', armL: 'M20 15 L14 20', armR: 'M20 15 L26 20', legL: 'M20 27 L15 40', legR: 'M20 27 L25 40', ball: { cx: 20, cy: 44 }, trail: null },
-    // 1 — leggera rincorsa
-    { head: { cx: 19, cy: 8 }, torso: 'M19 12 L21 27', armL: 'M21 15 L15 18', armR: 'M21 15 L28 22', legL: 'M21 27 L14 40', legR: 'M21 27 L27 38', ball: { cx: 22, cy: 42 }, trail: null },
-    // 2 — gamba indietro, carica il tiro
-    { head: { cx: 18, cy: 8 }, torso: 'M18 12 L22 26', armL: 'M22 15 L14 12', armR: 'M22 15 L30 20', legL: 'M22 26 L16 38', legR: 'M22 26 L32 22', ball: { cx: 20, cy: 42 }, trail: null },
-    // 3 — contatto con il pallone
-    { head: { cx: 19, cy: 8 }, torso: 'M19 12 L21 26', armL: 'M21 15 L13 18', armR: 'M21 15 L29 14', legL: 'M21 26 L15 40', legR: 'M21 26 L28 38', ball: { cx: 31, cy: 40 }, trail: null },
-    // 4 — pallone in volo, gesto finale
-    { head: { cx: 20, cy: 7 }, torso: 'M20 11 L20 25', armL: 'M20 14 L12 10', armR: 'M20 14 L28 10', legL: 'M20 25 L14 39', legR: 'M20 25 L30 30', ball: { cx: 37, cy: 19 }, trail: 'M32 26 L28 30 M34 22 L30 25' },
-  ];
-  const p = poses[Math.min(stage, poses.length - 1)];
+// Il logo: il punto e la linea del battito. Con "animated" il punto si accende e la linea si
+// disegna come il tracciato di un elettrocardiogramma (usato nella copertina e nel caricamento).
+function LogoMark({ size = 32, color = colors.accent, strokeWidth = 3, animated = false, delay = 0.2, glow = false }) {
   return (
-    <svg width={size} height={size * 1.2} viewBox="0 0 40 48" fill="none" aria-hidden="true">
-      <circle cx={p.head.cx} cy={p.head.cy} r="4" fill={color} />
-      <path d={p.torso} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
-      <path d={p.armL} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
-      <path d={p.armR} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
-      <path d={p.legL} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
-      <path d={p.legR} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
-      <circle cx={p.ball.cx} cy={p.ball.cy} r="3" fill="none" stroke={color} strokeWidth="1.8" />
-      {p.trail && <path d={p.trail} stroke={color} strokeWidth="1.3" strokeLinecap="round" opacity="0.4" />}
-    </svg>
-  );
-}
-
-function LogoMark({ size = 32, color = colors.accent, strokeWidth = 3 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true" className={animated ? 'os-logo-draw' : undefined} style={{ '--d': `${delay}s`, '--d0': `${Math.max(0, delay - 0.15)}s`, overflow: 'visible', filter: glow ? `drop-shadow(0 0 6px ${color})` : undefined }}>
       <circle cx="11" cy="20" r="2.5" fill={color} />
-      <path d="M13.5 20 H17.5 L21 8 L25 32 L29 20 H33.5" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13.5 20 H17.5 L21 8 L25 32 L29 20 H33.5" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" pathLength="1" />
     </svg>
   );
 }
@@ -3341,8 +3322,8 @@ function LogoMark({ size = 32, color = colors.accent, strokeWidth = 3 }) {
 function PitchArc({ size = 176 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 176 176" fill="none" className="absolute -top-10 -right-10 pointer-events-none" aria-hidden="true">
-      <circle cx="88" cy="88" r="64" stroke="#FFFFFF" strokeOpacity="0.07" strokeWidth="1.5" />
-      <circle cx="88" cy="88" r="2.5" fill="#FFFFFF" fillOpacity="0.14" />
+      <circle cx="88" cy="88" r="64" stroke="#FFFFFF" strokeOpacity="0.08" strokeWidth="1.5" />
+      <circle cx="88" cy="88" r="2.5" fill="#FFFFFF" fillOpacity="0.16" />
     </svg>
   );
 }
@@ -3362,14 +3343,14 @@ const LED_GREEN = '#7DFFA8';
 function SubBoard({ daysLeft, isEN }) {
   const past = daysLeft <= 0;
   return (
-    <div style={{ backgroundColor: '#050B08', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 0 14px rgba(0,0,0,0.65)' }} className="flex-shrink-0 rounded-lg px-2.5 pt-1.5 pb-2 text-center min-w-[84px]">
-      <p style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.08em', fontFamily: "'Bricolage Grotesque', sans-serif" }} className="text-[10px] font-bold uppercase mb-1">{isEN ? 'Est. return' : 'Rientro stimato'}</p>
+    <div style={{ background: 'linear-gradient(180deg, #071009, #030805)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 0 16px rgba(0,0,0,0.7), 0 10px 24px -12px rgba(0,0,0,0.8)' }} className="flex-shrink-0 rounded-xl px-3 pt-2 pb-2.5 text-center min-w-[92px]">
+      <p style={{ color: 'rgba(255,255,255,0.58)', letterSpacing: '0.1em', fontFamily: BRICOLAGE }} className="text-[9.5px] font-bold uppercase mb-1">{isEN ? 'Est. return' : 'Rientro stimato'}</p>
       {past ? (
-        <p style={{ fontFamily: "'Bebas Neue', sans-serif", color: colors.premiumGold, textShadow: `0 0 10px ${colors.premiumGold}99` }} className="text-[34px] leading-none">90'</p>
+        <p style={{ fontFamily: BEBAS, color: colors.premiumGold, textShadow: `0 0 12px ${colors.premiumGold}AA` }} className="text-[38px] leading-none">90'</p>
       ) : (
         <p className="leading-none flex items-baseline justify-center gap-1">
-          <span style={{ fontFamily: "'Bebas Neue', sans-serif", color: LED_GREEN, textShadow: '0 0 10px rgba(125,255,168,0.75)' }} className="text-[34px] os-tabular">{daysLeft}</span>
-          <span style={{ fontFamily: "'Bebas Neue', sans-serif", color: LED_GREEN, opacity: 0.8 }} className="text-base">{isEN ? (daysLeft === 1 ? 'DAY' : 'DAYS') : 'GG'}</span>
+          <span style={{ fontFamily: BEBAS, color: LED_GREEN, textShadow: '0 0 12px rgba(125,255,168,0.8)' }} className="text-[38px] os-tabular"><CountUp value={daysLeft} duration={950} /></span>
+          <span style={{ fontFamily: BEBAS, color: LED_GREEN, opacity: 0.8 }} className="text-base">{isEN ? (daysLeft === 1 ? 'DAY' : 'DAYS') : 'GG'}</span>
         </p>
       )}
     </div>
@@ -3378,21 +3359,22 @@ function SubBoard({ daysLeft, isEN }) {
 
 // Il cronometro della partita di recupero: il minuto (0'–90') mappa i giorni sulla stima
 // totale, con il 45' a metà. Sotto, la timeline dei due tempi con le fasi; a destra il
-// tabellone del cambio. È la stessa idea del vecchio "numero da tabellone", ma con le
-// etichette che servono a capirlo al primo sguardo.
+// tabellone del cambio. All'apertura il minuto corre da 0 al valore di oggi, le fasi si
+// riempiono una dopo l'altra e il pallino arriva al punto in cui sei.
 function MatchClock({ minute, overtime, segments, daysLeft, isEN }) {
   const pct = Math.min(100, Math.max(0, (minute / 90) * 100));
   const fillColor = overtime ? colors.premiumGold : colors.accent;
-  const label = { fontFamily: "'Bricolage Grotesque', sans-serif", letterSpacing: '0.1em' };
+  const glow = overtime ? colors.premiumGold : LED_GREEN;
+  const label = { fontFamily: BRICOLAGE, letterSpacing: '0.1em' };
   return (
     <div className="relative">
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-baseline">
-            <span style={{ fontFamily: "'Bebas Neue', sans-serif", color: '#FFFFFF' }} className="text-[88px] leading-[0.8] os-tabular">{minute}{overtime ? '+' : ''}</span>
-            <span style={{ fontFamily: "'Bebas Neue', sans-serif", color: fillColor }} className="text-4xl leading-none">'</span>
+            <span style={{ fontFamily: BEBAS, color: '#FFFFFF', textShadow: '0 0 34px rgba(125,255,168,0.28)' }} className="text-[100px] leading-[0.8] os-tabular"><CountUp value={minute} duration={1050} />{overtime ? '+' : ''}</span>
+            <span style={{ fontFamily: BEBAS, color: glow, textShadow: `0 0 14px ${glow}` }} className="text-4xl leading-none">'</span>
           </div>
-          <p style={{ ...label, color: 'rgba(255,255,255,0.62)', letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase mt-2">{isEN ? 'Minute of your recovery' : 'Minuto del tuo recupero'}</p>
+          <p style={{ ...label, color: 'rgba(255,255,255,0.64)' }} className="text-[10px] font-bold uppercase mt-2">{isEN ? 'Minute of your recovery' : 'Minuto del tuo recupero'}</p>
         </div>
         <SubBoard daysLeft={daysLeft} isEN={isEN} />
       </div>
@@ -3400,15 +3382,17 @@ function MatchClock({ minute, overtime, segments, daysLeft, isEN }) {
         <div className="relative">
           <div className="flex gap-1">
             {segments.map((seg, i) => (
-              <div key={i} className="relative h-2 overflow-hidden rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.14)', flexGrow: seg.span, flexBasis: 0 }}>
-                <div className="os-fill absolute inset-0" style={{ transform: `scaleX(${seg.fill / 100})`, backgroundColor: fillColor }} />
+              <div key={i} className="relative h-2 overflow-hidden rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.12)', flexGrow: seg.span, flexBasis: 0 }}>
+                <div className="os-fill-in absolute inset-0" style={{ transform: `scaleX(${seg.fill / 100})`, backgroundColor: fillColor, boxShadow: `0 0 10px ${glow}99`, '--d': `${250 + i * 280}ms` }} />
               </div>
             ))}
           </div>
-          <div className="absolute w-px" style={{ left: '50%', top: -5, bottom: -5, backgroundColor: 'rgba(255,255,255,0.6)' }} aria-hidden="true" />
-          <div className={`absolute w-3.5 h-3.5 rounded-full ${overtime ? '' : 'os-ping'}`} style={{ left: `${pct}%`, top: '50%', transform: 'translate(-50%, -50%)', backgroundColor: '#FFFFFF', boxShadow: `0 0 0 3px ${fillColor}66, 0 0 14px ${fillColor}` }} aria-hidden="true" />
+          <div className="absolute w-px" style={{ left: '50%', top: -5, bottom: -5, backgroundColor: 'rgba(255,255,255,0.55)' }} aria-hidden="true" />
+          <div className="os-slide-in absolute inset-0 pointer-events-none" style={{ transform: `translateX(${pct}%)`, '--d': '250ms' }} aria-hidden="true">
+            <div className={`absolute w-3.5 h-3.5 rounded-full ${overtime ? '' : 'os-ping'}`} style={{ left: 0, top: '50%', marginLeft: -7, marginTop: -7, backgroundColor: '#FFFFFF', boxShadow: `0 0 0 3px ${fillColor}66, 0 0 16px ${glow}` }} />
+          </div>
         </div>
-        <div style={{ ...label, color: 'rgba(255,255,255,0.5)' }} className="grid grid-cols-5 mt-2 text-[10px] font-semibold uppercase">
+        <div style={{ ...label, color: 'rgba(255,255,255,0.52)' }} className="grid grid-cols-5 mt-2 text-[10px] font-semibold uppercase">
           <span className="text-left">0'</span>
           <span className="text-center">{isEN ? '1st half' : '1° tempo'}</span>
           <span className="text-center">45'</span>
@@ -3417,7 +3401,7 @@ function MatchClock({ minute, overtime, segments, daysLeft, isEN }) {
         </div>
       </div>
       {daysLeft <= 0 && (
-        <p style={{ color: '#FFE3A3' }} className="text-[11px] leading-snug mt-3">
+        <p style={{ color: '#FFE3A3' }} className="text-[11.5px] leading-snug mt-3">
           {isEN ? 'You have reached the indicative estimate: decide your return with a professional.' : 'Hai raggiunto la stima indicativa: decidi il rientro insieme a un professionista.'}
         </p>
       )}
@@ -3425,40 +3409,54 @@ function MatchClock({ minute, overtime, segments, daysLeft, isEN }) {
   );
 }
 
-// Il "GOL" dopo aver segnato la sessione di oggi: il pallone entra in rete, la scritta esplode,
-// sotto la serie di presenze. Si chiude da solo o con un tocco. Con "riduci movimento" attivo
-// le animazioni sono spente (regola globale) e resta la schermata ferma, già leggibile.
+// Il "GOL" dopo aver segnato la sessione di oggi: il pallone entra in rete, i riflettori
+// lampeggiano, coriandoli dal centro e la scritta esplode; sotto la serie di presenze.
+// Si chiude da solo o con un tocco. Con "riduci movimento" resta la schermata ferma.
 function GoalCelebration({ streak, isEN, onClose, leaving = false }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+  const confetti = useMemo(() => Array.from({ length: 30 }, (_, i) => {
+    const a = (i / 30) * Math.PI * 2 + (i % 3) * 0.21;
+    const dist = 150 + ((i * 53) % 130);
+    return {
+      x: Math.round(Math.cos(a) * dist), y: Math.round(Math.sin(a) * dist * 0.8 + 160),
+      r: ((i * 97) % 720) - 360, d: 230 + (i % 7) * 26,
+      c: [LED_GREEN, '#FFFFFF', '#34C97A', '#F5C451', '#72E6F2'][i % 5], w: 5 + (i % 3) * 2, h: 9 + (i % 4) * 3,
+    };
+  }), []);
   return (
-    <div onClick={onClose} role="status" aria-live="polite" className={`fixed inset-0 z-[60] flex items-center justify-center cursor-pointer ${leaving ? 'os-gol-leave' : 'os-gol-backdrop'}`} style={{ background: `radial-gradient(70% 55% at 50% 45%, rgba(47,167,102,0.28), rgba(47,167,102,0) 70%), rgba(5,16,11,0.94)`, backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
-      <div className="text-center px-6">
+    <div onClick={onClose} role="status" aria-live="polite" className={`fixed inset-0 z-[60] flex items-center justify-center cursor-pointer overflow-hidden ${leaving ? 'os-gol-leave' : 'os-gol-backdrop'}`} style={{ background: 'radial-gradient(70% 55% at 50% 45%, rgba(52,201,122,0.32), rgba(52,201,122,0) 70%), rgba(3,10,6,0.95)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+      <div className="os-gol-rays" aria-hidden="true" />
+      <div className="os-gol-flash" aria-hidden="true" />
+      {confetti.map((c, i) => (
+        <span key={i} className="os-confetti" aria-hidden="true" style={{ '--x': `${c.x}px`, '--y': `${c.y}px`, '--r': `${c.r}deg`, '--d': `${c.d}ms`, background: c.c, width: c.w, height: c.h, boxShadow: `0 0 8px ${c.c}88` }} />
+      ))}
+      <div className="relative text-center px-6">
         <svg width="220" height="124" viewBox="0 0 220 124" className="mx-auto mb-1" aria-hidden="true">
-          <g className="os-net" stroke="rgba(255,255,255,0.4)" strokeWidth="1.1" fill="none">
+          <g className="os-net" stroke="rgba(255,255,255,0.42)" strokeWidth="1.1" fill="none">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => <line key={`v${i}`} x1={40 + i * 14} y1="22" x2={40 + i * 14} y2="112" />)}
             {[1, 2, 3, 4, 5].map((i) => <line key={`h${i}`} x1="40" y1={22 + i * 15} x2="180" y2={22 + i * 15} />)}
             <path d="M40 112 L40 22 L180 22 L180 112" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
           </g>
           <g className="os-ball" style={{ transform: 'translate(112px, 66px)' }}>
             <circle cx="0" cy="0" r="12" fill="#FFFFFF" />
-            <path d="M0 -5.5 L5.2 -1.7 L3.2 4.4 L-3.2 4.4 L-5.2 -1.7 Z" fill={colors.ink} />
-            <circle cx="0" cy="0" r="12" fill="none" stroke={colors.ink} strokeOpacity="0.25" strokeWidth="1" />
+            <path d="M0 -5.5 L5.2 -1.7 L3.2 4.4 L-3.2 4.4 L-5.2 -1.7 Z" fill="#0B1712" />
+            <circle cx="0" cy="0" r="12" fill="none" stroke="#0B1712" strokeOpacity="0.25" strokeWidth="1" />
           </g>
         </svg>
-        <p className="os-gol-text" style={{ fontFamily: "'Bebas Neue', sans-serif", color: '#FFFFFF', letterSpacing: '0.04em', textShadow: `0 0 28px ${colors.accent}` }}>
-          <span className="text-[104px] leading-none">{isEN ? 'GOAL!' : 'GOL!'}</span>
+        <p className="os-gol-text" style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.04em', textShadow: `0 0 30px ${colors.accent}, 0 0 60px rgba(125,255,168,0.5)` }}>
+          <span className="text-[112px] leading-none">{isEN ? 'GOAL!' : 'GOL!'}</span>
         </p>
-        <p style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: '#FFFFFF' }} className="text-base font-semibold mt-1">{isEN ? "Today's session is in the net" : 'Sessione di oggi in rete'}</p>
+        <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="os-rise text-base font-semibold mt-1 [--d:420ms]">{isEN ? "Today's session is in the net" : 'Sessione di oggi in rete'}</p>
         {streak > 1 && (
-          <p style={{ color: '#FFD9A0', fontFamily: "'Bricolage Grotesque', sans-serif" }} className="flex items-center justify-center gap-1.5 mt-2 text-sm font-bold">
-            <Flame size={16} strokeWidth={2.5} />{isEN ? `${streak}-session streak` : `${streak} presenze di fila`}
+          <p style={{ color: '#FFD9A0', fontFamily: BRICOLAGE, '--d': '560ms' }} className="os-rise flex items-center justify-center gap-1.5 mt-2 text-sm font-bold">
+            <Flame size={16} weight="fill" />{isEN ? `${streak}-session streak` : `${streak} presenze di fila`}
           </p>
         )}
-        <p style={{ color: 'rgba(255,255,255,0.5)' }} className="text-[11px] mt-5">{isEN ? 'Tap to continue' : 'Tocca per continuare'}</p>
+        <p style={{ color: 'rgba(255,255,255,0.55)' }} className="text-[11px] mt-6">{isEN ? 'Tap to continue' : 'Tocca per continuare'}</p>
       </div>
     </div>
   );
@@ -3493,14 +3491,12 @@ const BEBAS = "'Bebas Neue', sans-serif";
 const BRICOLAGE = "'Bricolage Grotesque', sans-serif";
 // Variante "prevenzione" del campo di notte: stessa luce da riflettore, ma sul verde acqua.
 const PITCH_BG_TEAL = `radial-gradient(130% 90% at 0% 0%, rgba(114,230,242,0.16), rgba(114,230,242,0) 55%), repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0 36px, rgba(255,255,255,0) 36px 72px), #06282D`;
-// Premium: notte blu con la luce oro di un riflettore dall'alto.
-const PREMIUM_BG = `radial-gradient(90% 70% at 100% 0%, rgba(240,180,41,0.26), rgba(240,180,41,0) 60%), radial-gradient(80% 60% at 0% 100%, rgba(47,167,102,0.12), rgba(47,167,102,0) 60%), #0B121A`;
-const GOLD_GRADIENT = 'linear-gradient(135deg, #F9DD85 0%, #F0B429 45%, #C98A0B 100%)';
+const GOLD_GRADIENT = 'linear-gradient(135deg, #FBE29A 0%, #F5C451 45%, #C98A0B 100%)';
 
 // Colori della lavagna per tono: LED = zone e scritte accese, kit = maglia/pantaloncini.
 const BOARD_TONES = {
-  green: { led: LED_GREEN, bg: PITCH_BG, skin: '#123A2C', kit: '#1A4D3B', shorts: '#23604A', boot: '#06140F' },
-  teal: { led: LED_TEAL, bg: PITCH_BG_TEAL, skin: '#0B363B', kit: '#114A54', shorts: '#185C68', boot: '#03171A' },
+  green: { led: LED_GREEN, bg: PITCH_BG, cls: 'os-pitch', skin: '#123A2C', kit: '#1A4D3B', shorts: '#23604A', boot: '#06140F' },
+  teal: { led: LED_TEAL, bg: PITCH_BG_TEAL, cls: 'os-pitch-teal', skin: '#0B363B', kit: '#114A54', shorts: '#185C68', boot: '#03171A' },
 };
 
 // Tracciati della sagoma, nelle stesse coordinate di bodyZones (0–200 x 0–312).
@@ -3574,9 +3570,10 @@ function BodyDiagram({ onSelectRegion, labels = regionLabelsIT, isEN = false, ti
   const t = BOARD_TONES[tone] || BOARD_TONES.green;
   const led = t.led;
 
-  // Si apre subito: la zona è già accesa al tocco, l'attesa di 280 ms non aggiungeva nulla.
+  // Si apre subito: la zona è già accesa al tocco.
   const handleSelect = (region) => {
     setPinging(region);
+    haptic(10);
     onSelectRegion(region);
     setTimeout(() => setPinging(null), 600);
   };
@@ -3584,11 +3581,12 @@ function BodyDiagram({ onSelectRegion, labels = regionLabelsIT, isEN = false, ti
   const lit = (region) => pressed === region || pinging === region || focused === region;
 
   return (
-    <div style={{ background: t.bg }} className="relative overflow-hidden rounded-3xl px-2 pt-4 pb-2 shadow-lg">
+    <div className={`${t.cls} px-2 pt-4 pb-2`}>
+      <div className={`os-scan ${tone === 'teal' ? 'teal' : ''}`} aria-hidden="true" />
       {(title || caption) && (
         <div className="relative px-3 mb-1">
-          {title && <p style={{ fontFamily: BEBAS, color: led, letterSpacing: '0.06em', textShadow: `0 0 12px ${led}55` }} className="text-[22px] leading-none">{title}</p>}
-          {caption && <p style={{ fontFamily: BRICOLAGE, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.12em' }} className="text-[9px] font-bold uppercase leading-tight mt-1.5">{caption}</p>}
+          {title && <p style={{ fontFamily: BEBAS, color: led, letterSpacing: '0.06em', textShadow: `0 0 14px ${led}66` }} className="text-[25px] leading-none">{title}</p>}
+          {caption && <p style={{ fontFamily: BRICOLAGE, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.12em' }} className="text-[9.5px] font-bold uppercase leading-tight mt-1.5">{caption}</p>}
         </div>
       )}
       <svg viewBox="-76 -6 352 318" className="relative w-full block" role="group" aria-label={isEN ? 'Player outline: tap where it hurts' : 'Sagoma del giocatore: tocca dove senti il problema'}>
@@ -3638,7 +3636,7 @@ function BodyDiagram({ onSelectRegion, labels = regionLabelsIT, isEN = false, ti
               <path d={`M${left ? -70 : 270} ${lineY} L${elbowX} ${lineY} L${c.tx} ${c.ty}`} fill="none" stroke={on ? led : 'rgba(255,255,255,0.34)'} strokeWidth={on ? 1.6 : 1} style={{ transition: 'stroke 0.15s ease' }} />
               <circle cx={c.tx} cy={c.ty} r={on ? 6 : 4.5} fill={led} opacity={on ? 0.35 : 0.18} />
               <circle cx={c.tx} cy={c.ty} r="2.3" fill={on ? led : '#FFFFFF'} />
-              <text x={left ? -70 : 270} y={c.y} textAnchor={left ? 'start' : 'end'} fill={on ? led : 'rgba(255,255,255,0.9)'} style={{ fontFamily: BEBAS, fontSize: 15, letterSpacing: '0.05em', transition: 'fill 0.15s ease' }}>
+              <text x={left ? -70 : 270} y={c.y} textAnchor={left ? 'start' : 'end'} fill={on ? led : 'rgba(255,255,255,0.92)'} style={{ fontFamily: BEBAS, fontSize: 15, letterSpacing: '0.05em', transition: 'fill 0.15s ease' }}>
                 {label}
               </text>
             </g>
@@ -3658,7 +3656,7 @@ function BodyDiagram({ onSelectRegion, labels = regionLabelsIT, isEN = false, ti
               strokeOpacity={on ? 1 : 0.85}
               strokeWidth={on ? 1.8 : 1.2}
               className={on ? '' : 'os-breathe'}
-              style={{ cursor: 'pointer', transition: 'fill-opacity 0.12s ease', animationDelay: `${((zone.center.cy / 300) * 2.6).toFixed(2)}s` }}
+              style={{ cursor: 'pointer', transition: 'fill-opacity 0.12s ease', animationDelay: `${((zone.center.cy / 300) * 2.6).toFixed(2)}s`, filter: on ? `drop-shadow(0 0 6px ${led})` : undefined }}
               onClick={() => handleSelect(zone.region)}
               onMouseDown={() => setPressed(zone.region)}
               onMouseUp={() => setPressed(null)}
@@ -3688,8 +3686,8 @@ function RegionFigure({ region, tone = 'green', height = 80 }) {
   return (
     <svg viewBox="46 2 108 306" width={width} height={height} aria-hidden="true" style={{ overflow: 'visible', display: 'block' }}>
       <ChalkPlayer tone={tone} strokeOpacity={0.4} strokeWidth={1.6} />
-      {zones.map((z, i) => <circle key={`h${i}`} cx={z.center.cx} cy={z.center.cy} r="22" fill={t.led} opacity="0.16" />)}
-      {zones.map((z, i) => <ZoneShape key={i} zone={z} fill={t.led} fillOpacity="0.92" stroke={t.led} strokeWidth="1.5" />)}
+      {zones.map((z, i) => <circle key={`h${i}`} cx={z.center.cx} cy={z.center.cy} r="22" fill={t.led} opacity="0.18" />)}
+      {zones.map((z, i) => <ZoneShape key={i} zone={z} fill={t.led} fillOpacity="0.95" stroke={t.led} strokeWidth="1.5" style={{ filter: `drop-shadow(0 0 5px ${t.led})` }} />)}
     </svg>
   );
 }
@@ -3728,88 +3726,102 @@ function splitDose(text) {
 }
 
 const DRILL_TONES = {
-  green: { main: colors.accent, tint: colors.accentTint, dark: colors.accentDark, led: LED_GREEN, board: colors.heroBg },
-  teal: { main: colors.prevention, tint: colors.preventionTint, dark: colors.preventionDark, led: LED_TEAL, board: '#06282D' },
-  gold: { main: colors.premiumGold, tint: '#FCF1D6', dark: '#8A5A00', led: colors.premiumGold, board: '#0B121A' },
+  green: { main: '#34C97A', led: LED_GREEN, tint: 'rgba(52,201,122,0.13)', ink: '#03130A', chip: 'rgba(125,255,168,0.2)' },
+  teal: { main: '#3CC6D6', led: LED_TEAL, tint: 'rgba(60,198,214,0.13)', ink: '#021316', chip: 'rgba(114,230,242,0.22)' },
+  gold: { main: '#F5C451', led: '#F5C451', tint: 'rgba(245,196,81,0.12)', ink: '#1A1203', chip: 'rgba(245,196,81,0.24)' },
 };
 
 // La card di un esercizio, uguale in percorso, prevenzione, tecnica e Premium: numero grande
-// a sinistra, nome in chiaro, dosaggio sul "tabellone" LED, spunta tonda a destra e il
-// "Come si fa" sotto. Senza onToggle (tecnica) non c'è la spunta; con dark va su fondo scuro.
-function DrillCard({ index, ex, catLabel, done = false, onToggle, helpOpen = false, onToggleHelp, isEN, tone = 'green', dark = false }) {
+// a sinistra (si accende quando è fatto), nome in chiaro, dosaggio sul "tabellone" LED, spunta
+// tonda a destra e il "Come si fa" che si apre sotto. Senza onToggle (tecnica) non c'è la
+// spunta; con onPlay compare "Guida", che apre l'esercizio nella sessione guidata.
+function DrillCard({ index, ex, catLabel, done = false, onToggle, helpOpen = false, onToggleHelp, isEN, tone = 'green', dark = false, onPlay }) {
   const t = DRILL_TONES[tone] || DRILL_TONES.green;
   const { main, dose, note } = splitDose(ex.text);
   const CatIcon = catIcons[ex.cat] || Circle;
   const checkable = typeof onToggle === 'function';
   const num = String(index + 1).padStart(2, '0');
-  const ink = dark ? '#EEF3F8' : colors.ink;
-  const muted = dark ? '#A9B7C4' : colors.mutedInk;
-  const cardBg = dark ? 'rgba(255,255,255,0.06)' : done ? t.tint : colors.card;
-  const border = dark ? 'rgba(255,255,255,0.09)' : done ? `${t.main}66` : colors.hairline;
-  const railBg = done ? t.main : dark ? 'rgba(240,180,41,0.14)' : t.tint;
-  const railInk = done ? '#FFFFFF' : dark ? t.led : t.dark;
+  const [burst, setBurst] = useState(0);
+  const toggle = () => {
+    if (!done) { setBurst((b) => b + 1); haptic(14); }
+    onToggle();
+  };
   return (
-    <div style={{ backgroundColor: cardBg, border: `1px solid ${border}` }} className={`rounded-2xl overflow-hidden transition-colors ${dark ? '' : 'shadow-sm'}`}>
-      <div className="flex items-stretch">
-        <div style={{ backgroundColor: railBg }} className="flex-shrink-0 w-11 flex justify-center pt-3 transition-colors" aria-hidden="true">
-          <span style={{ fontFamily: BEBAS, color: railInk }} className="text-[26px] leading-none os-tabular">{num}</span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start gap-2 px-3 pt-3 pb-2">
-            <div onClick={checkable ? onToggle : undefined} className={`flex-1 min-w-0 ${checkable ? 'cursor-pointer select-none' : ''}`}>
-              <p style={{ color: dark ? t.led : t.dark, fontFamily: BRICOLAGE, letterSpacing: '0.1em' }} className="flex items-center gap-1 text-[10px] font-bold uppercase mb-1"><CatIcon size={11} />{catLabel}</p>
-              <p style={{ color: ink, opacity: done ? 0.62 : 1 }} className="text-[14.5px] font-semibold leading-snug transition-opacity">{main}</p>
-              {(dose || note) && (
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2">
-                  {dose && <span style={{ backgroundColor: dark ? 'rgba(0,0,0,0.4)' : t.board, color: t.led, fontFamily: BEBAS, letterSpacing: '0.05em' }} className="text-[14px] leading-none px-2 py-1 rounded-md">{dose}</span>}
-                  {note && <span style={{ color: muted }} className="text-[11.5px] leading-snug">{note}</span>}
-                </div>
-              )}
-            </div>
-            {checkable && (
-              <button
-                type="button"
-                onClick={onToggle}
-                aria-pressed={done}
-                aria-label={done ? (isEN ? `Mark as not done: ${main}` : `Segna come da fare: ${main}`) : (isEN ? `Mark as done: ${main}` : `Segna come fatto: ${main}`)}
-                style={{ backgroundColor: done ? t.main : dark ? 'rgba(255,255,255,0.06)' : colors.card, border: `2px solid ${done ? t.main : dark ? 'rgba(255,255,255,0.22)' : colors.hairline}`, boxShadow: done ? `0 4px 12px ${t.main}55` : 'none' }}
-                className="os-focus os-press [--press:0.92] flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"
-              >
-                {done ? <Check size={18} color="#FFFFFF" className="os-check-pop" /> : <Check size={16} color={dark ? 'rgba(255,255,255,0.3)' : colors.hairline} />}
-              </button>
-            )}
-          </div>
-          <button type="button" onClick={onToggleHelp} aria-expanded={helpOpen} style={{ color: dark ? t.led : t.dark }} className="os-focus flex items-center gap-1.5 px-3 pt-1 pb-3 min-h-[40px] text-[12px] font-semibold hover:opacity-75 transition-opacity">
-            <BookOpen size={14} />{isEN ? 'How to do it' : 'Come si fa'}
-            <ChevronDown size={12} style={{ transform: helpOpen ? 'rotate(180deg)' : 'none', transition: 'transform 200ms var(--ease-in-out)' }} />
-          </button>
-          {helpOpen && (
-            <div className="px-3 pb-3 os-fadein">
-              {dark ? (
-                <div style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} className="rounded-xl p-3">
-                  <p style={{ color: '#D7E1EA' }} className="text-xs leading-relaxed">{ex.howTo || main}</p>
-                </div>
-              ) : (
-                <ExerciseHelp ex={ex} isEN={isEN} />
-              )}
+    <div
+      className="relative overflow-hidden rounded-[20px]"
+      style={{
+        background: done ? `linear-gradient(180deg, ${t.tint}, rgba(255,255,255,0.015))` : (dark ? 'rgba(255,255,255,0.05)' : 'linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.018))'),
+        border: `1px solid ${done ? t.main + '59' : 'rgba(255,255,255,0.08)'}`,
+        transition: 'background 300ms ease, border-color 300ms ease',
+      }}
+    >
+      <div className="flex items-start gap-3 pl-3.5 pr-3 pt-3.5 pb-1">
+        <span className="os-tabular w-8 flex-shrink-0 text-[30px] leading-[0.9] mt-0.5" style={{ fontFamily: BEBAS, color: done ? t.led : 'rgba(255,255,255,0.3)', textShadow: done ? `0 0 14px ${t.led}77` : 'none', transition: 'color 300ms ease' }} aria-hidden="true">{num}</span>
+        <div onClick={checkable ? toggle : undefined} className={`flex-1 min-w-0 ${checkable ? 'cursor-pointer select-none' : ''}`}>
+          <p style={{ color: t.led, fontFamily: BRICOLAGE, letterSpacing: '0.11em' }} className="flex items-center gap-1 text-[10px] font-bold uppercase mb-1"><CatIcon size={11} />{catLabel}</p>
+          <p style={{ color: colors.ink, opacity: done ? 0.72 : 1 }} className="text-[15px] font-semibold leading-snug transition-opacity">{main}</p>
+          {(dose || note) && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2">
+              {dose && <span style={{ background: 'rgba(0,0,0,0.42)', color: t.led, fontFamily: BEBAS, letterSpacing: '0.05em', border: `1px solid ${t.chip}`, textShadow: `0 0 10px ${t.led}55` }} className="text-[14.5px] leading-none px-2 pt-[5px] pb-1 rounded-md">{dose}</span>}
+              {note && <span style={{ color: colors.mutedInk }} className="text-[12px] leading-snug">{note}</span>}
             </div>
           )}
         </div>
+        {checkable && (
+          <button
+            type="button"
+            onClick={toggle}
+            aria-pressed={done}
+            aria-label={done ? (isEN ? `Mark as not done: ${main}` : `Segna come da fare: ${main}`) : (isEN ? `Mark as done: ${main}` : `Segna come fatto: ${main}`)}
+            style={{
+              background: done ? `radial-gradient(circle at 35% 30%, ${t.led}, ${t.main})` : 'rgba(255,255,255,0.04)',
+              border: `2px solid ${done ? t.main : 'rgba(255,255,255,0.18)'}`,
+              boxShadow: done ? `0 0 0 4px ${t.main}22, 0 8px 20px -6px ${t.main}AA` : 'none',
+              transition: 'background 220ms ease, border-color 220ms ease, box-shadow 260ms ease',
+            }}
+            className="os-focus os-press [--press:0.88] relative flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"
+          >
+            {burst > 0 && done && <span key={burst} className="os-burst-ring" style={{ '--burst': t.led }} aria-hidden="true" />}
+            {done ? <Check size={19} color={t.ink} weight="bold" className="os-check-pop" /> : <Check size={16} color="rgba(255,255,255,0.3)" />}
+          </button>
+        )}
       </div>
+      <div className="flex items-center gap-1 pl-[54px] pr-2 pb-1.5">
+        <button type="button" onClick={onToggleHelp} aria-expanded={helpOpen} style={{ color: t.led }} className="os-focus flex items-center gap-1.5 rounded-lg px-1.5 min-h-[40px] text-[12.5px] font-semibold hover:opacity-80 transition-opacity">
+          <BookOpen size={14} />{isEN ? 'How to do it' : 'Come si fa'}
+          <ChevronDown size={12} style={{ transform: helpOpen ? 'rotate(180deg)' : 'none', transition: 'transform 320ms var(--ease-out-expo)' }} />
+        </button>
+        {typeof onPlay === 'function' && (
+          <button type="button" onClick={onPlay} style={{ color: colors.mutedInk }} className="os-focus ml-auto flex items-center gap-1.5 rounded-lg px-2 min-h-[40px] text-[12px] font-semibold hover:text-white transition-colors" aria-label={isEN ? `Open in guided session: ${main}` : `Apri nella sessione guidata: ${main}`}>
+            <Play size={12} weight="fill" />{isEN ? 'Guided' : 'Guida'}
+          </button>
+        )}
+      </div>
+      <Accordion open={helpOpen}>
+        <div className="pl-[54px] pr-3.5 pb-3.5">
+          {dark ? (
+            <div className="os-well p-3">
+              <p style={{ color: '#D7E1EA' }} className="text-[13px] leading-relaxed">{ex.howTo || main}</p>
+            </div>
+          ) : (
+            <ExerciseHelp ex={ex} isEN={isEN} />
+          )}
+        </div>
+      </Accordion>
     </div>
   );
 }
 
-// Barra a segmenti "formazione": un segmento per esercizio, pieno quando è fatto.
+// Barra a segmenti "formazione": un segmento per esercizio, acceso quando è fatto.
 function DrillProgress({ doneFlags, tone = 'green', isEN, showCount = true }) {
   const t = DRILL_TONES[tone] || DRILL_TONES.green;
   const done = doneFlags.filter(Boolean).length;
   return (
     <div className="flex items-center gap-3" role="img" aria-label={isEN ? `${done} of ${doneFlags.length} exercises done` : `${done} esercizi fatti su ${doneFlags.length}`}>
       <div className="flex-1 flex gap-1">
-        {doneFlags.map((f, i) => <span key={i} style={{ backgroundColor: f ? t.main : colors.hairline }} className="h-1.5 flex-1 rounded-full transition-colors" />)}
+        {doneFlags.map((f, i) => <span key={i} style={{ backgroundColor: f ? t.main : 'rgba(255,255,255,0.1)', boxShadow: f ? `0 0 8px ${t.led}88` : 'none', transition: 'background-color 300ms ease, box-shadow 300ms ease' }} className="h-1.5 flex-1 rounded-full" />)}
       </div>
-      {showCount && <span style={{ fontFamily: BEBAS, color: done ? t.dark : colors.mutedInk, letterSpacing: '0.04em' }} className="text-[15px] leading-none os-tabular">{done}/{doneFlags.length}</span>}
+      {showCount && <span style={{ fontFamily: BEBAS, color: done ? t.led : colors.mutedInk, letterSpacing: '0.04em' }} className="text-[16px] leading-none os-tabular">{done}/{doneFlags.length}</span>}
     </div>
   );
 }
@@ -3819,43 +3831,42 @@ function DrillProgress({ doneFlags, tone = 'green', isEN, showCount = true }) {
 // riconoscibili e far vedere sempre dove sei e dove stai andando.
 // ---------------------------------------------------------------------------------------
 
-// Titolo di un comparto: etichetta piccola (di che parte si tratta), titolo (cosa trovi qui)
-// e, se serve, una riga di spiegazione. Stesso aspetto in tutta l'app.
-function SectionTitle({ id, kicker, title, hint, tone = 'green', className = '' }) {
-  const kColor = { green: colors.accentDark, teal: colors.preventionDark, gold: '#8A5A00' }[tone] || colors.accentDark;
+// Titolo di un comparto: titolo (cosa trovi qui) e, se serve, una riga di spiegazione.
+// A destra può avere un elemento (un conteggio, un'azione). Entra con un leggero rialzo.
+function SectionTitle({ id, title, hint, className = '', aside }) {
   return (
-    <div id={id} className={`mb-3 scroll-mt-4 ${className}`}>
-      {kicker && (
-        <p style={{ fontFamily: BRICOLAGE, color: kColor, letterSpacing: '0.14em' }} className="flex items-center gap-1.5 text-[10px] font-bold uppercase mb-1">
-          <span style={{ backgroundColor: kColor }} className="w-3 h-[2px] rounded-full" aria-hidden="true" />{kicker}
-        </p>
-      )}
-      <h2 style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[18px] font-bold leading-tight">{title}</h2>
-      {hint && <p style={{ color: colors.mutedInk }} className="text-[12.5px] leading-snug mt-1">{hint}</p>}
+    <div id={id} data-rv="" className={`mb-3.5 scroll-mt-4 flex items-end justify-between gap-3 ${className}`}>
+      <div className="min-w-0">
+        <h2 style={{ fontFamily: BRICOLAGE, color: colors.ink, letterSpacing: '-0.015em' }} className="text-[21px] font-bold leading-[1.15]">{title}</h2>
+        {hint && <p style={{ color: colors.mutedInk }} className="text-[13px] leading-snug mt-1">{hint}</p>}
+      </div>
+      {aside && <div className="flex-shrink-0">{aside}</div>}
     </div>
   );
 }
 
 // Le 4 tappe per arrivare al percorso: Zona → Infortunio → Imposta → Percorso. Le tappe già
-// fatte sono toccabili per tornare indietro (se la schermata passa onStep).
+// fatte sono toccabili per tornare indietro (se la schermata passa onStep). La riga tra le
+// tappe si accende fino a quella attuale.
 function FlowSteps({ current, isEN, onStep }) {
   const steps = isEN ? ['Area', 'Injury', 'Set up', 'Recovery'] : ['Zona', 'Infortunio', 'Imposta', 'Percorso'];
   return (
-    <nav aria-label={isEN ? 'Steps to your recovery plan' : 'Tappe verso il tuo percorso'} className="mb-5">
-      <ol className="flex items-start">
+    <nav aria-label={isEN ? 'Steps to your recovery plan' : 'Tappe verso il tuo percorso'} className="mb-5" data-rv="fade">
+      <ol className="relative flex items-start">
+        <span aria-hidden="true" className="absolute top-[13px] left-[12.5%] right-[12.5%] h-0.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
+        <span aria-hidden="true" className="os-fill-in absolute top-[13px] left-[12.5%] h-0.5 rounded-full" style={{ width: '75%', transform: `scaleX(${current / 3})`, backgroundColor: colors.accent, boxShadow: `0 0 8px ${LED_GREEN}`, '--d': '150ms' }} />
         {steps.map((label, i) => {
           const done = i < current;
           const now = i === current;
           const clickable = done && typeof onStep === 'function';
           const dot = (
-            <span style={{ backgroundColor: done ? colors.accent : now ? colors.heroBg : colors.card, border: `2px solid ${done ? colors.accent : now ? colors.heroBg : colors.hairline}`, boxShadow: now ? `0 0 0 4px ${colors.accent}33` : 'none' }} className="relative z-10 w-7 h-7 rounded-full flex items-center justify-center">
-              {done ? <Check size={13} color="#FFFFFF" /> : <span style={{ fontFamily: BEBAS, color: now ? LED_GREEN : colors.mutedInk }} className="text-[15px] leading-none">{i + 1}</span>}
+            <span style={{ background: done ? colors.accent : now ? '#071510' : '#0C1A14', border: `2px solid ${done ? colors.accent : now ? LED_GREEN : 'rgba(255,255,255,0.16)'}`, boxShadow: now ? `0 0 0 4px ${colors.accent}33, 0 0 16px ${LED_GREEN}55` : 'none' }} className="relative z-10 w-7 h-7 rounded-full flex items-center justify-center">
+              {done ? <Check size={13} color="#03130A" weight="bold" /> : <span style={{ fontFamily: BEBAS, color: now ? LED_GREEN : colors.mutedInk }} className="text-[15px] leading-none">{i + 1}</span>}
             </span>
           );
-          const text = <span style={{ fontFamily: BRICOLAGE, color: now ? colors.ink : done ? colors.accentDark : colors.mutedInk }} className={`mt-1.5 text-[11px] leading-none ${now ? 'font-bold' : 'font-semibold'}`}>{label}</span>;
+          const text = <span style={{ fontFamily: BRICOLAGE, color: now ? colors.ink : done ? LED_GREEN : colors.mutedInk }} className={`mt-1.5 text-[11px] leading-none ${now ? 'font-bold' : 'font-semibold'}`}>{label}</span>;
           return (
             <li key={label} className="relative flex-1 flex flex-col items-center" aria-current={now ? 'step' : undefined}>
-              {i > 0 && <span aria-hidden="true" style={{ backgroundColor: i <= current ? colors.accent : colors.hairline }} className="absolute top-[13px] right-1/2 w-full h-0.5" />}
               {clickable
                 ? <button type="button" onClick={() => onStep(i)} className="os-focus flex flex-col items-center rounded-lg" aria-label={isEN ? `Back to: ${label}` : `Torna a: ${label}`}>{dot}{text}</button>
                 : <>{dot}{text}</>}
@@ -3867,35 +3878,16 @@ function FlowSteps({ current, isEN, onStep }) {
   );
 }
 
-// "In questa pagina": le sezioni di una schermata lunga come chip toccabili, per vedere
-// subito cosa c'è e saltarci direttamente.
-function SectionNav({ items, isEN, tone = 'green' }) {
-  const tc = tone === 'teal' ? colors.preventionDark : colors.accentDark;
-  return (
-    <nav aria-label={isEN ? 'On this page' : 'In questa pagina'} className="mt-4">
-      <p style={{ fontFamily: BRICOLAGE, color: colors.mutedInk, letterSpacing: '0.12em' }} className="text-[9.5px] font-bold uppercase mb-2">{isEN ? 'On this page' : 'In questa pagina'}</p>
-      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-        {items.map((it) => (
-          <button key={it.id} type="button" onClick={it.onClick} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus flex-shrink-0 flex items-center gap-1 rounded-full pl-2 pr-2.5 py-1.5 text-[11.5px] font-semibold shadow-sm hover:border-green-300 active:scale-[0.97] transition">
-            <it.icon size={13} color={tc} />{it.label}
-            {it.badge && <span style={{ color: tc, fontFamily: BEBAS, letterSpacing: '0.04em' }} className="text-[13px] leading-none">{it.badge}</span>}
-          </button>
-        ))}
-      </div>
-    </nav>
-  );
-}
-
 // Intestazione di un passaggio numerato (1, 2…) dentro una schermata guidata.
 function StepHeading({ n, title, hint, done = false }) {
   return (
-    <div className="flex items-start gap-3 mb-3">
-      <span style={{ backgroundColor: done ? colors.accent : colors.heroBg, fontFamily: BEBAS }} className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center">
-        {done ? <Check size={15} color="#FFFFFF" /> : <span style={{ color: LED_GREEN }} className="text-[17px] leading-none">{n}</span>}
+    <div className="flex items-start gap-3 mb-3.5">
+      <span style={{ background: done ? colors.accent : '#071510', border: `1.5px solid ${done ? colors.accent : LED_GREEN + '88'}`, fontFamily: BEBAS, boxShadow: done ? 'none' : `0 0 12px ${LED_GREEN}33` }} className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center">
+        {done ? <Check size={15} color="#03130A" weight="bold" className="os-check-pop" /> : <span style={{ color: LED_GREEN }} className="text-[17px] leading-none">{n}</span>}
       </span>
       <div className="min-w-0 pt-0.5">
-        <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[16px] font-bold leading-tight">{title}</p>
-        {hint && <p style={{ color: colors.mutedInk }} className="text-xs leading-snug mt-0.5">{hint}</p>}
+        <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[16.5px] font-bold leading-tight">{title}</p>
+        {hint && <p style={{ color: colors.mutedInk }} className="text-[12.5px] leading-snug mt-0.5">{hint}</p>}
       </div>
     </div>
   );
@@ -3911,66 +3903,69 @@ function durationLabel(days, isEN) {
 function InstallBanner({ isEN, onInstallClick, canInstall, onDismiss }) {
   const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   return (
-    <div style={{ backgroundColor: colors.accentTint }} className="flex items-center gap-2 rounded-lg px-3 py-2 mb-4">
-      <Smartphone size={14} color={colors.accentDark} className="flex-shrink-0" />
-      <p style={{ color: colors.accentDark }} className="flex-1 text-[11px] leading-snug">
+    <div data-rv="" className="os-panel-flat flex items-center gap-2.5 px-3 py-2.5 mb-5">
+      <span style={{ background: 'rgba(125,255,168,0.12)' }} className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center"><Smartphone size={15} color={LED_GREEN} /></span>
+      <p style={{ color: colors.ink }} className="flex-1 text-[12px] leading-snug">
         {isIOS
           ? (isEN ? 'Tap Share → "Add to Home Screen" to find Offside instantly' : 'Tocca Condividi → "Aggiungi a Home" per ritrovarla subito')
           : (isEN ? 'Add Offside to your home screen' : 'Aggiungi Offside alla schermata Home')}
       </p>
       {canInstall && !isIOS && (
-        <button onClick={onInstallClick} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus flex-shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full">{isEN ? 'Install' : 'Installa'}</button>
+        <button onClick={onInstallClick} className="os-focus os-btn os-btn-primary flex-shrink-0 text-[11px] px-3 py-1.5 rounded-full">{isEN ? 'Install' : 'Installa'}</button>
       )}
-      <button onClick={onDismiss} style={{ color: colors.accentDark }} className="os-focus flex-shrink-0"><X size={13} /></button>
+      <button onClick={onDismiss} className="os-focus flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10" aria-label={isEN ? 'Dismiss' : 'Chiudi'}><X size={14} color={colors.mutedInk} /></button>
     </div>
   );
 }
 
+// Un comparto che si apre e si chiude (fisarmonica), con l'altezza animata.
 function SetupSection({ id, currentSection, onToggle, icon: Icon, label, badge, gold, children }) {
   const isOpen = currentSection === id;
   const accentColor = gold ? colors.premiumGold : colors.accent;
   return (
-    <div style={{ backgroundColor: colors.card, border: `1.5px solid ${isOpen ? accentColor + '66' : colors.hairline}` }} className="rounded-xl overflow-hidden shadow-sm mb-2.5 transition-colors">
-      <button onClick={() => onToggle(isOpen ? null : id)} className="os-focus w-full flex items-center gap-3 px-4 py-3.5 text-left">
-        <div style={{ backgroundColor: gold ? colors.premiumGoldTint : colors.accentTint }} className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center">
-          <Icon size={16} color={gold ? colors.premiumGold : colors.accentDark} />
+    <div data-rv="" style={{ background: isOpen ? 'linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02))' : 'rgba(255,255,255,0.035)', border: `1px solid ${isOpen ? accentColor + '55' : 'rgba(255,255,255,0.08)'}`, transition: 'background 300ms ease, border-color 300ms ease' }} className="rounded-[20px] overflow-hidden mb-2.5">
+      <button onClick={() => onToggle(isOpen ? null : id)} aria-expanded={isOpen} className="os-focus w-full flex items-center gap-3 px-4 py-3.5 text-left">
+        <div style={{ backgroundColor: gold ? colors.premiumGoldTint : 'rgba(125,255,168,0.12)' }} className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center">
+          <Icon size={17} color={gold ? colors.premiumGold : LED_GREEN} />
         </div>
-        <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: colors.ink }} className="flex-1 text-sm font-semibold">{label}</span>
+        <span style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex-1 text-[14.5px] font-semibold">{label}</span>
         {badge}
-        <ChevronDown size={16} color={colors.mutedInk} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 200ms var(--ease-in-out)' }} />
+        <ChevronDown size={16} color={colors.mutedInk} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 340ms var(--ease-out-expo)' }} />
       </button>
-      {isOpen && <div className="px-4 pb-4 os-fadein">{children}</div>}
+      <Accordion open={isOpen}>
+        <div className="px-4 pb-4">{children}</div>
+      </Accordion>
     </div>
   );
 }
 
 // Bottone oro di Premium, con un riflesso di luce che ci passa sopra ogni tanto.
 function GoldButton({ children, onClick, href, full = false }) {
-  const cls = `os-focus os-press [--press:0.98] relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-xl font-bold uppercase tracking-wide shadow-md hover:brightness-105 ${full ? 'w-full py-4 text-sm' : 'px-5 py-3 text-xs'}`;
-  const style = { background: GOLD_GRADIENT, color: '#0B121A', fontFamily: BRICOLAGE, letterSpacing: '0.06em', boxShadow: '0 8px 22px rgba(240,180,41,0.28)' };
+  const cls = `os-focus os-press [--press:0.98] relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-2xl font-bold uppercase tracking-wide hover:brightness-105 ${full ? 'w-full py-4 text-sm' : 'px-5 py-3 text-xs'}`;
+  const style = { background: GOLD_GRADIENT, color: '#0B121A', fontFamily: BRICOLAGE, letterSpacing: '0.06em', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), 0 10px 26px -8px rgba(245,196,81,0.5)' };
   const inner = <>{children}<span className="os-sheen" aria-hidden="true" /></>;
   return href
     ? <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} style={style} className={cls}>{inner}</a>
     : <button type="button" onClick={onClick} style={style} className={cls}>{inner}</button>;
 }
 
-// Il banner che porta a Premium, in stile "biglietto oro": cornice sfumata oro, etichetta
-// PREMIUM e il vantaggio concreto. Il prefisso "Premium:" dei testi esistenti diventa
-// l'etichetta, così non si ripete.
+// Il banner che porta a Premium, in stile "biglietto oro": cornice oro, etichetta PREMIUM e
+// il vantaggio concreto. Il prefisso "Premium:" dei testi esistenti diventa l'etichetta.
 function PremiumBanner({ text, onClick }) {
   const body = String(text || '').replace(/^Premium:\s*/i, '');
   const label = body.charAt(0).toUpperCase() + body.slice(1);
   return (
-    <button onClick={onClick} style={{ background: 'linear-gradient(120deg, #F9DD85, #8A6414 38%, #F0B429 70%, #6B4D0C)' }} className="os-focus os-press [--press:0.98] relative w-full overflow-hidden rounded-2xl p-[1.5px] mb-5 text-left shadow-md hover:brightness-110">
-      <div style={{ background: 'radial-gradient(120% 140% at 0% 0%, rgba(240,180,41,0.24), rgba(240,180,41,0) 55%), #0E1620' }} className="relative flex items-center gap-3.5 overflow-hidden rounded-[15px] px-4 py-3.5">
+    <button data-rv="" onClick={onClick} style={{ background: 'linear-gradient(120deg, #FBE29A, #8A6414 38%, #F5C451 70%, #6B4D0C)' }} className="os-focus os-press [--press:0.98] relative w-full overflow-hidden rounded-[22px] p-[1.5px] mb-5 text-left shadow-lg hover:brightness-110">
+      <div style={{ background: 'radial-gradient(120% 140% at 0% 0%, rgba(245,196,81,0.24), rgba(245,196,81,0) 55%), #0C1218' }} className="relative flex items-center gap-3.5 overflow-hidden rounded-[21px] px-4 py-3.5">
         <div style={{ background: GOLD_GRADIENT }} className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center shadow-sm">
-          <Trophy size={20} color="#0E1620" />
+          <Trophy size={20} color="#0E1620" weight="fill" />
         </div>
         <div className="flex-1 min-w-0">
-          <p style={{ fontFamily: BEBAS, letterSpacing: '0.14em' }} className="os-gold-text text-[14px] leading-none mb-1">Premium</p>
+          <p style={{ fontFamily: BEBAS, letterSpacing: '0.14em' }} className="os-gold-text text-[15px] leading-none mb-1">Premium</p>
           <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-sm font-semibold leading-snug">{label}</p>
         </div>
         <ChevronRight size={18} color={colors.premiumGold} className="flex-shrink-0" />
+        <span className="os-sheen" aria-hidden="true" />
       </div>
     </button>
   );
@@ -3981,7 +3976,7 @@ function PremiumBanner({ text, onClick }) {
 function PremiumLockCard({ title, text, cta, onUnlock, preview = [], icon: Icon = Lock, badge }) {
   const hasPreview = preview.length > 0;
   return (
-    <div style={{ background: PREMIUM_BG, border: '1px solid rgba(240,180,41,0.35)' }} className="relative overflow-hidden rounded-3xl shadow-lg">
+    <div data-rv="" className="os-pitch-gold">
       {hasPreview && (
         <div aria-hidden="true" style={{ filter: 'blur(3px)', opacity: 0.5 }} className="p-4 space-y-2 min-h-[300px] pointer-events-none select-none">
           {preview.map((line, i) => (
@@ -3993,13 +3988,13 @@ function PremiumLockCard({ title, text, cta, onUnlock, preview = [], icon: Icon 
         </div>
       )}
       <div style={hasPreview ? { background: 'linear-gradient(180deg, rgba(11,18,26,0.05) 0%, rgba(11,18,26,0.55) 28%, rgba(11,18,26,0.92) 58%)' } : undefined} className={`${hasPreview ? 'absolute inset-0' : 'relative'} flex flex-col items-center justify-center text-center px-6 py-7`}>
-        <div style={{ background: GOLD_GRADIENT, boxShadow: '0 6px 20px rgba(240,180,41,0.35)' }} className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3">
-          <Icon size={22} color="#0B121A" />
+        <div style={{ background: GOLD_GRADIENT, boxShadow: '0 8px 24px rgba(245,196,81,0.35)' }} className="w-[52px] h-[52px] rounded-2xl flex items-center justify-center mb-3">
+          <Icon size={23} color="#0B121A" weight="fill" />
         </div>
-        {badge && <span style={{ border: '1px solid rgba(240,180,41,0.5)', color: colors.premiumGold }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full mb-2">{badge}</span>}
-        <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[17px] font-bold leading-snug mb-1.5">{title}</p>
-        <p style={{ color: '#A9B7C4' }} className="text-sm leading-relaxed mb-4 max-w-xs">{text}</p>
-        <GoldButton onClick={onUnlock}><Lock size={13} />{cta}</GoldButton>
+        {badge && <span style={{ border: '1px solid rgba(245,196,81,0.5)', color: colors.premiumGold }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full mb-2">{badge}</span>}
+        <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[18px] font-bold leading-snug mb-1.5">{title}</p>
+        <p style={{ color: '#B8C4CE' }} className="text-sm leading-relaxed mb-4 max-w-xs">{text}</p>
+        <GoldButton onClick={onUnlock}><Lock size={13} weight="fill" />{cta}</GoldButton>
       </div>
     </div>
   );
@@ -4008,7 +4003,7 @@ function PremiumLockCard({ title, text, cta, onUnlock, preview = [], icon: Icon 
 // Scelta del ruolo come "maglie" numerate (numeri classici: 1 portiere, 5 difensore,
 // 8 centrocampista, 9 attaccante). Solo grafica: il ruolo salvato resta la stessa chiave.
 const POSITION_NUMBERS = { portiere: 1, difensore: 5, centrocampista: 8, attaccante: 9 };
-function PositionPicker({ positions, value, onPick, dark = false }) {
+function PositionPicker({ positions, value, onPick }) {
   return (
     <div className="grid grid-cols-2 gap-2">
       {positions.map((pos) => {
@@ -4017,17 +4012,18 @@ function PositionPicker({ positions, value, onPick, dark = false }) {
           <button
             key={pos.key}
             type="button"
-            onClick={() => onPick(pos.key)}
+            onClick={() => { haptic(10); onPick(pos.key); }}
             aria-pressed={on}
             style={{
-              backgroundColor: on ? colors.premiumGold : dark ? 'rgba(255,255,255,0.06)' : colors.card,
-              border: `1.5px solid ${on ? colors.premiumGold : dark ? 'rgba(240,180,41,0.35)' : colors.premiumGold + '66'}`,
-              color: on ? '#0B121A' : dark ? '#FFFFFF' : colors.ink,
+              background: on ? GOLD_GRADIENT : 'rgba(255,255,255,0.05)',
+              border: `1.5px solid ${on ? colors.premiumGold : 'rgba(245,196,81,0.3)'}`,
+              color: on ? '#0B121A' : '#FFFFFF',
+              boxShadow: on ? '0 10px 24px -10px rgba(245,196,81,0.6)' : 'none',
             }}
-            className="os-focus flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors"
+            className="os-focus os-press relative overflow-hidden flex items-center gap-2.5 rounded-2xl px-3 py-3 text-left transition-colors"
           >
-            <span style={{ fontFamily: BEBAS, color: on ? '#0B121A' : colors.premiumGold }} className="text-[26px] leading-none w-6 text-center">{POSITION_NUMBERS[pos.key] || '•'}</span>
-            <span style={{ fontFamily: BRICOLAGE }} className="text-[13px] font-bold leading-tight">{pos.label}</span>
+            <span style={{ fontFamily: BEBAS, color: on ? '#0B121A' : colors.premiumGold }} className="text-[30px] leading-none w-7 text-center">{POSITION_NUMBERS[pos.key] || '•'}</span>
+            <span style={{ fontFamily: BRICOLAGE }} className="text-[13.5px] font-bold leading-tight">{pos.label}</span>
           </button>
         );
       })}
@@ -4042,8 +4038,8 @@ function ExerciseHelp({ ex, isEN }) {
   // mostrato. Il fallback sotto resta per le sezioni non ancora arricchite (prevenzione, tecnica).
   if (ex.howTo) {
     return (
-      <div style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}` }} className="mt-2.5 rounded-xl p-3">
-        <p style={{ color: colors.ink }} className="text-xs leading-relaxed">{ex.howTo}</p>
+      <div className="os-well mt-1 p-3.5">
+        <p style={{ color: colors.ink }} className="text-[13px] leading-relaxed">{ex.howTo}</p>
       </div>
     );
   }
@@ -4053,17 +4049,17 @@ function ExerciseHelp({ ex, isEN }) {
   const tips = (isEN ? formCuesEN : formCuesIT)[ex.cat] || [];
   const embedId = catVideoIds[ex.cat];
   return (
-    <div style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}` }} className="mt-2.5 rounded-xl p-3 space-y-2.5">
+    <div className="os-well mt-1 p-3.5 space-y-2.5">
       {tips.length > 0 && (
-        <ul className="space-y-1">
+        <ul className="space-y-1.5">
           {tips.map((tip, ti) => (
-            <li key={ti} style={{ color: colors.mutedInk }} className="text-xs flex gap-1.5"><span style={{ color: colors.accent }}>—</span><span>{tip}</span></li>
+            <li key={ti} style={{ color: colors.ink }} className="text-[12.5px] leading-snug flex gap-2"><span style={{ backgroundColor: LED_GREEN, boxShadow: `0 0 6px ${LED_GREEN}` }} className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-[6px]" /><span>{tip}</span></li>
           ))}
         </ul>
       )}
       {embedId ? (
         <>
-          <div style={{ aspectRatio: '16/9', backgroundColor: colors.ink }} className="w-full rounded-lg overflow-hidden">
+          <div style={{ aspectRatio: '16/9', backgroundColor: '#000' }} className="w-full rounded-xl overflow-hidden">
             <iframe
               width="100%" height="100%"
               src={`https://www.youtube.com/embed/${embedId}?rel=0&modestbranding=1`}
@@ -4074,7 +4070,7 @@ function ExerciseHelp({ ex, isEN }) {
               loading="lazy"
             />
           </div>
-          <p style={{ color: colors.mutedInk }} className="text-[10px] text-center leading-relaxed">{isEN ? 'General reference for this type of movement, not this exact exercise' : 'Riferimento generale per questo tipo di movimento, non l\'esercizio esatto'}</p>
+          <p style={{ color: colors.mutedInk }} className="text-[10.5px] text-center leading-relaxed">{isEN ? 'General reference for this type of movement, not this exact exercise' : 'Riferimento generale per questo tipo di movimento, non l\'esercizio esatto'}</p>
         </>
       ) : (
         <>
@@ -4082,12 +4078,11 @@ function ExerciseHelp({ ex, isEN }) {
             href={videoUrl}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ backgroundColor: colors.accentTint, color: colors.accentDark }}
-            className="os-focus flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold w-full hover:opacity-80 transition-opacity"
+            className="os-focus os-btn os-btn-ghost w-full px-3 py-2.5 text-xs"
           >
-            <PlayCircle size={13} />{isEN ? 'Search video demonstrations' : 'Cerca dimostrazioni video'}
+            <PlayCircle size={14} color={LED_GREEN} />{isEN ? 'Search video demonstrations' : 'Cerca dimostrazioni video'}
           </a>
-          <p style={{ color: colors.mutedInk }} className="text-[10px] text-center leading-relaxed">{isEN ? 'Opens a YouTube search — you choose the video that looks clearest to you' : 'Apre una ricerca su YouTube — scegli tu il video che ti sembra più chiaro'}</p>
+          <p style={{ color: colors.mutedInk }} className="text-[10.5px] text-center leading-relaxed">{isEN ? 'Opens a YouTube search — you choose the video that looks clearest to you' : 'Apre una ricerca su YouTube — scegli tu il video che ti sembra più chiaro'}</p>
         </>
       )}
     </div>
@@ -4100,7 +4095,7 @@ function loadFontsOnce() {
   const link = document.createElement('link');
   link.id = 'os-fonts';
   link.rel = 'stylesheet';
-  link.href = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Public+Sans:wght@400..700&family=Bebas+Neue&display=swap';
+  link.href = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Public+Sans:wght@400..700&family=Bebas+Neue&display=swap';
   document.head.appendChild(link);
 }
 
@@ -4735,7 +4730,7 @@ function MovementCameraOverlay({ test, isEN, onCancel, onComplete }) {
         return (
           <div className="flex-1 overflow-y-auto p-5 pt-8">
             <div style={{ backgroundColor: meta.tint, border: `1.5px solid ${meta.color}40` }} className="rounded-2xl p-5 mb-5">
-              <div style={{ backgroundColor: '#FFFFFF' }} className="w-12 h-12 rounded-full flex items-center justify-center mb-3 shadow-sm">
+              <div style={{ backgroundColor: 'rgba(0,0,0,0.35)', border: `1px solid ${meta.color}55` }} className="w-12 h-12 rounded-full flex items-center justify-center mb-3 shadow-sm">
                 <VIcon size={24} color={meta.color} />
               </div>
               <p style={{ ...displayFont, color: meta.color }} className="text-lg font-bold mb-2">{copy.title}</p>
@@ -4789,17 +4784,6 @@ function downloadRecoveryReminders(isEN) {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
-function mascotStageForScreen(screen) {
-  const stages = {
-    cover: 0, onboarding: 0,
-    regions: 1,
-    triage: 2, injuries: 2, firstaid: 2,
-    tracker: 3, profile: 3,
-    premium: 4, teamRegister: 4, teamLogin: 4, teamDashboard: 4,
-    movementScreen: 1,
-  };
-  return stages[screen] ?? 1;
-}
 function formatTodayLabel(isEN) {
   const d = new Date();
   const daysIT = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
@@ -4811,9 +4795,577 @@ function formatTodayLabel(isEN) {
   return isEN ? `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}` : `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
 }
 
+
+// =======================================================================================
+// Movimento e componenti del redesign "Notte allo stadio".
+// Tutto con CSS e poche righe di React, senza librerie in più: i numeri che corrono come
+// sul tabellone, i contenuti che entrano mentre scorri, i selettori con l'indicatore che
+// scivola, i fogli dal basso, la barra in alto che si compatta e la sessione guidata.
+// =======================================================================================
+
+function prefersReducedMotion() {
+  return typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+// Vibrazione breve dove il telefono la supporta (Android): conferma tattile delle azioni.
+function haptic(pattern = 10) {
+  try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern); } catch (err) { /* nessuna vibrazione */ }
+}
+
+// Un numero che "corre" fino al valore, come sul tabellone. Parte quando entra in vista; se
+// il valore cambia dopo, corre dal vecchio al nuovo. Con "riduci movimento" è già fermo.
+function CountUp({ value, duration = 900, className, style }) {
+  const target = Number.isFinite(value) ? value : 0;
+  const ref = useRef(null);
+  const fromRef = useRef(0);
+  const [shown, setShown] = useState(() => (prefersReducedMotion() ? target : 0));
+  useEffect(() => {
+    if (prefersReducedMotion() || target === fromRef.current) { setShown(target); fromRef.current = target; return undefined; }
+    const el = ref.current;
+    let raf = 0;
+    let started = false;
+    let io = null;
+    const run = () => {
+      if (started) return;
+      started = true;
+      const from = fromRef.current;
+      const t0 = performance.now();
+      const step = (now) => {
+        const p = Math.min(1, Math.max(0, (now - t0) / duration)); // mai sotto zero: il timestamp del fotogramma può precedere t0
+        const e = 1 - Math.pow(1 - p, 4);
+        setShown(Math.round(from + (target - from) * e));
+        if (p < 1) raf = requestAnimationFrame(step);
+        else fromRef.current = target;
+      };
+      raf = requestAnimationFrame(step);
+    };
+    if (el && typeof IntersectionObserver !== 'undefined') {
+      io = new IntersectionObserver((entries) => { if (entries.some((en) => en.isIntersecting)) { io.disconnect(); run(); } }, { threshold: 0.15 });
+      io.observe(el);
+    } else run();
+    return () => { cancelAnimationFrame(raf); if (io) io.disconnect(); };
+  }, [target, duration]);
+  return <span ref={ref} className={className} style={style}>{shown}</span>;
+}
+
+// Ingresso dei contenuti: ogni elemento con data-rv entra (dissolvenza + leggero rialzo)
+// quando arriva in vista, in cascata con quelli che arrivano insieme. Gira una volta sola per
+// tutta l'app e si accorge da solo dei nuovi elementi (cambio schermata, schede, fogli).
+function useRevealSystem() {
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined' || typeof MutationObserver === 'undefined') return undefined;
+    if (prefersReducedMotion()) return undefined;
+    const root = document.documentElement;
+    root.classList.add('rv-ready');
+    let batch = [];
+    let raf = 0;
+    const flush = () => {
+      raf = 0;
+      batch.sort((a, b) => (a.boundingClientRect.top - b.boundingClientRect.top) || (a.boundingClientRect.left - b.boundingClientRect.left));
+      batch.forEach((en, i) => {
+        en.target.style.setProperty('--rv-i', String(Math.min(i, 8)));
+        en.target.setAttribute('data-rv-in', '');
+      });
+      batch = [];
+    };
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => { if (en.isIntersecting) { batch.push(en); io.unobserve(en.target); } });
+      if (batch.length && !raf) raf = requestAnimationFrame(flush);
+    }, { rootMargin: '0px 0px -5% 0px', threshold: 0.01 });
+    const scan = () => {
+      document.querySelectorAll('[data-rv]:not([data-rv-seen])').forEach((el) => { el.setAttribute('data-rv-seen', ''); io.observe(el); });
+    };
+    scan();
+    const mo = new MutationObserver(scan);
+    mo.observe(document.body, { childList: true, subtree: true });
+    // Rete di sicurezza: niente deve restare invisibile se l'osservatore non scatta.
+    const safety = setInterval(() => {
+      document.querySelectorAll('[data-rv][data-rv-seen]:not([data-rv-in])').forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.top < window.innerHeight && r.bottom > 0) el.setAttribute('data-rv-in', '');
+      });
+    }, 1400);
+    return () => { io.disconnect(); mo.disconnect(); clearInterval(safety); cancelAnimationFrame(raf); root.classList.remove('rv-ready'); };
+  }, []);
+}
+
+// Dopo un cambio di schermata (o di scheda) quello che è già in vista compare subito: entra
+// insieme alla pagina che scorre, senza una seconda animazione. Il resto entra scorrendo.
+function revealVisibleNow() {
+  if (typeof window === 'undefined') return;
+  const H = window.innerHeight;
+  document.querySelectorAll('[data-rv]:not([data-rv-in])').forEach((el) => {
+    const r = el.getBoundingClientRect();
+    if (r.top < H && r.bottom > 0) {
+      el.setAttribute('data-rv-seen', '');
+      el.setAttribute('data-rv-now', '');
+      el.setAttribute('data-rv-in', '');
+    }
+  });
+}
+
+// Selettore a segmenti con l'indicatore che scivola sotto la voce scelta (schede della Home,
+// capitoli del percorso, Premium, lingua). Le voci possono avere icona, sottotitolo e badge.
+function Segmented({ items, value, onChange, ariaLabel, led = LED_GREEN, className = '', size = 'md', role = 'tablist', idPrefix }) {
+  const idx = Math.max(0, items.findIndex((it) => it.key === value));
+  const isTabs = role === 'tablist';
+  return (
+    <div role={isTabs ? 'tablist' : 'radiogroup'} aria-label={ariaLabel} className={`os-seg ${className}`} style={{ '--n': items.length, '--i': idx, '--seg-led': led }}>
+      <span className="os-seg-ind" aria-hidden="true" />
+      {items.map((it) => {
+        const on = it.key === value;
+        const Icon = it.icon;
+        return (
+          <button
+            key={it.key}
+            id={idPrefix ? `${idPrefix}-${it.key}` : undefined}
+            type="button"
+            role={isTabs ? 'tab' : 'radio'}
+            aria-selected={isTabs ? on : undefined}
+            aria-checked={isTabs ? undefined : on}
+            lang={it.lang}
+            onClick={() => { if (!on) { haptic(8); onChange(it.key); } }}
+            className="os-focus rounded-[14px] flex flex-col items-center justify-center gap-0.5 px-1"
+            style={{ color: on ? '#FFFFFF' : colors.mutedInk, minHeight: size === 'lg' ? 56 : size === 'sm' ? 34 : 42 }}
+          >
+            <span style={{ fontFamily: BRICOLAGE }} className={`flex items-center gap-1.5 font-bold ${size === 'lg' ? 'text-[12px] min-[360px]:text-[12.5px] uppercase tracking-wide' : size === 'sm' ? 'text-[12px]' : 'text-[13px]'}`}>
+              {it.lock && <Lock size={10} weight="fill" color={colors.premiumGold} />}
+              {Icon && <Icon size={size === 'lg' ? 15 : 14} weight={on ? 'fill' : 'bold'} color={on ? (it.color || led) : undefined} className={size === 'lg' ? 'hidden min-[360px]:inline' : ''} />}
+              {it.label}
+              {it.badge != null && <span style={{ fontFamily: BEBAS, color: on ? (it.color || led) : colors.mutedInk, letterSpacing: '0.04em' }} className="text-[14px] leading-none">{it.badge}</span>}
+            </span>
+            {it.sub && <span style={{ color: on ? 'rgba(255,255,255,0.72)' : colors.faint }} className="text-[10px] leading-tight">{it.sub}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Una fisarmonica: l'altezza si apre e si chiude animata. Il contenuto viene creato la
+// prima volta che si apre (niente video caricati per niente) e da chiuso non è raggiungibile.
+function Accordion({ open, children, className = '' }) {
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => { if (open) setMounted(true); }, [open]);
+  return (
+    <div className={`os-acc ${className}`} data-open={open ? 'true' : 'false'} inert={!open}>
+      <div className="os-acc-inner">{(mounted || open) ? children : null}</div>
+    </div>
+  );
+}
+
+// Foglio che sale dal basso (dettagli di una zona, segnali d'allarme, elenchi lunghi): si
+// chiude col tocco fuori, con Esc, con la X o trascinandolo giù.
+function Sheet({ open, onClose, title, children, footer, ariaLabel, isEN, icon: Icon, tone = 'green', subtitle }) {
+  const [render, setRender] = useState(open);
+  const [leaving, setLeaving] = useState(false);
+  const [entered, setEntered] = useState(false);
+  const panelRef = useRef(null);
+  const dragRef = useRef(null);
+  const led = tone === 'teal' ? LED_TEAL : tone === 'gold' ? colors.premiumGold : tone === 'red' ? colors.red : LED_GREEN;
+
+  useEffect(() => {
+    if (open) { setRender(true); setLeaving(false); setEntered(false); return undefined; }
+    if (!render) return undefined;
+    setLeaving(true);
+    const tm = setTimeout(() => { setRender(false); setLeaving(false); }, prefersReducedMotion() ? 0 : 250);
+    return () => clearTimeout(tm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useEffect(() => {
+    if (!render || leaving) return undefined;
+    const last = document.activeElement;
+    const html = document.documentElement;
+    const prev = html.style.overflow;
+    html.style.overflow = 'hidden';
+    const tm = setTimeout(() => { if (panelRef.current) panelRef.current.focus({ preventScroll: true }); }, 40);
+    // Esc chiude il foglio, ma non se sopra c'è la sessione guidata (chiude prima quella).
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.os-session')) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      clearTimeout(tm);
+      html.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+      if (last && typeof last.focus === 'function') last.focus({ preventScroll: true });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [render, leaving]);
+
+  if (!render) return null;
+
+  const onPointerDown = (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (e.target.closest && e.target.closest('button, a, input')) return;
+    dragRef.current = { y0: e.clientY, t0: performance.now(), dy: 0 };
+    if (panelRef.current) panelRef.current.setAttribute('data-dragging', 'true');
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* niente cattura */ }
+  };
+  const onPointerMove = (e) => {
+    const d = dragRef.current;
+    if (!d || !panelRef.current) return;
+    d.dy = Math.max(0, e.clientY - d.y0);
+    panelRef.current.style.transform = `translate3d(0, ${d.dy}px, 0)`;
+  };
+  const onPointerUp = () => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    const el = panelRef.current;
+    if (!d || !el) return;
+    el.removeAttribute('data-dragging');
+    const v = d.dy / Math.max(1, performance.now() - d.t0);
+    if (d.dy > 110 || (d.dy > 30 && v > 0.65)) { onClose(); return; }
+    el.setAttribute('data-settle', 'true');
+    el.style.transform = '';
+    setTimeout(() => { if (panelRef.current) panelRef.current.removeAttribute('data-settle'); }, 380);
+  };
+
+  return (
+    <>
+      <div className="os-sheet-backdrop" data-leaving={leaving ? 'true' : 'false'} onClick={onClose} aria-hidden="true" />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabel || title}
+        tabIndex={-1}
+        className="os-sheet-panel outline-none"
+        data-leaving={leaving ? 'true' : 'false'}
+        data-entered={entered ? 'true' : 'false'}
+        onAnimationEnd={(e) => { if (e.target === panelRef.current && !leaving) setEntered(true); }}
+      >
+        <div className="flex-shrink-0 px-5 pt-2.5 pb-3 cursor-grab touch-none select-none" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+          <div className="os-sheet-grab mx-auto mb-3.5" />
+          <div className="flex items-start gap-3">
+            {Icon && <span style={{ background: `${led}1F`, border: `1px solid ${led}40` }} className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"><Icon size={19} color={led} /></span>}
+            <div className="flex-1 min-w-0 pt-0.5">
+              <h2 style={{ fontFamily: BRICOLAGE, color: colors.ink, letterSpacing: '-0.015em' }} className="text-[20px] font-bold leading-tight">{title}</h2>
+              {subtitle && <p style={{ color: colors.mutedInk }} className="text-[12.5px] leading-snug mt-0.5">{subtitle}</p>}
+            </div>
+            <button type="button" onClick={onClose} className="os-focus os-icon-btn flex-shrink-0 rounded-full w-10 h-10" aria-label={isEN ? 'Close' : 'Chiudi'}><X size={17} /></button>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5" style={{ paddingBottom: footer ? 16 : 'calc(26px + env(safe-area-inset-bottom, 0px))' }}>
+          {children}
+        </div>
+        {footer && <div className="flex-shrink-0 px-5 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingBottom: 'calc(14px + env(safe-area-inset-bottom, 0px))', background: 'rgba(5,12,9,0.6)' }}>{footer}</div>}
+      </div>
+    </>
+  );
+}
+
+// Barra in alto: trasparente sopra il titolo grande, poi diventa "vetro" scuro e mostra il
+// titolo piccolo appena il titolo grande esce dallo schermo (come nelle app native).
+function TopBar({ title, leading, trailing, alwaysTitle = false, resetKey }) {
+  const ref = useRef(null);
+  // Ogni cambio di schermata riparte dall'alto: la barra torna subito trasparente (senza
+  // aspettare l'evento di scorrimento, che durante la transizione arriverebbe in ritardo).
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.dataset.scrolled = 'false';
+    el.dataset.titled = alwaysTitle ? 'true' : 'false';
+  }, [resetKey, alwaysTitle]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const y = window.scrollY || 0;
+      el.dataset.scrolled = y > 4 ? 'true' : 'false';
+      el.dataset.titled = alwaysTitle || y > 64 ? 'true' : 'false';
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { window.removeEventListener('scroll', onScroll); cancelAnimationFrame(raf); };
+  }, [alwaysTitle]);
+  return (
+    <header ref={ref} className="os-topbar" data-scrolled="false" data-titled={alwaysTitle ? 'true' : 'false'}>
+      <div className="h-[58px] px-4 sm:px-7 flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-[84px]">{leading}</div>
+        <p aria-hidden="true" style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="os-topbar-title flex-1 min-w-0 text-center truncate text-[15.5px] font-bold">{title}</p>
+        <div className="flex items-center justify-end gap-2 min-w-[84px]">{trailing}</div>
+      </div>
+    </header>
+  );
+}
+
+// Lo stadio dietro a tutto: righe del campo appena accennate (scorrono di poco per dare
+// profondità); luce dei riflettori, erba e grana sono nel CSS (.os-stadium).
+function StadiumBackdrop() {
+  return (
+    <div className="os-stadium" aria-hidden="true">
+      <svg className="os-stadium-lines" viewBox="0 0 400 1000" fill="none" preserveAspectRatio="xMidYMin meet">
+        <g stroke="rgba(255,255,255,0.05)" strokeWidth="1.4">
+          <rect x="24" y="36" width="352" height="1100" rx="3" />
+          <rect x="96" y="36" width="208" height="124" />
+          <rect x="152" y="36" width="96" height="44" />
+          <path d="M152 160 A56 56 0 0 0 248 160" />
+          <line x1="24" y1="560" x2="376" y2="560" />
+          <circle cx="200" cy="560" r="80" />
+        </g>
+        <g fill="rgba(255,255,255,0.08)">
+          <circle cx="200" cy="122" r="2.4" />
+          <circle cx="200" cy="560" r="2.6" />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+// Scritta che entra lettera per lettera (tabellone) ma va a capo solo tra le parole.
+function SplitWords({ text, base = 0, step = 45, style }) {
+  let k = 0;
+  return String(text).split(' ').map((word, wi, arr) => (
+    <React.Fragment key={wi}>
+      <span className="inline-block whitespace-nowrap">
+        {word.split('').map((ch) => {
+          const d = base + (k++) * step;
+          return <span key={d} className="os-letter-in" style={{ '--d': `${d}ms`, ...style }}>{ch}</span>;
+        })}
+      </span>
+      {wi < arr.length - 1 ? ' ' : null}
+    </React.Fragment>
+  ));
+}
+
+// Titolo grande della schermata (h1). La barra in alto mostra lo stesso titolo in piccolo
+// quando questo esce dallo schermo.
+function PageTitle({ title, sub, right, className = '' }) {
+  return (
+    <div data-rv="" className={`flex items-end justify-between gap-3 mb-5 ${className}`}>
+      <div className="min-w-0">
+        <h1 style={{ fontFamily: BRICOLAGE, color: colors.ink, letterSpacing: '-0.025em' }} className="text-[31px] min-[380px]:text-[34px] font-bold leading-[1.02]">{title}</h1>
+        {sub && <p style={{ color: colors.mutedInk }} className="text-[13.5px] leading-snug mt-1.5">{sub}</p>}
+      </div>
+      {right && <div className="flex-shrink-0">{right}</div>}
+    </div>
+  );
+}
+
+// Il bottone "fatto"/"avanti" della sessione guidata nel colore del tono.
+function toneButtonProps(tone) {
+  if (tone === 'teal') return { className: 'os-btn-teal', style: undefined };
+  if (tone === 'gold') return { className: '', style: { background: GOLD_GRADIENT, color: '#0B121A', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), 0 10px 26px -10px rgba(245,196,81,0.6)' } };
+  return { className: 'os-btn-primary', style: undefined };
+}
+
+// ---------------------------------------------------------------------------------------
+// Sessione guidata: gli esercizi uno alla volta, a schermo intero. Numero grande, nome,
+// dosaggio sul tabellone e "Come si fa" sempre aperto; "Segna come fatto" passa da solo al
+// successivo. Si scorre anche col dito (sinistra/destra) o con le frecce della tastiera.
+// Alla fine il riepilogo, con l'azione finale (es. segnare la sessione di oggi → GOL).
+// ---------------------------------------------------------------------------------------
+function GuidedSession({ open, title, tone = 'green', exercises = [], doneFlags = null, onToggle, startIndex = 0, onClose, isEN, catLabels = {}, finish }) {
+  const t = DRILL_TONES[tone] || DRILL_TONES.green;
+  const n = exercises.length;
+  const checkable = typeof onToggle === 'function' && Array.isArray(doneFlags);
+  const [render, setRender] = useState(open);
+  const [leaving, setLeaving] = useState(false);
+  const [idx, setIdx] = useState(startIndex);
+  const [dir, setDir] = useState('next');
+  const [burst, setBurst] = useState(0);
+  const rootRef = useRef(null);
+  const cardRef = useRef(null);
+  const swipeRef = useRef(null);
+  const advanceRef = useRef(null);
+  const idxRef = useRef(idx);
+  idxRef.current = idx;
+
+  useEffect(() => {
+    if (open) {
+      setRender(true); setLeaving(false); setDir('next');
+      setIdx(Math.min(Math.max(0, startIndex), Math.max(0, n - 1)));
+      return undefined;
+    }
+    if (!render) return undefined;
+    setLeaving(true);
+    const tm = setTimeout(() => { setRender(false); setLeaving(false); }, prefersReducedMotion() ? 0 : 240);
+    return () => clearTimeout(tm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const go = (target) => {
+    clearTimeout(advanceRef.current);
+    const cur = idxRef.current;
+    const tgt = Math.max(0, Math.min(n, target));
+    if (tgt === cur) return;
+    setDir(tgt > cur ? 'next' : 'prev');
+    setIdx(tgt);
+    haptic(6);
+  };
+  const goRef = useRef(go);
+  goRef.current = go;
+
+  useEffect(() => {
+    if (!render || leaving) return undefined;
+    const last = document.activeElement;
+    const html = document.documentElement;
+    const prev = html.style.overflow;
+    html.style.overflow = 'hidden';
+    const tm = setTimeout(() => { if (rootRef.current) rootRef.current.focus({ preventScroll: true }); }, 40);
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowRight') goRef.current(idxRef.current + 1);
+      else if (e.key === 'ArrowLeft') goRef.current(idxRef.current - 1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      clearTimeout(tm);
+      clearTimeout(advanceRef.current);
+      html.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+      if (last && typeof last.focus === 'function') last.focus({ preventScroll: true });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [render, leaving]);
+
+  if (!render) return null;
+
+  const ex = idx < n ? exercises[idx] : null;
+  const done = ex && checkable ? !!doneFlags[idx] : false;
+  const doneCount = checkable ? doneFlags.filter(Boolean).length : 0;
+  const btn = toneButtonProps(tone);
+
+  const toggleCurrent = () => {
+    if (!checkable || idx >= n) return;
+    const wasDone = !!doneFlags[idx];
+    onToggle(idx);
+    if (!wasDone) {
+      setBurst((b) => b + 1);
+      haptic([14, 40, 20]);
+      clearTimeout(advanceRef.current);
+      advanceRef.current = setTimeout(() => goRef.current(idxRef.current + 1), 560);
+    }
+  };
+
+  const onPointerDown = (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (e.target.closest && e.target.closest('button, a, iframe, input')) return;
+    swipeRef.current = { x: e.clientX, y: e.clientY, dx: 0, active: false, id: e.pointerId };
+  };
+  const onPointerMove = (e) => {
+    const s = swipeRef.current;
+    if (!s) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (!s.active) {
+      if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+        s.active = true;
+        try { e.currentTarget.setPointerCapture(s.id); } catch (err) { /* niente cattura */ }
+      } else if (Math.abs(dy) > 12) { swipeRef.current = null; return; } else return;
+    }
+    s.dx = dx;
+    if (cardRef.current) cardRef.current.style.transform = `translate3d(${dx * 0.45}px, 0, 0) rotate(${dx * 0.012}deg)`;
+  };
+  const onPointerUp = () => {
+    const s = swipeRef.current;
+    swipeRef.current = null;
+    const el = cardRef.current;
+    if (el) {
+      el.style.transition = 'transform 320ms var(--ease-out-expo)';
+      el.style.transform = '';
+      setTimeout(() => { if (el) el.style.transition = ''; }, 340);
+    }
+    if (!s || !s.active) return;
+    if (s.dx < -70) goRef.current(idxRef.current + 1);
+    else if (s.dx > 70) goRef.current(idxRef.current - 1);
+  };
+
+  const split = ex ? splitDose(ex.text) : null;
+  const CatIcon = ex ? (catIcons[ex.cat] || Circle) : Circle;
+
+  return (
+    <div ref={rootRef} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} className="os-session outline-none" data-tone={tone} data-leaving={leaving ? 'true' : 'false'}>
+      <div className="flex-shrink-0 mx-auto w-full max-w-[560px] px-4" style={{ paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))' }}>
+        <div className="flex items-center gap-3 h-12">
+          <button type="button" onClick={onClose} className="os-focus os-icon-btn rounded-full" aria-label={isEN ? 'Close the session' : 'Chiudi la sessione'}><X size={18} /></button>
+          <p style={{ fontFamily: BRICOLAGE, color: t.led, letterSpacing: '0.12em' }} className="flex-1 min-w-0 truncate text-center text-[11px] font-bold uppercase">{title}</p>
+          <span style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="min-w-[42px] text-right text-[22px] leading-none os-tabular" aria-live="polite">
+            {Math.min(idx + 1, n)}<span style={{ color: colors.faint }}>/{n}</span>
+          </span>
+        </div>
+        <div className="flex gap-1 mt-2" aria-hidden="true">
+          {exercises.map((_, i) => (
+            <button key={i} type="button" tabIndex={-1} onClick={() => go(i)} className="flex-1 py-1.5">
+              <span className="os-seg-led block" data-state={checkable && doneFlags[i] ? 'done' : i === idx ? 'now' : 'todo'} style={{ '--seg-c': t.main }} />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} style={{ touchAction: 'pan-y' }}>
+        <div className="mx-auto w-full max-w-[560px] px-5 pt-5 pb-6">
+          {ex ? (
+            <div key={idx} ref={cardRef} className={dir === 'next' ? 'os-step-next' : 'os-step-prev'}>
+              <div className="flex items-start justify-between gap-3">
+                <span style={{ fontFamily: BEBAS, color: done ? t.led : '#FFFFFF', textShadow: `0 0 34px ${t.led}${done ? '88' : '33'}`, transition: 'color 300ms ease' }} className="text-[96px] leading-[0.78] os-tabular">{String(idx + 1).padStart(2, '0')}</span>
+                <span style={{ color: t.led, border: `1px solid ${t.chip}`, background: 'rgba(0,0,0,0.3)', fontFamily: BRICOLAGE, letterSpacing: '0.1em' }} className="mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10.5px] font-bold uppercase"><CatIcon size={13} />{catLabels[ex.cat] || ''}</span>
+              </div>
+              <h3 style={{ fontFamily: BRICOLAGE, color: '#FFFFFF', letterSpacing: '-0.02em' }} className="text-[25px] min-[380px]:text-[27px] font-bold leading-[1.12] mt-4">{split.main}</h3>
+              {(split.dose || split.note) && (
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  {split.dose && <span style={{ background: 'rgba(0,0,0,0.5)', color: t.led, fontFamily: BEBAS, letterSpacing: '0.05em', border: `1px solid ${t.chip}`, textShadow: `0 0 12px ${t.led}77` }} className="text-[21px] leading-none px-3 pt-[7px] pb-1.5 rounded-lg">{split.dose}</span>}
+                  {split.note && <span style={{ color: colors.mutedInk }} className="text-[13px] leading-snug">{split.note}</span>}
+                </div>
+              )}
+              <p style={{ fontFamily: BRICOLAGE, color: colors.mutedInk, letterSpacing: '0.1em' }} className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase mt-6 mb-2"><BookOpen size={13} />{isEN ? 'How to do it' : 'Come si fa'}</p>
+              <ExerciseHelp ex={ex} isEN={isEN} />
+              {n > 1 && <p style={{ color: colors.faint }} className="text-[11px] text-center mt-5">{isEN ? 'Swipe or use the arrows to move between exercises' : 'Scorri col dito o usa le frecce per passare da un esercizio all\'altro'}</p>}
+            </div>
+          ) : (
+            <div key="end" className="os-step-next text-center pt-8">
+              <p style={{ fontFamily: BEBAS, color: '#FFFFFF', textShadow: `0 0 40px ${t.led}55` }} className="text-[96px] leading-[0.82]">
+                <SplitWords text={isEN ? 'FULL TIME' : 'FINE'} step={50} />
+              </p>
+              {checkable && (
+                <p style={{ fontFamily: BEBAS, color: t.led, textShadow: `0 0 18px ${t.led}77` }} className="text-[56px] leading-none mt-4 os-tabular"><CountUp value={doneCount} duration={900} /><span style={{ color: colors.faint }}>/{n}</span></p>
+              )}
+              <p style={{ color: colors.mutedInk }} className="text-sm mt-1">{checkable ? (isEN ? 'exercises done' : 'esercizi fatti') : (isEN ? 'You went through all the exercises' : 'Hai visto tutti gli esercizi')}</p>
+              {finish && finish.hint && <p style={{ color: colors.ink }} className="text-[13.5px] leading-relaxed mt-5 max-w-xs mx-auto">{finish.hint}</p>}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-shrink-0 mx-auto w-full max-w-[560px] px-4 pt-3" style={{ paddingBottom: 'calc(14px + env(safe-area-inset-bottom, 0px))', background: 'linear-gradient(180deg, rgba(3,8,5,0), rgba(3,8,5,0.6) 40%)' }}>
+        {ex ? (
+          <div className="flex items-center gap-2.5">
+            <button type="button" onClick={() => go(idx - 1)} disabled={idx === 0} className="os-focus os-icon-btn w-14 h-14 rounded-2xl disabled:opacity-35" aria-label={isEN ? 'Previous exercise' : 'Esercizio precedente'}><ArrowLeft size={20} /></button>
+            {checkable ? (
+              <button type="button" onClick={toggleCurrent} aria-pressed={done} className={`os-focus os-btn flex-1 h-14 text-[14px] uppercase tracking-wide ${done ? 'os-btn-ghost' : btn.className}`} style={done ? { color: t.led, borderColor: `${t.main}66` } : btn.style}>
+                {burst > 0 && done && <span key={burst} className="os-burst-ring" style={{ '--burst': t.led, borderRadius: 18 }} aria-hidden="true" />}
+                {done ? <><CheckCircle2 size={19} weight="fill" className="os-check-pop" />{isEN ? 'Done' : 'Fatto'}</> : <><Check size={18} weight="bold" />{isEN ? 'Mark as done' : 'Segna come fatto'}</>}
+              </button>
+            ) : (
+              <button type="button" onClick={() => go(idx + 1)} className={`os-focus os-btn flex-1 h-14 text-[14px] uppercase tracking-wide ${btn.className}`} style={btn.style}>
+                {idx === n - 1 ? (isEN ? 'Finish' : 'Fine') : (isEN ? 'Next' : 'Avanti')}<ArrowRight size={17} />
+              </button>
+            )}
+            <button type="button" onClick={() => go(idx + 1)} className="os-focus os-icon-btn w-14 h-14 rounded-2xl" aria-label={isEN ? 'Next exercise' : 'Esercizio successivo'}><ArrowRight size={20} /></button>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {finish && (
+              <button type="button" onClick={finish.onClick} className={`os-focus os-btn w-full h-14 text-[14px] uppercase tracking-wide ${finish.isDone ? 'os-btn-ghost' : btn.className}`} style={finish.isDone ? { color: t.led } : btn.style}>
+                {finish.isDone ? <CheckCircle2 size={19} weight="fill" /> : <Flame size={18} weight="fill" />}{finish.isDone ? finish.doneLabel : finish.label}
+              </button>
+            )}
+            <div className="flex gap-2.5">
+              <button type="button" onClick={() => go(n - 1)} className="os-focus os-btn os-btn-ghost flex-1 h-12 text-[13px]"><ArrowLeft size={15} />{isEN ? 'Back to exercises' : 'Torna agli esercizi'}</button>
+              <button type="button" onClick={onClose} className="os-focus os-btn os-btn-ghost flex-1 h-12 text-[13px]">{isEN ? 'Close' : 'Chiudi'}</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 export default function Offside() {
   const [loading, setLoading] = useState(true);
-  const [screen, setScreen] = useState('cover');
+  const [screen, setScreenRaw] = useState('cover');
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [triageTag, setTriageTag] = useState(null);
   const [triageAnswers, setTriageAnswers] = useState({ mechanism: null, pop: null, weight: null, swelling: null });
@@ -4843,7 +5395,6 @@ export default function Offside() {
   const [editingSetup, setEditingSetup] = useState(false);
   const [setupSection, setSetupSection] = useState('gravita');
   const [injuryRecurrence, setInjuryRecurrence] = useState({});
-  const [trackerSection, setTrackerSection] = useState('esercizi');
   const [physioSearch, setPhysioSearch] = useState('');
   const [restoreEmail, setRestoreEmail] = useState('');
   const [restoreStatus, setRestoreStatus] = useState('idle');
@@ -4903,6 +5454,11 @@ export default function Offside() {
   const [warmupOpen, setWarmupOpen] = useState(false);
   const [expandedPreventionTip, setExpandedPreventionTip] = useState(null);
   const [expandedSymptoms, setExpandedSymptoms] = useState(null);
+  // Redesign: capitolo del percorso (Oggi / Fase / Progressi), sessione guidata aperta,
+  // domanda corrente del triage (una alla volta).
+  const [trackerChapter, setTrackerChapter] = useState('oggi');
+  const [session, setSession] = useState(null); // null | { kind: 'recovery'|'warmup'|'prevention'|'technique'|'role', key, start }
+  const [triageQ, setTriageQ] = useState(0);
 
   // --- Offside Squadre: stato del responsabile (fisio/preparatore) ---
   // Navigazione: "tab" quando si cambia sezione dalla barra in basso (niente animazione
@@ -4917,6 +5473,54 @@ export default function Offside() {
   const fromPopRef = useRef(false);
   const historyReadyRef = useRef(false);
   const navStateRef = useRef({});
+  // Chiusura del livello aperto sopra la schermata (foglio, sessione, GOL), per il tasto Indietro.
+  const overlayCloseRef = useRef(null);
+  overlayCloseRef.current = null;
+  const layerRef = useRef(false);
+  const skipPopRef = useRef(false);
+  // Cambio schermata con transizione: avanti scorre da destra, indietro da sinistra, dalla
+  // barra in basso si dissolve. Usa le View Transitions del browser quando ci sono (barra in
+  // alto, barra in basso e stadio restano fermi), altrimenti la schermata nuova entra con
+  // un'animazione CSS. Con "riduci movimento" il cambio è immediato.
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
+  const appReadyRef = useRef(false);
+  const screenDirRef = useRef('forward');
+  // "after" (facoltativo): aggiornamenti che devono partire insieme alla schermata nuova, dopo
+  // che il browser ha fotografato quella vecchia (es. svuotare la zona scelta tornando in Home).
+  const setScreen = useCallback((next, after) => {
+    const prev = screenRef.current;
+    const target = typeof next === 'function' ? next(prev) : next;
+    const kind = navKindRef.current;
+    const dir = kind === 'tab' ? 'tab' : kind === 'back' ? 'back' : 'forward';
+    const apply = () => { setScreenRaw(target); if (typeof after === 'function') after(); };
+    if (target === prev) { apply(); return; }
+    screenDirRef.current = dir;
+    const doc = typeof document !== 'undefined' ? document : null;
+    if (!doc || !appReadyRef.current) { apply(); return; }
+    if (typeof doc.startViewTransition !== 'function' || prefersReducedMotion() || doc.visibilityState !== 'visible') {
+      try { flushSync(apply); revealVisibleNow(); } catch (err) { apply(); }
+      return;
+    }
+    const pair = `${prev}>${target}`;
+    const shared = (pair === 'regions>tracker' || pair === 'tracker>regions') ? 'vt-matchday' : (pair === 'regions>injuries' && regionVtRef.current) ? 'vt-region' : null;
+    regionVtRef.current = false;
+    const root = doc.documentElement;
+    root.dataset.navdir = dir;
+    if (shared) root.classList.add(shared);
+    try {
+      const vt = doc.startViewTransition(() => { flushSync(apply); revealVisibleNow(); });
+      vt.finished.finally(() => {
+        if (root.dataset.navdir === dir) delete root.dataset.navdir;
+        if (shared) root.classList.remove(shared);
+      });
+    } catch (err) {
+      if (shared) root.classList.remove(shared);
+      apply();
+    }
+  }, []);
+  // La card della zona toccata in Home: la sua sagoma vola nell'intestazione della zona.
+  const regionVtRef = useRef(false);
   const [teamAuth, setTeamAuth] = useState(null); // { token, teamId, teamName, responsibleName, responsibleRole, inviteCode, subscriptionActive }
   const [teamForm, setTeamForm] = useState({ teamName: '', responsibleName: '', responsibleRole: 'fisioterapista', email: '', password: '', confirmPassword: '', minorConsentAttested: false });
   const [teamFormStatus, setTeamFormStatus] = useState('idle'); // idle | submitting | error
@@ -5027,10 +5631,14 @@ export default function Offside() {
   // Ogni cambio di schermata parte dall'alto: senza questo, lo scroll della schermata
   // precedente resta invariato e si "eredita" su quella nuova (es. entrare nel tracker
   // già a metà pagina se prima si era scrollato in basso in Home).
-  useEffect(() => {
+  useLayoutEffect(() => {
     window.scrollTo(0, 0);
     navKindRef.current = 'push';
   }, [screen]);
+  useRevealSystem();
+  // Cambio di scheda/capitolo/domanda: quello che è già in vista entra con il pannello.
+  useLayoutEffect(() => { if (appReadyRef.current) revealVisibleNow(); }, [regionsTab, trackerChapter, triageQ, premiumTab]);
+  useEffect(() => { if (!loading) appReadyRef.current = true; }, [loading]);
 
   // Lingua della pagina (per i lettori di schermo) e titolo della scheda, per ogni schermata.
   useEffect(() => {
@@ -5059,11 +5667,27 @@ export default function Offside() {
       window.history.replaceState({ ...current, osScreen: screen }, '');
       return;
     }
+    if (layerRef.current) {
+      // Si passa a un'altra schermata da dentro un foglio: la nuova schermata sostituisce la voce
+      // del foglio, così "indietro" porta alla schermata di prima e non a un foglio già chiuso.
+      layerRef.current = false;
+      window.history.replaceState({ osScreen: screen }, '');
+      return;
+    }
     if (current.osScreen === screen) return;
     window.history.pushState({ osScreen: screen }, '');
   }, [screen, loading]);
   useEffect(() => {
     const onPop = (e) => {
+      // Voce tolta da noi stessi quando un foglio si chiude dai suoi pulsanti: niente da fare.
+      if (skipPopRef.current) { skipPopRef.current = false; return; }
+      // Indietro (tasto di Android, gesto, browser) con un foglio, la sessione guidata o il GOL
+      // aperti: si chiude quello in cima e si resta sulla schermata.
+      if (layerRef.current) {
+        layerRef.current = false;
+        if (overlayCloseRef.current) overlayCloseRef.current();
+        return;
+      }
       const target = e.state && e.state.osScreen;
       if (!target) return;
       const s = navStateRef.current;
@@ -5075,12 +5699,31 @@ export default function Offside() {
       if (next === 'teamDashboard' && !s.teamAuth) next = 'premium';
       if (next === s.screen) return;
       fromPopRef.current = true;
-      navKindRef.current = 'tab';
+      navKindRef.current = 'back';
       setScreen(next);
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
+  // Un foglio, la sessione guidata o il GOL aperti aggiungono una voce alla cronologia: così il
+  // tasto Indietro di Android li chiude invece di uscire dall'app. Chiusi dai loro pulsanti, la
+  // voce si toglie (e il popstate che ne segue si ignora).
+  const layerFlags = [!!celebration, !!session, !!showRedFlags, screen === 'regions' && !!expandedPrevention, screen === 'regions' && !!warmupOpen];
+  const anyLayer = layerFlags.some(Boolean);
+  // Con due livelli (sessione sopra il foglio) "indietro" chiude quello in cima: se ne resta uno
+  // aperto la voce si rimette, per questo l'effetto riparte a ogni cambio di livello.
+  const layerSig = layerFlags.map(Number).join('');
+  useEffect(() => {
+    if (loading || typeof window === 'undefined') return;
+    if (anyLayer && !layerRef.current) {
+      layerRef.current = true;
+      window.history.pushState({ osScreen: screen, osLayer: true }, '');
+    } else if (!anyLayer && layerRef.current) {
+      layerRef.current = false;
+      skipPopRef.current = true;
+      window.history.back();
+    }
+  }, [layerSig, loading]);
 
   // Sincronizza la scelta cookie con Google Consent Mode: in index.html il consenso
   // di default è "denied", quindi ad ogni caricamento riapplichiamo la scelta salvata
@@ -5122,8 +5765,9 @@ export default function Offside() {
   };
 
   const goBack = () => {
+    navKindRef.current = 'back';
     if (screen === 'tracker') setScreen(selectedRegion ? 'injuries' : 'regions');
-    else if (screen === 'injuries') { setScreen('regions'); setSelectedRegion(null); setTriageTag(null); }
+    else if (screen === 'injuries') { setScreen('regions', () => { setSelectedRegion(null); setTriageTag(null); }); }
     else if (screen === 'triage') setScreen('regions');
     else if (screen === 'triageResults') setScreen('triage');
     else if (screen === 'firstaid') setScreen('regions');
@@ -5153,13 +5797,14 @@ export default function Offside() {
     setSelectedRegion(regionOfInjury(key, injuriesData));
     setEditingSetup(false);
     setActiveVideo(null);
+    setTrackerChapter('oggi');
     setScreen('tracker');
     // Sempre snapshot completo: salvare solo questi campi cancellava dal telefono Premium,
     // squadra, lingua, onboarding e check-in a chiunque apriva un percorso e poi chiudeva l'app.
     persist(snapshot({ selectedInjury: key, activePhase: suggested }));
   };
   
-  const startTriage = () => { setTriageAnswers({ mechanism: null, pop: null, weight: null, swelling: null }); setTriageRegion(null); setTriageTag(null); setTriageCandidateIndex(0); setScreen('triage'); };
+  const startTriage = () => { setTriageAnswers({ mechanism: null, pop: null, weight: null, swelling: null }); setTriageRegion(null); setTriageTag(null); setTriageCandidateIndex(0); setTriageQ(0); setScreen('triage'); };
   const handleScenario = (scenario) => { setTriageTag(scenario.tag); openRegion(scenario.region); };
 
   const chooseInjury = (key) => {
@@ -5172,6 +5817,7 @@ export default function Offside() {
     setInjurySeverities(nextSeverities);
     setEditingSetup(!injuryDates[key]);
     setActiveVideo(null);
+    setTrackerChapter('oggi');
     setScreen('tracker');
     persist(snapshot({ selectedInjury: key, activePhase: 0, injurySeverities: nextSeverities }));
   };
@@ -5406,10 +6052,8 @@ export default function Offside() {
   };
 
   const logoutTeam = () => {
-    setTeamAuth(null);
-    setTeamDashboardData(null);
     persist(snapshot({ teamAuth: null }));
-    setScreen('premium');
+    setScreen('premium', () => { setTeamAuth(null); setTeamDashboardData(null); });
   };
 
   const loadTeamDashboard = useCallback(async () => {
@@ -5611,14 +6255,15 @@ export default function Offside() {
     delete nextDates[selectedInjury];
     const nextLog = { ...dailyLog };
     delete nextLog[selectedInjury];
-    setProgress(nextProgress);
-    setInjuryDates(nextDates);
-    setDailyLog(nextLog);
     const region = selectedRegion;
-    setSelectedInjury(null);
-    setActivePhase(0);
-    setScreen('injuries');
-    setSelectedRegion(region);
+    setScreen('injuries', () => {
+      setProgress(nextProgress);
+      setInjuryDates(nextDates);
+      setDailyLog(nextLog);
+      setSelectedInjury(null);
+      setActivePhase(0);
+      setSelectedRegion(region);
+    });
     persist(snapshot({ selectedInjury: null, activePhase: 0, progress: nextProgress, injuryDates: nextDates, dailyLog: nextLog }));
     offerUndo(isEN ? 'Recovery reset' : 'Percorso azzerato', before);
   };
@@ -5642,7 +6287,20 @@ export default function Offside() {
     offerUndo(isEN ? 'Recovery deleted' : 'Percorso eliminato', before);
   };
 
-  const answerTriage = (field, value) => { setTriageAnswers({ ...triageAnswers, [field]: value }); setTriageCandidateIndex(0); };
+  const triageFields = ['mechanism', 'pop', 'weight', 'swelling'];
+  const answerTriage = (field, value) => {
+    const next = { ...triageAnswers, [field]: value };
+    setTriageAnswers(next);
+    setTriageCandidateIndex(0);
+    haptic(10);
+    // Passa da sola alla prossima domanda senza risposta (o al riepilogo), dopo un attimo
+    // per far vedere la scelta accesa.
+    const pos = triageFields.indexOf(field);
+    const nextOpen = triageFields.findIndex((f, i) => i > pos && !next[f]);
+    const firstOpen = triageFields.findIndex((f) => !next[f]);
+    const target = nextOpen >= 0 ? nextOpen : firstOpen >= 0 ? firstOpen : 4;
+    setTimeout(() => setTriageQ(target), prefersReducedMotion() ? 0 : 340);
+  };
   const triageComplete = triageRegion && triageAnswers.mechanism && triageAnswers.pop && triageAnswers.weight && triageAnswers.swelling;
   const triageRedirect = triageAnswers.weight === 'fatica' || (triageAnswers.pop === 'si' && triageAnswers.mechanism === 'torsione');
   const triageMechanismTagMap = { contatto: 'contact', sovraccarico: 'overuse', torsione: 'acute' };
@@ -5666,7 +6324,6 @@ export default function Offside() {
     setScreen('triageResults');
   };
 
-  const displayFont = { fontFamily: "'Bricolage Grotesque', sans-serif" };
   const bodyFont = { fontFamily: "'Public Sans', sans-serif" };
 
   const injury = selectedInjury && injuriesData[selectedInjury] ? injuriesData[selectedInjury] : null;
@@ -5724,158 +6381,149 @@ export default function Offside() {
     } catch (err) {}
   };
 
+  // Direzione dell'animazione quando cambia la scheda della Home, il capitolo del percorso o
+  // la domanda del triage: il contenuto entra dal lato verso cui ti sei spostato.
+  const paneDirRef = useRef({ regionsTab, trackerChapter, triageQ, dirs: { regions: 'in', tracker: 'in', triage: 'in' } });
+  {
+    const pd = paneDirRef.current;
+    const tabOrder = { injury: 0, prevention: 1, technique: 2 };
+    const chapterOrder = { oggi: 0, fase: 1, progressi: 2 };
+    if (pd.regionsTab !== regionsTab) { pd.dirs.regions = tabOrder[regionsTab] > tabOrder[pd.regionsTab] ? 'right' : 'left'; pd.regionsTab = regionsTab; }
+    if (pd.trackerChapter !== trackerChapter) { pd.dirs.tracker = chapterOrder[trackerChapter] > chapterOrder[pd.trackerChapter] ? 'right' : 'left'; pd.trackerChapter = trackerChapter; }
+    if (pd.triageQ !== triageQ) { pd.dirs.triage = triageQ > pd.triageQ ? 'right' : 'left'; pd.triageQ = triageQ; }
+  }
+  const paneClass = (k) => ({ right: 'os-pane-in-right', left: 'os-pane-in-left' }[paneDirRef.current.dirs[k]] || 'os-pane-in');
+  // Ultimo contenuto mostrato in sessione guidata e nel foglio della zona: serve a farli
+  // uscire con l'animazione anche quando lo stato è già stato azzerato.
+  const lastSessionCfgRef = useRef(null);
+  const lastZoneRef = useRef(null);
+  const vtSupported = typeof document !== 'undefined' && typeof document.startViewTransition === 'function';
+
   if (loading) {
     const browserIsEN = typeof navigator !== 'undefined' && !navigator.language?.toLowerCase().startsWith('it');
     return (
-      <div style={{ background: 'linear-gradient(160deg, #16283A 0%, #101B26 60%)', color: '#A9B7C4', fontFamily: "'Public Sans', sans-serif" }} className="w-full min-h-[100dvh] flex items-center justify-center">
+      <div style={{ background: 'radial-gradient(120% 60% at 50% -10%, #0B2318 0%, #050E0A 55%, #020604 100%)', color: '#9DB3A7', fontFamily: "'Public Sans', sans-serif" }} className="w-full min-h-[100dvh] flex flex-col items-center justify-center gap-4">
+        <LogoMark size={48} color={LED_GREEN} animated delay={0.15} glow />
         <p className="text-sm">{browserIsEN ? 'Loading your data…' : 'Carico i tuoi dati…'}</p>
       </div>
     );
   }
 
-  const sharedStyle = `
-    :root { --ease-out: cubic-bezier(0.23, 1, 0.32, 1); --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1); --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1); --ease-celebrate: cubic-bezier(0.34, 1.56, 0.64, 1); --enter-y: 6px; }
-    html { scroll-padding-top: 12px; scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
-    .os-focus:focus-visible { outline: 2px solid ${colors.accentDark}; outline-offset: 2px; }
-    .os-tabular { font-variant-numeric: tabular-nums; }
-    .os-press { transition: scale 140ms var(--ease-out), background-color 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, opacity 150ms ease; }
-    .os-press:active:not(:disabled) { scale: var(--press, 0.97); }
-    .os-press-child { transition: scale 140ms var(--ease-out), background-color 150ms ease; }
-    .group:active .os-press-child { scale: 0.9; }
-    .os-fill { transform-origin: left center; transition: transform 300ms var(--ease-in-out); }
-    input[type="date"].os-date { font-family: 'Public Sans', sans-serif; color-scheme: light; }
-    @keyframes os-fadein { from { opacity: 0; transform: translateY(var(--enter-y)); } to { opacity: 1; transform: translateY(0); } }
-    .os-fadein { animation: os-fadein 220ms var(--ease-out); }
-    @keyframes os-fade { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes os-gol-backdrop { from { opacity: 0; } to { opacity: 1; } }
-    .os-gol-backdrop { animation: os-gol-backdrop 200ms ease-out; }
-    .os-gol-leave { opacity: 0; transition: opacity 160ms var(--ease-out); }
-    @keyframes os-ball-shot { 0% { transform: translate(18px, 150px) scale(0.55) rotate(0deg); } 100% { transform: translate(112px, 66px) scale(1) rotate(300deg); } }
-    .os-ball { animation: os-ball-shot 450ms var(--ease-out) both; }
-    @keyframes os-net-shake { 0%, 100% { transform: translateY(0) scaleY(1); } 35% { transform: translateY(3px) scaleY(1.04); } 70% { transform: translateY(-1px) scaleY(0.99); } }
-    .os-net { transform-origin: 110px 22px; animation: os-net-shake 450ms var(--ease-out) 220ms both; }
-    @keyframes os-gol-pop { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
-    .os-gol-text { display: inline-block; animation: os-gol-pop 420ms var(--ease-celebrate) 220ms both; }
-    .os-ping:not(.absolute):not(.fixed) { position: relative; }
-    .os-ping::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 0 2px rgba(125,255,168,0.7); animation: os-ping 1.6s var(--ease-out) 3; pointer-events: none; }
-    @keyframes os-ping { from { transform: scale(1); opacity: 1; } to { transform: scale(2.4); opacity: 0; } }
-    @keyframes os-radar { 0% { transform: scale(0.15); opacity: 0.95; } 100% { transform: scale(1.5); opacity: 0; } }
-    .os-radar-ring { transform-box: fill-box; transform-origin: center; animation: os-radar 0.6s ease-out both; }
-    @keyframes os-breathe { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
-    .os-breathe { animation: os-breathe 2.6s ease-in-out 2; }
-    @keyframes os-check-pop { from { transform: scale(0.85); opacity: 0.5; } to { transform: scale(1); opacity: 1; } }
-    .os-check-pop { animation: os-check-pop 160ms var(--ease-out) both; }
-    @keyframes os-sheen { 0%, 62% { transform: translateX(-130%) skewX(-18deg); } 100% { transform: translateX(330%) skewX(-18deg); } }
-    .os-sheen { position: absolute; top: 0; bottom: 0; left: 0; width: 40%; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.3), rgba(255,255,255,0)); transform: translateX(-130%); animation: os-sheen 4s ease-in-out 2; pointer-events: none; }
-    .os-gold-text { background: linear-gradient(180deg, #FFF3C9 0%, #F7D774 38%, #F0B429 66%, #B7800A 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .os-sheet { transition: transform 320ms var(--ease-drawer); }
-    @starting-style { .os-sheet { transform: translateY(100%); } }
-    @media (prefers-reduced-motion: reduce) {
-      :root { --enter-y: 0px; }
-      .os-press:active:not(:disabled), .group:active .os-press-child { scale: none; }
-      .os-gol-text, .os-check-pop { animation-name: os-fade; }
-      .os-ball, .os-net, .os-radar-ring, .os-breathe, .os-sheen, .os-ping::after { animation: none; }
-      .os-sheen { display: none; }
-      .os-sheet, .os-fill { transition: none; }
-    }
-    .os-print-only { display: none; }
-    @media print {
-      body * { visibility: hidden; }
-      .os-print-only, .os-print-only * { visibility: visible; }
-      .os-print-only { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 24px; font-family: 'Public Sans', sans-serif; color: #101B26; }
-      .os-print-only h1 { font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; margin-bottom: 16px; }
-      .os-print-only p { font-size: 13px; line-height: 1.5; margin-bottom: 8px; }
-      .os-print-only ul { margin: 4px 0 12px 20px; font-size: 13px; }
-      .os-print-only table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
-      .os-print-only th, .os-print-only td { border: 1px solid #D7E1EA; padding: 6px 8px; text-align: left; }
-    }
-  `;
+  // Lingua: due voci testuali (niente bandiere-emoji), stesso selettore ovunque.
+  const languageItems = [{ key: 'it', label: 'IT', lang: 'it' }, { key: 'en', label: 'EN', lang: 'en' }];
+  const pickLanguage = (key) => { setLanguage(key); persist(snapshot({ language: key })); };
 
   if (screen === 'cover') {
+    const coverPoints = isEN ? [
+      { icon: ShieldCheck, text: 'Prevent the most common injuries, before they happen.' },
+      { icon: Bandage, text: 'Know what to do in the first few minutes, if you get hurt.' },
+      { icon: Heartbeat, text: 'Follow a tailored recovery plan, step by step.' },
+    ] : [
+      { icon: ShieldCheck, text: 'Previeni gli infortuni più comuni, prima che succedano.' },
+      { icon: Bandage, text: 'Sai cosa fare nei primi minuti, se ti fai male.' },
+      { icon: Heartbeat, text: 'Segui un percorso di recupero fatto su misura, passo dopo passo.' },
+    ];
+    // Le luci dello stadio: due torri di fari che si accendono una alla volta (con lo
+    // sfarfallio dei fari veri), poi i coni di luce, il lampo e il campo che si disegna.
+    const towers = [
+      { side: 'left', x: '9%', d: 0.2 },
+      { side: 'right', x: '91%', d: 0.5 },
+    ];
     return (
-      <div style={{ background: `linear-gradient(165deg, ${colors.preventionPaper} 0%, ${colors.paper} 55%, #FFFFFF 100%)`, ...bodyFont }} className="w-full max-w-[560px] mx-auto min-h-[100dvh] relative flex flex-col overflow-hidden md:shadow-[0_0_48px_rgba(0,0,0,0.35)]">
-        <style>{sharedStyle}</style>
-        <svg className="absolute pointer-events-none" style={{ top: '8%', right: '-22%', width: '150%', height: 'auto', opacity: 0.05, transform: 'rotate(-8deg)' }} viewBox="0 0 512 512" fill="none">
-          <circle cx="140" cy="256" r="32" fill={colors.ink} />
-          <path d="M178 256 H222 L270 104 L322 408 L374 256 H428" stroke={colors.ink} strokeWidth="30" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        <div className={`relative px-6 sm:px-10 pt-12 flex flex-col flex-1 ${!cookieChoice ? 'pb-48' : 'pb-8'}`}>
-          <div className="flex items-center justify-between mb-5">
-            <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)', border: `2px solid ${colors.accent}44` }} className="w-16 h-16 rounded-full flex items-center justify-center shadow-sm">
-              <LogoMark size={30} color={colors.accent} />
-            </div>
-            <div className="flex items-center gap-2">
-              <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="flex items-center rounded-full p-0.5 shadow-sm">
-                <button onClick={() => { setLanguage('it'); persist(snapshot({ language: 'it' })); }} style={{ backgroundColor: !isEN ? colors.accentTint : 'transparent', opacity: !isEN ? 1 : 0.45 }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center text-base transition-colors" aria-label="Italiano">🇮🇹</button>
-                <button onClick={() => { setLanguage('en'); persist(snapshot({ language: 'en' })); }} style={{ backgroundColor: isEN ? colors.accentTint : 'transparent', opacity: isEN ? 1 : 0.45 }} className="os-focus w-8 h-8 rounded-full flex items-center justify-center text-base transition-colors" aria-label="English">🇬🇧</button>
+      <div style={bodyFont} className="os-cover w-full max-w-[560px] mx-auto flex flex-col md:shadow-[0_0_80px_rgba(0,0,0,0.6)]">
+        <div className="os-cover-sky" aria-hidden="true" />
+        <div aria-hidden="true" className="absolute inset-0 pointer-events-none overflow-hidden">
+          {towers.map((tw) => (
+            <React.Fragment key={tw.side}>
+              <div className="os-cover-cone" style={{ left: tw.side === 'left' ? '-18%' : 'auto', right: tw.side === 'right' ? '-18%' : 'auto', '--d': `${tw.d + 0.35}s`, background: `radial-gradient(60% 70% at ${tw.side === 'left' ? '22%' : '78%'} 0%, rgba(210,255,230,0.2), rgba(210,255,230,0.05) 45%, rgba(210,255,230,0) 72%)` }} />
+              <div className="os-cover-beam" style={{ left: tw.side === 'left' ? 'calc(7% - 117px)' : 'auto', right: tw.side === 'right' ? 'calc(7% - 117px)' : 'auto', transform: `rotate(${tw.side === 'left' ? -24 : 24}deg)`, '--d': `${tw.d + 0.4}s` }} />
+              <div className="absolute" style={{ top: 'calc(10px + env(safe-area-inset-top, 0px))', [tw.side]: '7%', width: 66 }}>
+                <div className="os-cover-bank" style={{ transform: `rotate(${tw.side === 'left' ? 7 : -7}deg)` }}>
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((k) => <span key={k} className="os-cover-lamp" style={{ '--d': `${tw.d + (k % 5) * 0.05 + Math.floor(k / 5) * 0.12}s` }} />)}
+                </div>
+                <div className="os-cover-pole" />
               </div>
-              <span style={{ ...displayFont, backgroundColor: colors.ink, color: colors.accent, letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full shadow-sm">Beta</span>
-            </div>
+            </React.Fragment>
+          ))}
+          <div className="os-cover-flash" />
+          <svg className="os-cover-pitch absolute left-1/2 -translate-x-1/2" style={{ top: '15%', width: '120%', maxWidth: 660, opacity: 0.26 }} viewBox="0 0 400 260" fill="none">
+            <g stroke={LED_GREEN} strokeWidth="1.3" strokeLinejoin="round" style={{ filter: `drop-shadow(0 0 4px ${LED_GREEN}88)` }}>
+              <path d="M60 240 L340 240 L290 40 L110 40 Z" pathLength="1" style={{ '--d': '1.25s' }} />
+              <path d="M85 140 L315 140" pathLength="1" style={{ '--d': '1.45s' }} />
+              <ellipse cx="200" cy="140" rx="54" ry="22" pathLength="1" style={{ '--d': '1.55s' }} />
+              <path d="M140 240 L148 205 L252 205 L260 240" pathLength="1" style={{ '--d': '1.65s' }} />
+              <path d="M168 40 L166 56 L234 56 L232 40" pathLength="1" style={{ '--d': '1.7s' }} />
+            </g>
+          </svg>
+        </div>
+
+        <main className={`relative flex flex-col flex-1 px-6 sm:px-10 ${!cookieChoice ? 'pb-56' : 'pb-8'}`} style={{ paddingTop: 'calc(64px + env(safe-area-inset-top, 0px))' }}>
+          <div className="flex items-center justify-between mb-10 os-rise" style={{ '--d': '1.5s' }}>
+            <Segmented items={languageItems} value={isEN ? 'en' : 'it'} onChange={pickLanguage} role="radiogroup" ariaLabel={isEN ? 'Language' : 'Lingua'} size="sm" className="w-[104px]" />
+            <span style={{ fontFamily: BRICOLAGE, color: LED_GREEN, border: `1px solid ${LED_GREEN}44`, background: 'rgba(125,255,168,0.08)', letterSpacing: '0.12em' }} className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full">Beta</span>
           </div>
 
           <div className="flex-1 flex flex-col justify-center mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.16em' }} className="text-[11px] font-bold uppercase mb-2">{isEN ? 'For players and teams' : 'Per giocatori e squadre'}</p>
-                <h1 style={{ ...displayFont, letterSpacing: '0.01em' }} className="text-[64px] sm:text-[80px] font-bold leading-[0.95] mb-1">
-                  <span style={{ color: colors.ink }}>OFF</span><span style={{ color: colors.accent }}>SIDE</span>
-                </h1>
-              </div>
-              <PlayerMascot stage={0} size={30} color={colors.accent} />
+            <div className="flex items-center gap-3 mb-3">
+              <span style={{ background: 'radial-gradient(circle at 40% 35%, #163B2B, #07140E)', border: `1.5px solid ${LED_GREEN}55`, boxShadow: `0 0 30px ${LED_GREEN}33` }} className="w-14 h-14 rounded-2xl flex items-center justify-center os-rise [--d:1.55s]">
+                <LogoMark size={30} color={LED_GREEN} animated delay={1.75} glow />
+              </span>
+              <p style={{ fontFamily: BRICOLAGE, color: colors.mutedInk }} className="text-[13px] font-semibold leading-snug os-rise [--d:1.7s]">{isEN ? 'For players and teams' : 'Per giocatori e squadre'}</p>
             </div>
+            <h1 className="os-cond font-extrabold leading-[0.86] text-[86px] min-[380px]:text-[96px] sm:text-[112px]" style={{ letterSpacing: '-0.03em' }} aria-label="Offside">
+              {'OFFSIDE'.split('').map((ch, i) => (
+                <span key={i} className="os-letter-in" style={{ '--d': `${1.85 + i * 0.06}s`, color: i < 3 ? '#FFFFFF' : LED_GREEN, textShadow: i < 3 ? '0 0 40px rgba(255,255,255,0.12)' : `0 0 30px ${LED_GREEN}66` }} aria-hidden="true">{ch}</span>
+              ))}
+            </h1>
           </div>
 
-          <div className="mb-6 space-y-3">
-            {(isEN ? [
-              'Prevent the most common injuries, before they happen.',
-              'Know what to do in the first few minutes, if you get hurt.',
-              'Follow a tailored recovery plan, step by step.',
-            ] : [
-              'Previeni gli infortuni più comuni, prima che succedano.',
-              'Sai cosa fare nei primi minuti, se ti fai male.',
-              'Segui un percorso di recupero fatto su misura, passo dopo passo.'
-            ]).map((text, i) => (
-              <div key={i} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="flex items-center gap-3 rounded-xl px-3.5 py-3 shadow-sm">
-                <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="os-tabular text-sm font-bold flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center">{String(i + 1).padStart(2, '0')}</span>
-                <p style={{ color: colors.ink }} className="text-[14px] leading-snug font-medium">{text}</p>
-              </div>
+          <ul className="mb-7">
+            {coverPoints.map((p, i) => (
+              <li key={i} className="os-rise flex items-center gap-3.5 py-3" style={{ '--d': `${2.25 + i * 0.12}s`, borderTop: i ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+                <span style={{ background: 'rgba(125,255,168,0.1)', border: `1px solid ${LED_GREEN}33` }} className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"><p.icon size={19} color={LED_GREEN} /></span>
+                <p style={{ color: colors.ink }} className="text-[14.5px] leading-snug font-medium">{p.text}</p>
+              </li>
             ))}
-          </div>
+          </ul>
 
-          <button onClick={() => setDisclaimerAccepted(!disclaimerAccepted)} role="checkbox" aria-checked={disclaimerAccepted} className="os-focus w-full flex items-start gap-2.5 mb-4 text-left">
-            <div style={{ backgroundColor: disclaimerAccepted ? colors.accent : colors.card, border: `1.5px solid ${disclaimerAccepted ? colors.accent : colors.hairline}` }} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5">
-              {disclaimerAccepted && <Check size={13} color="#FFFFFF" strokeWidth={3} />}
-            </div>
-            <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">
-              {isEN
-                ? 'I understand that Offside provides general information about common injuries, not a diagnosis or a personalized treatment plan, and that it does not replace an assessment by a healthcare professional.'
-                : 'Ho capito che Offside fornisce informazioni generali su infortuni comuni, non una diagnosi o un piano di trattamento personalizzato, e non sostituisce una valutazione da un professionista sanitario.'}
+          <div className="os-rise" style={{ '--d': '2.6s' }}>
+            <button onClick={() => { setDisclaimerAccepted(!disclaimerAccepted); haptic(8); }} role="checkbox" aria-checked={disclaimerAccepted} className="os-focus w-full flex items-start gap-3 mb-5 text-left rounded-xl">
+              <span style={{ background: disclaimerAccepted ? `radial-gradient(circle at 35% 30%, ${LED_GREEN}, ${colors.accent})` : 'rgba(255,255,255,0.05)', border: `1.5px solid ${disclaimerAccepted ? colors.accent : 'rgba(255,255,255,0.25)'}`, boxShadow: disclaimerAccepted ? `0 0 14px ${LED_GREEN}66` : 'none', transition: 'all 220ms ease' }} className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center mt-0.5">
+                {disclaimerAccepted && <Check size={14} color="#03130A" weight="bold" className="os-check-pop" />}
+              </span>
+              <span style={{ color: colors.mutedInk }} className="text-[12.5px] leading-relaxed">
+                {isEN
+                  ? 'I understand that Offside provides general information about common injuries, not a diagnosis or a personalized treatment plan, and that it does not replace an assessment by a healthcare professional.'
+                  : 'Ho capito che Offside fornisce informazioni generali su infortuni comuni, non una diagnosi o un piano di trattamento personalizzato, e non sostituisce una valutazione da un professionista sanitario.'}
+              </span>
+            </button>
+
+            <button
+              key={disclaimerAccepted ? 'on' : 'off'}
+              onClick={() => {
+                if (!disclaimerAccepted) return;
+                trackEvent('disclaimer_accepted');
+                haptic([10, 30, 16]);
+                const acceptedAt = disclaimerAcceptedAt || new Date().toISOString();
+                setDisclaimerAcceptedAt(acceptedAt);
+                persist(snapshot({ disclaimerAcceptedAt: acceptedAt }));
+                setScreen(onboardingProfileDone ? 'regions' : 'onboarding');
+              }}
+              disabled={!disclaimerAccepted}
+              className={`os-focus os-btn w-full py-4 text-[14px] uppercase tracking-wide ${disclaimerAccepted ? 'os-btn-primary os-power-on' : 'os-btn-off'}`}
+            >
+              {isEN ? 'Start your recovery' : 'Inizia il tuo percorso'}<ArrowRight size={17} />
+              {disclaimerAccepted && <span className="os-sheen" aria-hidden="true" />}
+            </button>
+
+            <div className="text-center mt-3">{renderRestoreBox()}</div>
+            <p className="text-center mt-3">
+              <a href="/privacy.html" style={{ color: colors.mutedInk }} className="os-focus text-[11.5px] underline hover:opacity-70">
+                {isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}
+              </a>
             </p>
-          </button>
-
-          <button
-            onClick={() => {
-              if (!disclaimerAccepted) return;
-              trackEvent('disclaimer_accepted');
-              const acceptedAt = disclaimerAcceptedAt || new Date().toISOString();
-              setDisclaimerAcceptedAt(acceptedAt);
-              persist(snapshot({ disclaimerAcceptedAt: acceptedAt }));
-              setScreen(onboardingProfileDone ? 'regions' : 'onboarding');
-            }}
-            disabled={!disclaimerAccepted}
-            style={{ backgroundColor: disclaimerAccepted ? colors.accent : colors.hairline, color: disclaimerAccepted ? colors.onAccent : colors.mutedInk }}
-            className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium transition-colors shadow-sm"
-          >
-            <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Start your recovery' : 'Inizia il tuo percorso'}</span><ArrowRight size={16} />
-          </button>
-
-          <div className="text-center mt-3">{renderRestoreBox()}</div>
-          <p className="text-center mt-4">
-            <a href="/privacy.html" style={{ color: colors.mutedInk }} className="os-focus text-[11px] underline hover:opacity-70">
-              {isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}
-            </a>
-          </p>
-        </div>
+          </div>
+        </main>
         {!cookieChoice && <CookieBanner isEN={isEN} onChoice={handleCookieChoice} />}
       </div>
     );
@@ -5884,52 +6532,57 @@ export default function Offside() {
   if (screen === 'onboarding') {
     const finishOnboarding = () => { setOnboardingProfileDone(true); persist(snapshot({ onboardingProfileDone: true })); setScreen('regions'); };
     return (
-      <div style={{ backgroundColor: colors.paper, ...bodyFont }} className="w-full max-w-[560px] mx-auto min-h-[100dvh] relative flex flex-col md:shadow-[0_0_48px_rgba(0,0,0,0.35)]">
-        <style>{sharedStyle}</style>
-        <div className={`px-6 sm:px-10 pt-14 flex flex-col flex-1 ${!cookieChoice ? 'pb-48' : 'pb-8'}`}>
-          <div className="flex items-start justify-between mb-2">
-            <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[11px] font-bold uppercase">{isEN ? 'One quick thing' : 'Una cosa veloce'}</p>
-            <button onClick={finishOnboarding} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus os-press flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity" aria-label={isEN ? 'Skip' : 'Salta'}>
+      <div style={bodyFont} className="relative w-full min-h-[100dvh]">
+        <StadiumBackdrop />
+        <main className={`os-shell w-full max-w-[560px] mx-auto min-h-[100dvh] px-6 sm:px-10 flex flex-col ${!cookieChoice ? 'pb-56' : 'pb-8'}`} style={{ paddingTop: 'calc(18px + env(safe-area-inset-top, 0px))' }}>
+          <div className="flex items-center justify-between h-12 mb-6">
+            <LogoMark size={26} color={LED_GREEN} glow />
+            <button onClick={finishOnboarding} className="os-focus os-icon-btn rounded-full" aria-label={isEN ? 'Skip' : 'Salta'}>
               <X size={17} color={colors.mutedInk} />
             </button>
           </div>
-          <h1 style={{ ...displayFont, color: colors.ink }} className="text-2xl font-bold mb-2">{isEN ? 'What level do you play at?' : 'A che livello giochi?'}</h1>
-          <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-8">{isEN ? 'Helps set the right tone for your recovery. You can skip this and add it later.' : 'Aiuta a impostare il tono giusto per il tuo recupero. Puoi saltarlo e aggiungerlo più tardi.'}</p>
+          <h1 data-rv="" style={{ fontFamily: BRICOLAGE, color: colors.ink, letterSpacing: '-0.025em' }} className="text-[32px] font-bold leading-[1.05] mb-2">{isEN ? 'What level do you play at?' : 'A che livello giochi?'}</h1>
+          <p data-rv="" style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-7">{isEN ? 'Helps set the right tone for your recovery. You can skip this and add it later.' : 'Aiuta a impostare il tono giusto per il tuo recupero. Puoi saltarlo e aggiungerlo più tardi.'}</p>
 
-          <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Playing level' : 'Categoria'}</p>
-          <div className="flex flex-wrap gap-2 mb-8">
-            {playerLevels.map((lvl) => (
-              <button aria-pressed={userProfile.level === lvl.key} key={lvl.key} onClick={() => { const next = { ...userProfile, level: lvl.key }; setUserProfile(next); }} style={{ backgroundColor: userProfile.level === lvl.key ? colors.accent : colors.card, color: userProfile.level === lvl.key ? colors.onAccent : colors.ink, border: `1.5px solid ${userProfile.level === lvl.key ? colors.accent : colors.hairline}` }} className="os-focus px-4 py-2.5 rounded-full text-sm font-medium transition-colors shadow-sm">
-                {lvl.label}
-              </button>
-            ))}
+          <p className="os-label mb-3" style={{ color: colors.mutedInk }}>{isEN ? 'Playing level' : 'Categoria'}</p>
+          <div className="grid grid-cols-2 gap-2.5 mb-8">
+            {playerLevels.map((lvl, i) => {
+              const on = userProfile.level === lvl.key;
+              return (
+                <button data-rv="pop" aria-pressed={on} key={lvl.key} onClick={() => { haptic(8); setUserProfile({ ...userProfile, level: lvl.key }); }} style={{ background: on ? 'linear-gradient(180deg, rgba(125,255,168,0.18), rgba(125,255,168,0.06))' : 'rgba(255,255,255,0.04)', border: `1.5px solid ${on ? LED_GREEN + 'AA' : 'rgba(255,255,255,0.1)'}`, boxShadow: on ? `0 0 0 4px ${colors.accent}1F, 0 12px 26px -14px ${LED_GREEN}88` : 'none', transition: 'all 240ms ease' }} className="os-focus os-press relative flex flex-col items-start justify-between gap-5 rounded-[20px] p-3.5 text-left min-h-[96px]">
+                  <span className="flex items-end gap-[3px] h-6" aria-hidden="true">
+                    {[0, 1, 2, 3].map((b) => <span key={b} className="w-[5px] rounded-full" style={{ height: 8 + b * 5, background: b <= i ? (on ? LED_GREEN : 'rgba(125,255,168,0.55)') : 'rgba(255,255,255,0.12)', boxShadow: b <= i && on ? `0 0 8px ${LED_GREEN}` : 'none', transition: 'background 220ms ease, box-shadow 220ms ease' }} />)}
+                  </span>
+                  <span style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[14.5px] font-bold leading-tight">{lvl.label}</span>
+                  {on && <span className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center os-check-pop" style={{ background: LED_GREEN }}><Check size={13} color="#03130A" weight="bold" /></span>}
+                </button>
+              );
+            })}
           </div>
 
-          <div className="flex items-center gap-2 mb-2.5">
-            <Lock size={13} color={colors.premiumGold} />
-            <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Position (Premium)' : 'Ruolo (Premium)'}</p>
+          <div className="flex items-center gap-2 mb-3">
+            <Lock size={12} color={colors.premiumGold} weight="fill" />
+            <p className="os-label" style={{ color: colors.mutedInk }}>{isEN ? 'Position (Premium)' : 'Ruolo (Premium)'}</p>
           </div>
-          <div className="relative mb-2">
+          <div className="relative mb-2" data-rv="">
             <div style={{ filter: 'blur(4px)', pointerEvents: 'none' }} className="grid grid-cols-2 gap-2.5" aria-hidden="true">
               {playerPositions.map((pos) => (
-                <div key={pos.key} style={{ backgroundColor: colors.card, border: `1.5px solid ${colors.hairline}`, color: colors.ink }} className="rounded-xl py-3.5 text-sm font-semibold text-center shadow-sm">
-                  {pos.label}
-                </div>
+                <div key={pos.key} style={{ background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(245,196,81,0.3)', color: colors.ink }} className="rounded-2xl py-3.5 text-sm font-semibold text-center">{pos.label}</div>
               ))}
             </div>
-            <button onClick={() => { finishOnboarding(); setScreen('premium'); }} className="os-focus absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-xl" style={{ backgroundColor: 'rgba(238,243,248,0.55)' }}>
-              <span style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="text-[11px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-full shadow-sm">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
+            <button onClick={() => { finishOnboarding(); setScreen('premium'); }} className="os-focus absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-2xl" style={{ backgroundColor: 'rgba(4,10,7,0.45)' }}>
+              <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[11px] font-bold uppercase tracking-wide px-3.5 py-2 rounded-full shadow-lg">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
             </button>
           </div>
-          <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-8">{isEN ? 'Premium tailors training and recovery tips to your exact position.' : 'Premium adatta allenamento e consigli di recupero al tuo ruolo esatto.'}</p>
+          <p style={{ color: colors.mutedInk }} className="text-[12px] leading-relaxed mb-8">{isEN ? 'Premium tailors training and recovery tips to your exact position.' : 'Premium adatta allenamento e consigli di recupero al tuo ruolo esatto.'}</p>
 
           <div className="flex-1" />
 
-          <button onClick={finishOnboarding} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
-            <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Continue without Premium' : 'Continua senza Premium'}</span><ArrowRight size={16} />
+          <button onClick={finishOnboarding} className="os-focus os-btn os-btn-primary w-full py-4 text-[14px] uppercase tracking-wide mb-3">
+            {isEN ? 'Continue without Premium' : 'Continua senza Premium'}<ArrowRight size={17} />
           </button>
-          <p style={{ color: colors.mutedInk }} className="text-[11px] text-center">{isEN ? 'You can unlock Premium anytime from your profile.' : 'Puoi sbloccare Premium quando vuoi dal tuo profilo.'}</p>
-        </div>
+          <p style={{ color: colors.mutedInk }} className="text-[11.5px] text-center">{isEN ? 'You can unlock Premium anytime from your profile.' : 'Puoi sbloccare Premium quando vuoi dal tuo profilo.'}</p>
+        </main>
         {!cookieChoice && <CookieBanner isEN={isEN} onChoice={handleCookieChoice} />}
       </div>
     );
@@ -5967,48 +6620,49 @@ export default function Offside() {
   };
 
   // Segnali d'allarme: sempre raggiungibili dove conta (percorso, infortuni, triage, primo
-  // soccorso e Home di chi è in recupero), ma in una riga compatta invece che come primo
-  // blocco rosso in maiuscolo in cima a ogni schermata.
-  const RED_FLAG_SCREENS = ['tracker', 'injuries', 'triage', 'triageResults', 'firstaid'];
-  const renderRedFlags = () => (
-    <div style={{ backgroundColor: colors.redTint, border: `1px solid ${colors.red}22` }} className="rounded-xl overflow-hidden">
-      <button onClick={() => setShowRedFlags(!showRedFlags)} className="os-focus w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left" aria-expanded={showRedFlags}>
-        <span className="flex items-center gap-2">
-          <AlertTriangle size={15} color={colors.red} strokeWidth={2.25} />
-          <span style={{ ...displayFont, color: colors.red }} className="text-[13px] font-semibold">{isEN ? 'When to stop and call a professional' : 'Quando fermarti e chiamare un professionista'}</span>
-        </span>
-        <ChevronRight size={16} color={colors.red} style={{ transform: showRedFlags ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 200ms var(--ease-in-out)' }} />
-      </button>
-      {showRedFlags && (
-        <div className="px-4 pb-4">
-          <p style={{ backgroundColor: colors.card, border: `1px solid ${colors.red}33`, color: colors.ink }} className="flex items-start gap-2 rounded-lg px-3 py-2.5 mb-3 text-sm font-semibold leading-snug">
-            <Phone size={16} color={colors.red} className="flex-shrink-0 mt-0.5" aria-hidden="true" />
-            {isEN
-              ? <span>Severe pain, a deformity or you can't put weight on it: call <a href="tel:112" style={{ color: colors.red }} className="underline">112</a> or go to the emergency room.</span>
-              : <span>Dolore fortissimo, deformità o non riesci a caricare il peso: chiama il <a href="tel:112" style={{ color: colors.red }} className="underline">112</a> o vai al pronto soccorso.</span>}
-          </p>
-          <ul style={{ color: colors.ink }} className="space-y-1.5 text-sm">
-            {redFlags.map((flag, i) => <li key={i} className="flex gap-2"><span style={{ color: colors.red }} className="mt-1 flex-shrink-0">●</span><span>{flag}</span></li>)}
+  // soccorso e Home di chi è in recupero), in una riga compatta che apre un foglio dal basso.
+  const renderRedFlagsBar = (extraClass = '') => (
+    <button
+      type="button"
+      data-rv=""
+      onClick={() => { haptic(8); setShowRedFlags(true); }}
+      aria-haspopup="dialog"
+      className={`os-focus os-press [--press:0.98] w-full flex items-center gap-3 rounded-[18px] px-3.5 py-3 text-left ${extraClass}`}
+      style={{ background: 'linear-gradient(90deg, rgba(255,107,94,0.16), rgba(255,107,94,0.06))', border: '1px solid rgba(255,107,94,0.28)' }}
+    >
+      <span className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,107,94,0.18)' }}><Siren size={16} color={colors.red} weight="fill" /></span>
+      <span style={{ fontFamily: BRICOLAGE, color: '#FFD0CB' }} className="flex-1 text-[13.5px] font-semibold leading-snug">{isEN ? 'When to stop and call a professional' : 'Quando fermarti e chiamare un professionista'}</span>
+      <ChevronRight size={16} color={colors.red} />
+    </button>
+  );
+  const renderRedFlagsContent = () => (
+    <div>
+      <p style={{ background: 'rgba(255,107,94,0.12)', border: '1px solid rgba(255,107,94,0.32)', color: colors.ink }} className="flex items-start gap-2.5 rounded-2xl px-3.5 py-3 mb-4 text-[14px] font-semibold leading-snug">
+        <Phone size={17} color={colors.red} weight="fill" className="flex-shrink-0 mt-0.5" aria-hidden="true" />
+        {isEN
+          ? <span>Severe pain, a deformity or you can't put weight on it: call <a href="tel:112" style={{ color: colors.red }} className="underline">112</a> or go to the emergency room.</span>
+          : <span>Dolore fortissimo, deformità o non riesci a caricare il peso: chiama il <a href="tel:112" style={{ color: colors.red }} className="underline">112</a> o vai al pronto soccorso.</span>}
+      </p>
+      <ul style={{ color: colors.ink }} className="space-y-2.5 text-[14px]">
+        {redFlags.map((flag, i) => <li key={i} className="flex gap-2.5 leading-snug"><span style={{ backgroundColor: colors.red, boxShadow: `0 0 8px ${colors.red}` }} className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-[7px]" /><span>{flag}</span></li>)}
+      </ul>
+      {screen === 'tracker' && injury && injury.specialRedFlags && (
+        <>
+          <p className="os-label mt-5 mb-2" style={{ color: colors.red }}>{isEN ? 'Also, specific to this injury' : 'Inoltre, specifico per questo infortunio'}</p>
+          <ul style={{ color: colors.ink }} className="space-y-2.5 text-[14px]">
+            {injury.specialRedFlags.map((flag, i) => <li key={i} className="flex gap-2.5 leading-snug"><span style={{ backgroundColor: colors.red }} className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-[7px]" /><span>{flag}</span></li>)}
           </ul>
-          {screen === 'tracker' && injury && injury.specialRedFlags && (
-            <>
-              <p style={{ ...displayFont, color: colors.red }} className="text-[11px] font-semibold uppercase tracking-wide mt-3 mb-1.5">{isEN ? 'Also, specific to this injury' : 'Inoltre, specifico per questo infortunio'}</p>
-              <ul style={{ color: colors.ink }} className="space-y-1.5 text-sm">
-                {injury.specialRedFlags.map((flag, i) => <li key={i} className="flex gap-2"><span style={{ color: colors.red }} className="mt-1 flex-shrink-0">●</span><span>{flag}</span></li>)}
-              </ul>
-            </>
-          )}
-          {physiosData.length > 0 ? (
-            <button onClick={() => setScreen('physios')} style={{ backgroundColor: 'rgba(255,255,255,0.5)', color: colors.red, border: `1px solid ${colors.red}33` }} className="os-focus os-press w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 min-h-[40px] text-xs font-semibold mt-3 hover:opacity-80">
-              <Stethoscope size={13} />{isEN ? 'Find a physiotherapist near you' : 'Trova un fisioterapista vicino a te'}
-            </button>
-          ) : (
-            // Finché l'elenco interno è vuoto, una ricerca vera è meglio di una pagina "Arriva presto".
-            <a href={`https://www.google.com/maps/search/${encodeURIComponent(isEN ? 'sports physiotherapist near me' : 'fisioterapista sportivo vicino a me')}`} target="_blank" rel="noopener noreferrer" style={{ backgroundColor: 'rgba(255,255,255,0.5)', color: colors.red, border: `1px solid ${colors.red}33` }} className="os-focus os-press w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 min-h-[40px] text-xs font-semibold mt-3 hover:opacity-80">
-              <MapPin size={13} />{isEN ? 'Find a physiotherapist near you on Maps' : 'Trova un fisioterapista vicino a te su Maps'}<ExternalLink size={12} />
-            </a>
-          )}
-        </div>
+        </>
+      )}
+      {physiosData.length > 0 ? (
+        <button onClick={() => setScreen('physios', () => setShowRedFlags(false))} className="os-focus os-btn os-btn-ghost w-full py-3 text-[13px] mt-5" style={{ color: '#FFD0CB', borderColor: 'rgba(255,107,94,0.35)' }}>
+          <Stethoscope size={15} />{isEN ? 'Find a physiotherapist near you' : 'Trova un fisioterapista vicino a te'}
+        </button>
+      ) : (
+        // Finché l'elenco interno è vuoto, una ricerca vera è meglio di una pagina "Arriva presto".
+        <a href={`https://www.google.com/maps/search/${encodeURIComponent(isEN ? 'sports physiotherapist near me' : 'fisioterapista sportivo vicino a me')}`} target="_blank" rel="noopener noreferrer" className="os-focus os-btn os-btn-ghost w-full py-3 text-[13px] mt-5" style={{ color: '#FFD0CB', borderColor: 'rgba(255,107,94,0.35)' }}>
+          <MapPin size={15} />{isEN ? 'Find a physiotherapist near you on Maps' : 'Trova un fisioterapista vicino a te su Maps'}<ExternalLink size={13} />
+        </a>
       )}
     </div>
   );
@@ -6061,190 +6715,269 @@ export default function Offside() {
   const historyRegions = [...new Set(Object.keys(injuryDates).filter((k) => injuriesData[k]).map((k) => regionOfInjury(k, injuriesData)).filter(Boolean))];
   const recommendedRegions = (historyRegions.length ? historyRegions : ['thigh', 'hip_groin', 'knee', 'ankle_foot']).slice(0, 4);
   const seasonLabel = (() => { const d = new Date(); const y = d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1; return `${y}/${String((y + 1) % 100).padStart(2, '0')}`; })();
+  const todayLabel = formatTodayLabel(isEN);
+  const todayLabelCap = todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1);
+
+  // Titolo della schermata: grande nel contenuto, piccolo nella barra in alto quando scorri.
+  const screenTitle = screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : regionsTab === 'technique' ? (isEN ? 'Technique' : 'Tecnica') : (isEN ? 'Today' : 'Oggi')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'triageResults' ? (isEN ? 'Possible matches' : 'Possibili corrispondenze') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'movementScreen' ? (isEN ? 'Movement screening' : 'Screening del movimento') : screen === 'teamRegister' ? (isEN ? 'Register your team' : 'Registra la squadra') : screen === 'teamLogin' ? (isEN ? 'Team login' : 'Accedi alla squadra') : screen === 'teamDashboard' ? (teamAuth?.teamName || 'Offside Squadre') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso');
+
+  // Sessione guidata aperta: quali esercizi, con quali spunte e cosa succede alla fine.
+  const sessionCfg = (() => {
+    if (!session) return null;
+    if (session.kind === 'recovery' && injury && phase && phase.exercises.length) {
+      return {
+        title: isEN ? `Today's session · Phase ${activePhase + 1}` : `Allenamento di oggi · Fase ${activePhase + 1}`,
+        tone: 'green',
+        exercises: phase.exercises,
+        doneFlags: phase.exercises.map((_, i) => !!phaseProgress[i]),
+        onToggle: (i) => toggleExercise(i),
+        finish: currentDate ? {
+          label: isEN ? "Log today's session" : 'Segna la sessione di oggi',
+          doneLabel: isEN ? "Today's session is in the net" : 'Sessione di oggi in rete',
+          isDone: !!todayEntry.done,
+          hint: todayEntry.done ? (isEN ? 'See you tomorrow: the clock keeps running.' : 'Ci vediamo domani: il cronometro va avanti.') : (isEN ? 'Log the session to keep your streak alive.' : 'Segna la sessione: tiene viva la serie.'),
+          onClick: () => { const wasDone = !!todayEntry.done; setSession(null); if (!wasDone) setTimeout(() => toggleToday(), 160); },
+        } : null,
+      };
+    }
+    if (session.kind === 'warmup') {
+      return {
+        title: isEN ? 'Preventive warm-up' : 'Riscaldamento preventivo',
+        tone: 'teal',
+        exercises: warmupRoutine.flatMap((part) => part.exercises),
+        doneFlags: null,
+        onToggle: null,
+        finish: {
+          label: isEN ? 'Mark today as done' : 'Segna fatto oggi',
+          doneLabel: isEN ? 'Done today' : 'Fatto oggi',
+          isDone: warmupDoneToday,
+          hint: isEN ? 'Do it at least twice a week: it works on several areas at once.' : 'Fallo almeno 2 volte a settimana: lavora su più zone insieme.',
+          onClick: () => { const wasDone = warmupDoneToday; setSession(null); if (!wasDone) toggleWarmupToday(); },
+        },
+      };
+    }
+    if (session.kind === 'prevention' && preventionData[session.key]) {
+      const d = preventionData[session.key];
+      const rp = preventionProgress[session.key] || {};
+      return { title: d.label, tone: 'teal', exercises: d.exercises, doneFlags: d.exercises.map((_, i) => !!rp[i]), onToggle: (i) => togglePreventionExercise(session.key, i), finish: null };
+    }
+    if (session.kind === 'technique' && playerPosition && techniqueData[playerPosition]) {
+      const label = playerPositions.find((p) => p.key === playerPosition)?.label || '';
+      return { title: isEN ? `Technique · ${label}` : `Tecnica · ${label}`, tone: 'gold', exercises: techniqueData[playerPosition].exercises, doneFlags: null, onToggle: null, finish: null };
+    }
+    return null;
+  })();
+  if (sessionCfg) lastSessionCfgRef.current = sessionCfg;
+  const openSession = (kind, opts = {}) => { haptic([10, 30, 10]); setSession({ kind, ...opts }); };
+  overlayCloseRef.current = celebration ? closeCelebration
+    : sessionCfg ? () => setSession(null)
+    : showRedFlags ? () => setShowRedFlags(false)
+    : (screen === 'regions' && expandedPrevention) ? () => setExpandedPrevention(null)
+    : (screen === 'regions' && warmupOpen) ? () => setWarmupOpen(false)
+    : null;
+
+  // Foglio della zona di prevenzione (resta pieno anche mentre si chiude).
+  if (expandedPrevention && preventionData[expandedPrevention]) lastZoneRef.current = expandedPrevention;
+  const zoneKey = lastZoneRef.current;
+  const openZone = (key) => { haptic(8); setExpandedPrevention(key); };
+
+  const isTeamScreen = TEAM_SCREENS.includes(screen);
+  // Con un foglio o la sessione guidata aperti, il resto dell'app non è raggiungibile
+  // (né col tocco né con la tastiera o i lettori di schermo).
+  const overlayOpen = !!sessionCfg || showRedFlags || (screen === 'regions' && (!!expandedPrevention || warmupOpen));
+  const screenEnterClass = vtSupported ? '' : 'os-screen-in';
+  const screenEnterX = screenDirRef.current === 'back' ? '-28px' : screenDirRef.current === 'tab' ? '0px' : '28px';
+  const topLeading = screen === 'regions' ? (
+    <span className="flex items-center gap-2" aria-hidden="true">
+      <LogoMark size={22} color={LED_GREEN} strokeWidth={3.2} glow />
+      <span className="os-cond text-[17px] font-extrabold tracking-tight" style={{ color: '#FFFFFF' }}>OFF<span style={{ color: LED_GREEN }}>SIDE</span></span>
+    </span>
+  ) : (
+    <button onClick={goBack} className="os-focus os-icon-btn rounded-full" aria-label={isEN ? 'Go back' : 'Torna indietro'}>
+      <ArrowLeft size={18} />
+    </button>
+  );
+  const topTrailing = (
+    <>
+      {screen === 'tracker' && injury && (
+        <button onClick={shareProgress} className="os-focus os-icon-btn rounded-full" aria-label={isEN ? 'Share your progress' : 'Condividi il tuo percorso'}>
+          {shareCopied ? <Check size={16} color={LED_GREEN} className="os-check-pop" /> : <Share2 size={16} />}
+        </button>
+      )}
+      {screen !== 'profile' && !isTeamScreen && (
+        <button onClick={() => setScreen('profile')} className="os-focus os-icon-btn rounded-full" aria-label={isEN ? 'Your profile' : 'Il tuo profilo'}>
+          <User size={17} />
+        </button>
+      )}
+      {screen === 'teamDashboard' && teamAuth && (
+        <button onClick={logoutTeam} className="os-focus os-icon-btn rounded-full" aria-label={isEN ? 'Log out' : 'Esci'}>
+          <LogOut size={16} />
+        </button>
+      )}
+    </>
+  );
 
   return (
-    <div style={{ backgroundColor: colors.paper, ...bodyFont }} className={`w-full ${TEAM_SCREENS.includes(screen) ? 'max-w-[1040px]' : 'max-w-[560px]'} mx-auto min-h-[100dvh] relative md:shadow-[0_0_48px_rgba(0,0,0,0.35)]`}>
-      <style>{sharedStyle}</style>
-      <svg className="fixed inset-0 w-full h-full opacity-[0.035] pointer-events-none" viewBox="0 0 400 800" fill="none" preserveAspectRatio="xMidYMid slice">
-        <circle cx="200" cy="160" r="150" stroke={colors.accent} strokeWidth="1.5" />
-        <line x1="-20" y1="160" x2="420" y2="160" stroke={colors.accent} strokeWidth="1.5" />
-      </svg>
+    <div style={bodyFont} className="relative min-h-[100dvh]">
+      <StadiumBackdrop />
+      <div className={`os-shell w-full ${isTeamScreen ? 'max-w-[1040px]' : 'max-w-[560px]'} mx-auto min-h-[100dvh]`} inert={overlayOpen}>
+        <TopBar title={screenTitle} leading={topLeading} trailing={topTrailing} resetKey={screen} />
 
-      <header style={{ borderBottom: `1px solid ${colors.hairline}` }} className="relative px-5 sm:px-8 pt-5 pb-4 flex items-center gap-2.5">
-        {screen !== 'regions' && (
-          <button onClick={goBack} style={{ backgroundColor: colors.accentTint }} className="os-focus os-press [--press:0.94] flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center hover:opacity-80" aria-label={isEN ? 'Go back' : 'Torna indietro'}>
-            <ArrowLeft size={18} color={colors.accentDark} />
-          </button>
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <LogoMark size={13} color={colors.accentDark} strokeWidth={2.5} />
-            <p style={{ ...displayFont, color: colors.accentDark, letterSpacing: '0.14em' }} className="text-[10px] font-semibold uppercase">
-              {screen === 'regions' ? `Offside · ${formatTodayLabel(isEN)}` : 'Offside'}
-            </p>
-          </div>
-          <h1 style={{ ...displayFont, color: colors.ink }} className="text-base min-[360px]:text-lg sm:text-xl font-semibold truncate">
-            {screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : regionsTab === 'technique' ? (isEN ? 'Technique' : 'Tecnica') : (isEN ? 'Today' : 'Oggi')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'triageResults' ? (isEN ? 'Possible matches' : 'Possibili corrispondenze') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'movementScreen' ? (isEN ? 'Movement screening' : 'Screening del movimento') : screen === 'teamRegister' ? (isEN ? 'Register your team' : 'Registra la squadra') : screen === 'teamLogin' ? (isEN ? 'Team login' : 'Accedi alla squadra') : screen === 'teamDashboard' ? (teamAuth?.teamName || 'Offside Squadre') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso')}
-          </h1>
-        </div>
-        {screen === 'tracker' && injury && (
-          <button onClick={shareProgress} style={{ backgroundColor: colors.accentTint }} className="os-focus os-press [--press:0.94] flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center hover:opacity-80" aria-label={isEN ? 'Share your progress' : 'Condividi il tuo percorso'}>
-            {shareCopied ? <Check size={15} color={colors.accentDark} /> : <Share2 size={15} color={colors.accentDark} />}
-          </button>
-        )}
-        <div className="flex-shrink-0 hidden min-[360px]:block" style={{ width: 20 }} aria-hidden="true">
-          <PlayerMascot stage={mascotStageForScreen(screen)} size={20} color={colors.accentDark} />
-        </div>
-        {screen !== 'profile' && !TEAM_SCREENS.includes(screen) && (
-          <button onClick={() => setScreen('profile')} style={{ backgroundColor: colors.accentTint }} className="os-focus os-press [--press:0.94] flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80" aria-label={isEN ? 'Your profile' : 'Il tuo profilo'}>
-            <User size={17} color={colors.accentDark} />
-          </button>
-        )}
-        {screen === 'teamDashboard' && teamAuth && (
-          <button onClick={logoutTeam} style={{ backgroundColor: colors.accentTint }} className="os-focus os-press [--press:0.94] flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80" aria-label={isEN ? 'Log out' : 'Esci'}>
-            <LogOut size={16} color={colors.accentDark} />
-          </button>
-        )}
-      </header>
+        <main key={screen} id="contenuto" className={`relative px-5 sm:px-8 pt-3 pb-8 ${screenEnterClass}`} style={{ '--screen-x': screenEnterX }}>
 
-      {RED_FLAG_SCREENS.includes(screen) && !(screen === 'tracker' && !injury) && (
-        <div className="px-5 sm:px-8 pt-5">{renderRedFlags()}</div>
-      )}
-
-      <main key={screen} id="contenuto" className={`px-5 sm:px-8 py-6 ${navKindRef.current === 'tab' ? '' : 'os-fadein'}`}>
         {screen === 'regions' && (
           <>
+            <PageTitle
+              title={isEN ? 'Today' : 'Oggi'}
+              sub={todayLabelCap}
+              right={!hero ? (
+                <span className="os-led-chip mb-1"><span className="os-live" />{isEN ? `Season ${seasonLabel}` : `Stagione ${seasonLabel}`}</span>
+              ) : null}
+            />
+
             {hero ? (
               <div className="mb-4">
-                <div style={{ background: PITCH_BG }} className="rounded-3xl p-5 shadow-lg relative overflow-hidden">
-                  <PitchArc size={190} />
+                <div data-rv="" className="os-pitch os-floodsweep os-vt-matchday os-depth p-5">
+                  <PitchArc size={210} />
+                  <div className="relative flex items-center gap-2 mb-3 pr-12">
+                    <span className="os-led-chip"><span className="os-live" />{isEN ? 'Live' : 'In corso'}</span>
+                    <span style={{ fontFamily: BRICOLAGE, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.1em' }} className="text-[10.5px] font-bold uppercase">
+                      {isEN ? `Day ${hero.dayNum} · Phase ${hero.phaseIdx + 1}/${hero.inj.phases.length}` : `Giorno ${hero.dayNum} · Fase ${hero.phaseIdx + 1}/${hero.inj.phases.length}`}
+                    </span>
+                  </div>
                   <button
                     onClick={() => {
                       if (deletingKey === hero.key) deleteInjuryData(hero.key);
-                      else { setDeletingKey(hero.key); setTimeout(() => setDeletingKey((k) => (k === hero.key ? null : k)), 3000); }
+                      else { setDeletingKey(hero.key); haptic(12); setTimeout(() => setDeletingKey((k) => (k === hero.key ? null : k)), 3000); }
                     }}
-                    style={{ backgroundColor: deletingKey === hero.key ? colors.red : 'rgba(255,255,255,0.1)' }}
-                    className="os-focus os-press [--press:0.95] absolute top-3 right-3 h-10 min-w-10 px-3 rounded-full flex items-center justify-center gap-1.5 hover:bg-white/20 z-10"
+                    style={{ backgroundColor: deletingKey === hero.key ? colors.red : 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)' }}
+                    className="os-focus os-press [--press:0.95] absolute top-4 right-4 h-10 min-w-10 px-3 rounded-full flex items-center justify-center gap-1.5 z-10"
                     aria-label={deletingKey === hero.key ? (isEN ? 'Tap again to delete this recovery' : 'Tocca di nuovo per eliminare il percorso') : (isEN ? 'Delete this recovery' : 'Elimina questo percorso')}
                   >
-                    <Trash size={15} color={deletingKey === hero.key ? '#FFFFFF' : 'rgba(255,255,255,0.7)'} />
-                    {deletingKey === hero.key && <span className="text-[12px] font-bold text-white">{isEN ? 'Delete?' : 'Elimina?'}</span>}
+                    <Trash size={15} color={deletingKey === hero.key ? '#FFFFFF' : 'rgba(255,255,255,0.75)'} />
+                    {deletingKey === hero.key && <span className="text-[12px] font-bold text-white os-fadein">{isEN ? 'Delete?' : 'Elimina?'}</span>}
                   </button>
-                  <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.14em' }} className="relative text-[11px] font-bold uppercase mb-1 pr-10">
-                    {isEN ? `Phase ${hero.phaseIdx + 1} of ${hero.inj.phases.length} · day ${hero.dayNum}` : `Fase ${hero.phaseIdx + 1} di ${hero.inj.phases.length} · giorno ${hero.dayNum}`}
-                  </p>
-                  <p style={{ ...displayFont, color: '#FFFFFF', letterSpacing: '-0.01em' }} className="relative text-lg font-bold uppercase leading-tight mb-4 pr-10 line-clamp-2">{hero.inj.label}</p>
+                  <p className="os-cond relative text-[26px] font-extrabold uppercase leading-[1.02] mb-4 line-clamp-2" style={{ color: '#FFFFFF' }}>{hero.inj.label}</p>
                   <div className="relative">
                     <MatchClock minute={hero.minute} overtime={hero.overtime} segments={hero.segments} daysLeft={hero.daysLeft} isEN={isEN} />
                   </div>
                   {(hero.streakCount > 0 || hero.exTotal > 0) && (
                     <div className="relative flex flex-wrap items-center gap-2 mt-5">
                       {hero.streakCount > 0 && (
-                        <span style={{ backgroundColor: 'rgba(255,217,160,0.14)', color: '#FFD9A0' }} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold">
-                          <Flame size={12} strokeWidth={2.5} />{isEN ? `${hero.streakCount}-session streak` : `${hero.streakCount} presenze di fila`}
+                        <span style={{ backgroundColor: 'rgba(255,217,160,0.12)', color: '#FFD9A0', border: '1px solid rgba(255,217,160,0.2)' }} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-bold">
+                          <Flame size={13} weight="fill" />{isEN ? `${hero.streakCount}-session streak` : `${hero.streakCount} presenze di fila`}
                         </span>
                       )}
                       {hero.exTotal > 0 && (
-                        <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.85)' }} className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold os-tabular">
+                        <span className="os-chip os-tabular text-[11.5px]" style={{ background: 'rgba(0,0,0,0.25)' }}>
                           {isEN ? `Phase exercises ${hero.exDone}/${hero.exTotal}` : `Esercizi della fase ${hero.exDone}/${hero.exTotal}`}
                         </span>
                       )}
                     </div>
                   )}
                   <button
-                    onClick={() => { resumeInjury(hero.key); setTimeout(() => scrollToId('sez-oggi', { instant: true }), 60); }}
-                    style={{ backgroundColor: hero.doneToday ? 'rgba(125,255,168,0.12)' : colors.accent, color: hero.doneToday ? LED_GREEN : colors.onAccent, border: hero.doneToday ? `1px solid ${LED_GREEN}55` : '1px solid transparent' }}
-                    className="os-focus os-press relative w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 mt-4 shadow-md hover:opacity-95"
+                    onClick={() => { resumeInjury(hero.key); }}
+                    className={`os-focus os-btn relative w-full py-4 mt-5 text-[14px] uppercase tracking-wide ${hero.doneToday ? 'os-btn-dark' : 'os-btn-primary'}`}
+                    style={hero.doneToday ? { color: LED_GREEN, borderColor: `${LED_GREEN}55` } : undefined}
                   >
-                    {hero.doneToday ? <CheckCircle2 size={18} strokeWidth={2.4} /> : <PlayCircle size={18} strokeWidth={2.2} />}
-                    <span style={displayFont} className="text-sm font-bold uppercase tracking-wide">
-                      {hero.doneToday ? (isEN ? "Today's session is in the net" : 'Sessione di oggi in rete') : (isEN ? "Today's session" : 'Allenamento di oggi')}
-                    </span>
+                    {hero.doneToday ? <CheckCircle2 size={19} weight="fill" /> : <PlayCircle size={19} weight="fill" />}
+                    {hero.doneToday ? (isEN ? "Today's session is in the net" : 'Sessione di oggi in rete') : (isEN ? "Today's session" : 'Allenamento di oggi')}
+                    {!hero.doneToday && <span className="os-sheen" aria-hidden="true" />}
                   </button>
                   {hero.doneToday && (
-                    <p style={{ color: 'rgba(255,255,255,0.6)' }} className="relative text-[11px] text-center mt-2">{isEN ? 'See you tomorrow: the clock keeps running.' : 'Ci vediamo domani: il cronometro va avanti.'}</p>
+                    <p style={{ color: 'rgba(255,255,255,0.62)' }} className="relative text-[11.5px] text-center mt-2.5">{isEN ? 'See you tomorrow: the clock keeps running.' : 'Ci vediamo domani: il cronometro va avanti.'}</p>
                   )}
                 </div>
+
                 {otherActiveKeys.length > 0 && (
-                  <div className="mt-2.5 space-y-2">
-                    <p style={{ ...displayFont, color: colors.mutedInk, letterSpacing: '0.08em' }} className="text-[11px] font-semibold uppercase">{isEN ? 'Other recoveries' : 'Altri percorsi'}</p>
-                    {otherActiveKeys.map((key) => {
-                      const inj = injuriesData[key];
-                      const sevData = inj.severityData[injurySeverities[key] || 'moderato'];
-                      const dayNum = daysSince(injuryDates[key]);
-                      const raw = Math.round((dayNum / sevData.totalEstimateDays) * 90);
-                      return (
-                        <div key={key} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-2xl flex items-center gap-2 pl-4 pr-2 py-2.5 shadow-sm">
-                          <button onClick={() => resumeInjury(key)} className="os-focus flex-1 min-w-0 flex items-center gap-3 text-left">
-                            <span style={{ fontFamily: "'Bebas Neue', sans-serif", color: colors.accentDark }} className="text-[30px] leading-none os-tabular w-14 flex-shrink-0">{Math.min(raw, 90)}{raw > 90 ? '+' : ''}'</span>
-                            <span className="min-w-0">
-                              <span style={{ ...displayFont, color: colors.ink }} className="block text-sm font-semibold truncate">{inj.label}</span>
-                              <span style={{ color: colors.mutedInk }} className="block text-[11px]">{isEN ? `Day ${dayNum}` : `Giorno ${dayNum}`}</span>
-                            </span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (deletingKey === key) deleteInjuryData(key);
-                              else { setDeletingKey(key); setTimeout(() => setDeletingKey((k) => (k === key ? null : k)), 3000); }
-                            }}
-                            style={{ backgroundColor: deletingKey === key ? colors.red : colors.paper }}
-                            className="os-focus os-press [--press:0.95] flex-shrink-0 h-10 min-w-10 px-3 rounded-full flex items-center justify-center gap-1.5"
-                            aria-label={deletingKey === key ? (isEN ? 'Tap again to delete this recovery' : 'Tocca di nuovo per eliminare il percorso') : (isEN ? 'Delete this recovery' : 'Elimina questo percorso')}
-                          >
-                            <Trash size={15} color={deletingKey === key ? '#FFFFFF' : colors.mutedInk} />
-                            {deletingKey === key && <span className="text-[12px] font-bold text-white">{isEN ? 'Delete?' : 'Elimina?'}</span>}
-                          </button>
-                        </div>
-                      );
-                    })}
+                  <div className="mt-5" data-rv="">
+                    <p className="os-label mb-2.5" style={{ color: colors.mutedInk }}>{isEN ? 'Other recoveries' : 'Altri percorsi'}</p>
+                    <div className="os-shelf">
+                      {otherActiveKeys.map((key) => {
+                        const inj = injuriesData[key];
+                        const sevData = inj.severityData[injurySeverities[key] || 'moderato'];
+                        const dayNum = daysSince(injuryDates[key]);
+                        const raw = Math.round((dayNum / sevData.totalEstimateDays) * 90);
+                        return (
+                          <div key={key} className="os-shelf-card os-panel w-[236px] flex items-center gap-2 pl-4 pr-2 py-3">
+                            <button onClick={() => resumeInjury(key)} className="os-focus flex-1 min-w-0 flex items-center gap-3 text-left rounded-xl">
+                              <span style={{ fontFamily: BEBAS, color: LED_GREEN, textShadow: `0 0 12px ${LED_GREEN}55` }} className="text-[34px] leading-none os-tabular w-[52px] flex-shrink-0">{Math.min(raw, 90)}{raw > 90 ? '+' : ''}'</span>
+                              <span className="min-w-0">
+                                <span style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="block text-[13.5px] font-semibold leading-tight line-clamp-2">{inj.label}</span>
+                                <span style={{ color: colors.mutedInk }} className="block text-[11.5px] mt-0.5">{isEN ? `Day ${dayNum}` : `Giorno ${dayNum}`}</span>
+                              </span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (deletingKey === key) deleteInjuryData(key);
+                                else { setDeletingKey(key); setTimeout(() => setDeletingKey((k) => (k === key ? null : k)), 3000); }
+                              }}
+                              style={{ backgroundColor: deletingKey === key ? colors.red : 'rgba(255,255,255,0.05)' }}
+                              className="os-focus os-press [--press:0.95] flex-shrink-0 h-10 min-w-10 px-2.5 rounded-full flex items-center justify-center gap-1"
+                              aria-label={deletingKey === key ? (isEN ? 'Tap again to delete this recovery' : 'Tocca di nuovo per eliminare il percorso') : (isEN ? 'Delete this recovery' : 'Elimina questo percorso')}
+                            >
+                              <Trash size={15} color={deletingKey === key ? '#FFFFFF' : colors.mutedInk} />
+                              {deletingKey === key && <span className="text-[11px] font-bold text-white">{isEN ? 'Delete?' : 'Elimina?'}</span>}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
-                <div className="mt-3">{renderRedFlags()}</div>
+                <div className="mt-3">{renderRedFlagsBar()}</div>
               </div>
             ) : (selectedInjury && injuriesData[selectedInjury] && !injuryDates[selectedInjury]) ? (
-              <div style={{ background: PITCH_BG }} className="rounded-3xl p-5 mb-4 shadow-lg relative overflow-hidden">
-                <PitchArc size={190} />
-                <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.14em' }} className="relative text-[11px] font-bold uppercase mb-1">{isEN ? 'Recovery to start' : 'Percorso da avviare'}</p>
-                <p style={{ ...displayFont, color: '#FFFFFF' }} className="relative text-lg font-bold uppercase leading-tight mb-2">{injuriesData[selectedInjury].label}</p>
-                <p style={{ color: 'rgba(255,255,255,0.75)' }} className="relative text-sm leading-relaxed">{isEN ? 'Add the date you got hurt to start the clock of your recovery.' : 'Aggiungi la data dell\'infortunio per far partire il cronometro del tuo recupero.'}</p>
-                <button onClick={() => chooseInjury(selectedInjury)} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus os-press relative w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 mt-4 shadow-md hover:opacity-95">
-                  <Timer size={18} strokeWidth={2.2} />
-                  <span style={displayFont} className="text-sm font-bold uppercase tracking-wide">{isEN ? 'Start the clock' : 'Avvia il cronometro'}</span>
+              <div data-rv="" className="os-pitch os-floodsweep p-5 mb-4">
+                <PitchArc size={200} />
+                <p className="os-cond relative text-[26px] font-extrabold uppercase leading-[1.02]" style={{ color: '#FFFFFF' }}>{injuriesData[selectedInjury].label}</p>
+                <span className="os-led-chip relative mt-3"><Timer size={13} />{isEN ? 'Recovery to start' : 'Percorso da avviare'}</span>
+                <p style={{ color: 'rgba(255,255,255,0.78)' }} className="relative text-sm leading-relaxed mt-3">{isEN ? 'Add the date you got hurt to start the clock of your recovery.' : 'Aggiungi la data dell\'infortunio per far partire il cronometro del tuo recupero.'}</p>
+                <button onClick={() => chooseInjury(selectedInjury)} className="os-focus os-btn os-btn-primary relative w-full py-4 mt-5 text-[14px] uppercase tracking-wide">
+                  <Timer size={18} weight="fill" />{isEN ? 'Start the clock' : 'Avvia il cronometro'}
                 </button>
               </div>
             ) : (
-              <div style={{ background: PITCH_BG }} className="rounded-3xl p-5 mb-4 shadow-lg relative overflow-hidden">
-                <PitchArc size={190} />
-                <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.14em' }} className="relative text-[11px] font-bold uppercase mb-2">{isEN ? `Season ${seasonLabel}` : `Stagione ${seasonLabel}`}</p>
-                <p style={{ fontFamily: "'Bebas Neue', sans-serif", color: '#FFFFFF' }} className="relative text-[64px] leading-[0.85]">{isEN ? 'On the pitch' : 'In campo'}</p>
-                <p style={{ color: 'rgba(255,255,255,0.75)' }} className="relative text-sm leading-relaxed mt-2">
+              <div data-rv="" className="os-pitch os-floodsweep p-5 mb-4">
+                <PitchArc size={210} />
+                <p style={{ fontFamily: BEBAS, color: '#FFFFFF', textShadow: '0 0 40px rgba(125,255,168,0.25)' }} className="relative text-[78px] leading-[0.82]">
+                  <span className="os-sr">{isEN ? 'On the pitch' : 'In campo'}</span>
+                  <span aria-hidden="true"><SplitWords text={isEN ? 'ON THE PITCH' : 'IN CAMPO'} base={120} /></span>
+                </p>
+                <p style={{ color: 'rgba(255,255,255,0.78)' }} className="relative text-[14px] leading-relaxed mt-3 max-w-[34ch]">
                   {isEN ? 'No active injury. Keep it that way: a few minutes of prevention are enough.' : 'Nessun infortunio in corso. Tienilo così: bastano pochi minuti di prevenzione.'}
                 </p>
-                <div className="relative flex flex-wrap gap-1.5 mt-3">
-                  <span style={{ backgroundColor: 'rgba(125,255,168,0.12)', color: LED_GREEN }} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold os-tabular">
-                    <Flame size={12} strokeWidth={2.5} />{warmupWeekCount >= 2 ? (isEN ? `Warm-up: weekly goal reached (${warmupWeekCount})` : `Riscaldamento: obiettivo settimana raggiunto (${warmupWeekCount})`) : (isEN ? `Warm-up: ${warmupWeekCount}/2 this week` : `Riscaldamento: ${warmupWeekCount}/2 questa settimana`)}
-                  </span>
-                  {coveredRegions.length > 0 && (
-                    <span style={{ backgroundColor: 'rgba(125,255,168,0.12)', color: LED_GREEN }} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold os-tabular">
-                      <ShieldCheck size={12} strokeWidth={2.5} />{isEN ? `${coveredRegions.length}/8 areas trained` : `${coveredRegions.length}/8 zone allenate`}
-                    </span>
-                  )}
+                <div className="relative mt-4 flex items-end justify-between gap-3">
+                  <div className="flex gap-1.5" role="img" aria-label={isEN ? `Warm-ups this week: ${warmupWeekCount}` : `Riscaldamenti questa settimana: ${warmupWeekCount}`}>
+                    {weekDays.map((d, i) => (
+                      <span key={d.iso} className="flex flex-col items-center gap-1">
+                        <span className="os-rise w-[22px] h-[22px] rounded-md flex items-center justify-center" style={{ '--d': `${400 + i * 60}ms`, background: d.done ? LED_GREEN : 'rgba(255,255,255,0.08)', boxShadow: d.done ? `0 0 10px ${LED_GREEN}AA` : 'none', border: d.isToday ? `1.5px solid ${d.done ? LED_GREEN : 'rgba(255,255,255,0.6)'}` : '1.5px solid transparent', opacity: d.future ? 0.45 : 1 }}>
+                          {d.done && <Check size={11} color="#03130A" weight="bold" />}
+                        </span>
+                        <span style={{ fontFamily: BRICOLAGE, color: d.isToday ? '#FFFFFF' : 'rgba(255,255,255,0.5)' }} className="text-[9.5px] font-bold">{d.label}</span>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="text-right">
+                    <p style={{ fontFamily: BEBAS, color: LED_GREEN, textShadow: `0 0 12px ${LED_GREEN}88` }} className="text-[30px] leading-none os-tabular"><CountUp value={coveredRegions.length} />/8</p>
+                    <p className="os-label mt-1" style={{ color: 'rgba(255,255,255,0.55)', fontSize: 9 }}>{isEN ? 'Areas trained' : 'Zone allenate'}</p>
+                  </div>
                 </div>
+                <p style={{ color: LED_GREEN }} className="relative text-[12px] font-semibold mt-3 os-tabular">
+                  {warmupWeekCount >= 2 ? (isEN ? `Warm-up: weekly goal reached (${warmupWeekCount})` : `Riscaldamento: obiettivo settimana raggiunto (${warmupWeekCount})`) : (isEN ? `Warm-up: ${warmupWeekCount}/2 this week` : `Riscaldamento: ${warmupWeekCount}/2 questa settimana`)}
+                </p>
                 <button
-                  onClick={() => { setRegionsTab('prevention'); setTimeout(() => scrollToId('prev-warmup'), 120); }}
-                  style={{ backgroundColor: colors.accent, color: colors.onAccent }}
-                  className="os-focus os-press relative w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 mt-4 shadow-md hover:opacity-95"
+                  onClick={() => { setRegionsTab('prevention'); setTimeout(() => scrollToId('prev-warmup'), 140); }}
+                  className="os-focus os-btn os-btn-primary relative w-full py-4 mt-5 text-[14px] uppercase tracking-wide"
                 >
-                  <ShieldCheck size={18} strokeWidth={2.2} />
-                  <span style={displayFont} className="text-sm font-bold uppercase tracking-wide">{isEN ? "Today's prevention" : 'Prevenzione di oggi'}</span>
+                  <ShieldCheck size={19} weight="fill" />{isEN ? "Today's prevention" : 'Prevenzione di oggi'}
+                  <span className="os-sheen" aria-hidden="true" />
                 </button>
                 <button
-                  onClick={() => { setRegionsTab('injury'); setTimeout(() => scrollToId('sez-trova'), 60); }}
-                  style={{ color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.24)' }}
-                  className="os-focus os-press relative w-full flex items-center justify-center gap-2 rounded-2xl py-3 mt-2.5 hover:bg-white/5"
+                  onClick={() => { setRegionsTab('injury'); setTimeout(() => scrollToId('sez-trova'), 140); }}
+                  className="os-focus os-btn os-btn-dark relative w-full py-3.5 mt-2.5 text-[13.5px]"
                 >
-                  <Bandage size={17} strokeWidth={2.2} />
-                  <span style={displayFont} className="text-sm font-semibold"><span className="min-[360px]:hidden">{isEN ? 'Got hurt?' : 'Ti sei fatto male?'}</span><span className="hidden min-[360px]:inline">{isEN ? 'Got hurt? Find your injury' : 'Ti sei fatto male? Trova il tuo infortunio'}</span></span>
+                  <Bandage size={17} /><span className="min-[360px]:hidden">{isEN ? 'Got hurt?' : 'Ti sei fatto male?'}</span><span className="hidden min-[360px]:inline">{isEN ? 'Got hurt? Find your injury' : 'Ti sei fatto male? Trova il tuo infortunio'}</span>
                 </button>
               </div>
             )}
@@ -6277,80 +7010,90 @@ export default function Offside() {
                 { key: 'normale', it: 'Normale', en: 'Normal' },
                 { key: 'intenso', it: 'Intenso', en: 'Intense' },
               ];
-              const wellnessRow = (label, field, options, activeColor) => (
-                <div className="flex items-center gap-2">
-                  <span style={{ color: colors.mutedInk }} className="text-[11px] font-medium flex-shrink-0 w-16">{label}</span>
-                  <div className="flex-1 flex gap-1.5">
-                    {options.map((opt) => (
-                      <button
-                        key={opt.key}
-                        onClick={() => setTodayWellness(field, opt.key)}
-                        aria-pressed={todayW[field] === opt.key}
-                        style={{ backgroundColor: todayW[field] === opt.key ? activeColor : colors.paper, color: todayW[field] === opt.key ? (activeColor === colors.accent ? colors.onAccent : '#FFFFFF') : colors.ink }}
-                        className="os-focus os-press flex-1 py-2 min-h-[36px] rounded-lg text-[11px] font-medium"
-                      >
-                        {isEN ? opt.en : opt.it}
-                      </button>
-                    ))}
+              const wellnessRow = (label, field, options, led) => (
+                <div>
+                  <p className="os-label mb-1.5" style={{ color: colors.mutedInk }}>{label}</p>
+                  <div className="flex gap-1.5">
+                    {options.map((opt) => {
+                      const on = todayW[field] === opt.key;
+                      return (
+                        <button
+                          key={opt.key}
+                          onClick={() => { haptic(8); setTodayWellness(field, opt.key); }}
+                          aria-pressed={on}
+                          style={{ background: on ? `${led}26` : 'rgba(255,255,255,0.04)', color: on ? led : colors.ink, border: `1px solid ${on ? led + '88' : 'rgba(255,255,255,0.08)'}`, boxShadow: on ? `0 0 14px -4px ${led}` : 'none' }}
+                          className="os-focus os-press flex-1 py-2 min-h-[38px] rounded-xl text-[12px] font-semibold"
+                        >
+                          {isEN ? opt.en : opt.it}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               );
               return (
-                <div style={{ backgroundColor: wellnessDone ? colors.accentTint : colors.card, border: `1px solid ${wellnessDone ? colors.accent : colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm transition-colors">
+                <div data-rv="" className="os-panel p-4 mb-5" style={wellnessDone ? { borderColor: `${LED_GREEN}55` } : undefined}>
                   <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <Gauge size={14} color={wellnessDone ? colors.accentDark : colors.ink} />
-                      <p style={{ ...displayFont, color: wellnessDone ? colors.accentDark : colors.ink }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? "Today's check-in" : 'Check-in di oggi'}</p>
-                    </div>
-                    {wellnessDone && <CheckCircle2 size={16} color={colors.accentDark} />}
+                    <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-2 text-[15px] font-bold"><Gauge size={16} color={LED_GREEN} />{isEN ? "Today's check-in" : 'Check-in di oggi'}</p>
+                    {wellnessDone && <CheckCircle2 size={18} color={LED_GREEN} weight="fill" className="os-check-pop" />}
                   </div>
-                  <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-3">
+                  <p style={{ color: colors.mutedInk }} className="text-[12px] leading-relaxed mb-3.5">
                     {isEN
                       ? 'Half a minute, so your staff knows when it\'s worth checking in with you. Only a summary signal is ever shared — never your answers.'
                       : 'Mezzo minuto, così il tuo staff sa quando vale la pena chiederti come stai. Viene condiviso solo un segnale riassuntivo — mai le tue risposte.'}
                   </p>
-                  <div className="space-y-2.5">
-                    {wellnessRow(isEN ? 'Sleep' : 'Sonno', 'sleep', sleepOptions, colors.accent)}
+                  <div className="space-y-3">
+                    {wellnessRow(isEN ? 'Sleep' : 'Sonno', 'sleep', sleepOptions, LED_GREEN)}
                     {wellnessRow(isEN ? 'Soreness' : 'Dolori', 'soreness', sorenessOptions, colors.orange)}
-                    {wellnessRow(isEN ? 'Session' : 'Sessione', 'load', loadOptions, colors.preventionDark)}
+                    {wellnessRow(isEN ? 'Session' : 'Sessione', 'load', loadOptions, LED_TEAL)}
                   </div>
-                  <p style={{ color: colors.mutedInk }} className="text-[10px] leading-relaxed mt-2.5">
+                  <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mt-3">
                     {isEN ? '"Session" = your most recent training or match, whenever it was.' : '"Sessione" = il tuo ultimo allenamento o partita, qualunque giorno sia stato.'}
                   </p>
                 </div>
               );
             })()}
 
-            <div id="home-tabs" role="tablist" aria-label={isEN ? 'App sections' : 'Sezioni dell\'app'} style={{ backgroundColor: colors.laneBg }} className="grid grid-cols-3 gap-1 p-1 rounded-2xl mb-6 scroll-mt-4">
-              {[
-                { key: 'injury', icon: Bandage, label: isEN ? 'Injury' : 'Infortunio', sub: isEN ? 'to recover' : 'per recuperare', color: colors.accentDark },
-                { key: 'prevention', icon: ShieldCheck, label: isEN ? 'Prevention' : 'Prevenzione', sub: isEN ? 'to stay fit' : 'per non farti male', color: colors.preventionDark },
-                { key: 'technique', icon: SoccerBall, label: isEN ? 'Technique' : 'Tecnica', sub: isEN ? 'for your role' : 'per il tuo ruolo', color: '#8A5A00', lock: !premiumUnlocked },
-              ].map((tab) => {
-                const on = regionsTab === tab.key;
-                return (
-                  <button key={tab.key} role="tab" aria-selected={on} onClick={() => setRegionsTab(tab.key)} style={{ backgroundColor: on ? colors.card : 'transparent', boxShadow: on ? '0 1px 3px rgba(16,27,38,0.14)' : 'none' }} className="os-focus os-press flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 px-1 min-h-[48px]">
-                    <span style={{ color: on ? tab.color : colors.mutedInk }} className="flex items-center gap-1 text-[10.5px] min-[360px]:text-[11.5px] font-bold uppercase min-[360px]:tracking-wide">{tab.lock && <Lock size={10} />}<tab.icon size={14} className="hidden min-[360px]:inline" />{tab.label}</span>
-                    <span style={{ color: on ? colors.ink : colors.mutedInk }} className="text-[10px] leading-tight">{tab.sub}</span>
-                  </button>
-                );
-              })}
+            <div id="home-tabs" className="os-seg-sticky -mx-5 sm:-mx-8 px-5 sm:px-8 pt-2 pb-3 mb-3" style={{ background: 'linear-gradient(180deg, rgba(4,10,7,0.92) 0%, rgba(4,10,7,0.92) 72%, rgba(4,10,7,0) 100%)' }}>
+              <Segmented
+                size="lg"
+                ariaLabel={isEN ? 'App sections' : 'Sezioni dell\'app'}
+                value={regionsTab}
+                onChange={(k) => { setRegionsTab(k); const el = document.getElementById('home-tabs'); if (el && el.getBoundingClientRect().top < 40) el.scrollIntoView({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' }); }}
+                led={regionsTab === 'prevention' ? LED_TEAL : regionsTab === 'technique' ? colors.premiumGold : LED_GREEN}
+                items={[
+                  { key: 'injury', icon: Bandage, label: isEN ? 'Injury' : 'Infortunio', sub: isEN ? 'to recover' : 'per recuperare', color: LED_GREEN },
+                  { key: 'prevention', icon: ShieldCheck, label: isEN ? 'Prevention' : 'Prevenzione', sub: isEN ? 'to stay fit' : 'per non farti male', color: LED_TEAL },
+                  { key: 'technique', icon: SoccerBall, label: isEN ? 'Technique' : 'Tecnica', sub: isEN ? 'for your role' : 'per il tuo ruolo', color: colors.premiumGold, lock: !premiumUnlocked },
+                ]}
+              />
             </div>
 
+            <div key={regionsTab} className={paneClass('regions')}>
             {regionsTab === 'injury' ? (
               <>
-                <button onClick={() => setScreen('firstaid')} style={{ backgroundColor: colors.accent }} className="os-focus os-press [--press:0.98] w-full flex items-center gap-3 px-4 py-4 rounded-xl text-left mb-6 hover:opacity-90 shadow-sm">
-                  <div style={{ backgroundColor: 'rgba(6,20,14,0.12)' }} className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"><Bandage size={20} color={colors.onAccent} /></div>
-                  <div className="flex-1">
-                    <p style={{ ...displayFont, color: colors.onAccent }} className="text-sm font-semibold">{isEN ? 'Just got hurt?' : 'Ti sei appena fatto male?'}</p>
-                    <p style={{ color: colors.onAccent, fontWeight: 500 }} className="text-xs">{isEN ? 'What to do in the first few minutes' : 'Cosa fare nei primi minuti'}</p>
-                  </div>
-                  <ChevronRight size={18} color={colors.onAccent} />
-                </button>
+                <div className="grid grid-cols-2 gap-3 mb-7">
+                  <button data-rv="" onClick={() => setScreen('firstaid')} className="os-focus os-press [--press:0.97] relative overflow-hidden flex flex-col justify-between gap-6 rounded-[22px] p-4 text-left min-h-[150px]" style={{ background: 'linear-gradient(160deg, #5BE699 0%, #34C97A 55%, #1F9E5B 100%)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4), 0 18px 36px -18px rgba(61,220,132,0.8)' }}>
+                    <span className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(3,19,10,0.14)' }}><FirstAid size={22} color="#03130A" weight="fill" /></span>
+                    <span>
+                      <span style={{ fontFamily: BRICOLAGE, color: '#03130A' }} className="block text-[16px] font-extrabold leading-[1.1]">{isEN ? 'Just got hurt?' : 'Ti sei appena fatto male?'}</span>
+                      <span style={{ color: 'rgba(3,19,10,0.78)' }} className="block text-[12px] font-semibold mt-1 leading-snug">{isEN ? 'What to do in the first few minutes' : 'Cosa fare nei primi minuti'}</span>
+                    </span>
+                    <ArrowRight size={18} color="#03130A" className="absolute top-4 right-4" />
+                  </button>
+                  <button data-rv="" onClick={startTriage} className="os-focus os-press [--press:0.97] os-panel relative overflow-hidden flex flex-col justify-between gap-6 p-4 text-left min-h-[150px]">
+                    <span className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(125,255,168,0.1)', border: `1px solid ${LED_GREEN}33` }}><HelpCircle size={22} color={LED_GREEN} /></span>
+                    <span>
+                      <span style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="block text-[16px] font-extrabold leading-[1.1]">{isEN ? 'Not sure what it is?' : 'Non sai cosa hai?'}</span>
+                      <span style={{ color: colors.mutedInk }} className="block text-[12px] font-medium mt-1 leading-snug">{isEN ? '4 quick questions to narrow it down' : '4 domande veloci per restringere il campo'}</span>
+                    </span>
+                    <ArrowRight size={18} color={colors.mutedInk} className="absolute top-4 right-4" />
+                  </button>
+                </div>
 
-                <SectionTitle id="sez-trova" kicker={isEN ? 'Your recovery' : 'Il tuo recupero'} title={isEN ? 'Find your injury' : 'Trova il tuo infortunio'} hint={isEN ? 'Four steps to a phase-by-phase plan.' : 'Quattro tappe per avere un percorso fase per fase.'} />
+                <SectionTitle id="sez-trova" title={isEN ? 'Find your injury' : 'Trova il tuo infortunio'} hint={isEN ? 'Four steps to a phase-by-phase plan.' : 'Quattro tappe per avere un percorso fase per fase.'} />
                 <FlowSteps current={0} isEN={isEN} />
-                <div className="mb-4">
+                <div className="mb-7" data-rv="">
                   <BodyDiagram
                     onSelectRegion={openRegion}
                     labels={regionLabels}
@@ -6360,34 +7103,21 @@ export default function Offside() {
                   />
                 </div>
 
-                <button onClick={startTriage} style={{ backgroundColor: colors.card, border: `1.5px dashed ${colors.hairline}` }} className="os-focus w-full flex items-center gap-3 rounded-2xl p-4 mb-6 text-left hover:border-green-300 transition-colors">
-                  <div style={{ backgroundColor: colors.accentTint }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center">
-                    <HelpCircle size={20} color={colors.accentDark} />
-                  </div>
-                  <div className="flex-1">
-                    <p style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Not sure what it is?' : 'Non sai cosa hai?'}</p>
-                    <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? '4 quick questions to narrow it down' : '4 domande veloci per restringere il campo'}</p>
-                  </div>
-                  <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0" />
-                </button>
-
-                <p style={{ ...displayFont, color: colors.ink, letterSpacing: '0.1em' }} className="text-xs font-semibold uppercase mb-3">{isEN ? 'Or choose the area' : 'Oppure scegli la zona'}</p>
-                <div className="grid grid-cols-2 gap-3 mb-6">
+                <SectionTitle title={isEN ? 'Or choose the area' : 'Oppure scegli la zona'} aside={<span className="os-led-chip">{Object.keys(regions).length}</span>} />
+                <div className="os-shelf mb-6" data-rv="">
                   {Object.entries(regions).map(([key, data]) => {
                     const count = data.injuries.filter((k) => injuriesData[k]).length;
                     const live = activeInjuryKeys.some((k) => data.injuries.includes(k));
                     return (
-                      <button key={key} onClick={() => openRegion(key)} style={{ backgroundColor: colors.card, border: `1px solid ${live ? colors.accent + '88' : colors.hairline}` }} className="os-focus flex flex-col overflow-hidden rounded-2xl text-left shadow-sm hover:shadow-md active:scale-[0.98] transition-all">
-                        <div style={{ background: PITCH_BG }} className="relative h-[92px] flex-shrink-0 flex items-center justify-between pl-5 pr-3.5">
-                          <RegionFigure region={key} height={80} />
-                          <div className={`text-right ${live ? 'self-end pb-2' : ''}`}>
-                            <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[34px] leading-none os-tabular">{count}</p>
-                            <p style={{ fontFamily: BRICOLAGE, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.12em' }} className="text-[9px] font-bold uppercase mt-0.5">{count === 1 ? (isEN ? 'injury' : 'infortunio') : (isEN ? 'injuries' : 'infortuni')}</p>
+                      <button key={key} onClick={(e) => { const fig = e.currentTarget.querySelector('[data-vt-fig]'); if (fig) { fig.style.viewTransitionName = 'os-region-fig'; regionVtRef.current = true; } openRegion(key); }} className="os-focus os-press [--press:0.97] os-shelf-card os-panel w-[152px] flex flex-col overflow-hidden text-left" style={live ? { borderColor: `${LED_GREEN}77`, boxShadow: `0 0 0 3px ${colors.accent}22, 0 14px 32px -18px rgba(0,0,0,0.85)` } : undefined}>
+                        <div className="os-pitch relative h-[132px] w-full flex items-end justify-between pl-4 pr-3 pb-2.5" style={{ borderRadius: 0, border: 0, boxShadow: 'none' }}>
+                          <span data-vt-fig="" className="block"><RegionFigure region={key} height={112} /></span>
+                          <div className="text-right">
+                            <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[36px] leading-none os-tabular">{count}</p>
+                            <p style={{ fontFamily: BRICOLAGE, color: 'rgba(255,255,255,0.58)', letterSpacing: '0.12em' }} className="text-[8.5px] font-bold uppercase mt-0.5">{count === 1 ? (isEN ? 'injury' : 'infortunio') : (isEN ? 'injuries' : 'infortuni')}</p>
                           </div>
                           {live && (
-                            <span style={{ backgroundColor: 'rgba(0,0,0,0.35)', color: LED_GREEN, fontFamily: BEBAS, letterSpacing: '0.06em' }} className="absolute top-2 right-2 flex items-center gap-1 rounded px-1.5 py-1 text-[11px] leading-none">
-                              <span style={{ backgroundColor: LED_GREEN }} className="w-1.5 h-1.5 rounded-full os-ping" />{isEN ? 'In progress' : 'In corso'}
-                            </span>
+                            <span className="os-led-chip absolute top-2 right-2" style={{ fontSize: 11 }}><span className="os-live" />{isEN ? 'In progress' : 'In corso'}</span>
                           )}
                         </div>
                         <div className="flex-1 flex items-center justify-between gap-1.5 px-3.5 py-3">
@@ -6402,94 +7132,66 @@ export default function Offside() {
             ) : regionsTab === 'prevention' ? (
               <>
                 {selectedInjury && injuriesData[selectedInjury] && (
-                  <button onClick={() => resumeInjury(selectedInjury)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-2 rounded-xl px-4 py-3 mb-4 text-left shadow-sm hover:opacity-90 transition-opacity">
-                    <ArrowLeft size={15} color={colors.accentDark} className="flex-shrink-0" />
-                    <span style={{ color: colors.accentDark }} className="text-sm font-medium">{isEN ? `Back to ${injuriesData[selectedInjury].label}` : `Torna a ${injuriesData[selectedInjury].label}`}</span>
+                  <button data-rv="" onClick={() => resumeInjury(selectedInjury)} className="os-focus os-panel-flat w-full flex items-center gap-2 px-4 py-3 mb-5 text-left hover:bg-white/5 transition-colors">
+                    <ArrowLeft size={15} color={LED_GREEN} className="flex-shrink-0" />
+                    <span style={{ color: LED_GREEN }} className="text-sm font-semibold">{isEN ? `Back to ${injuriesData[selectedInjury].label}` : `Torna a ${injuriesData[selectedInjury].label}`}</span>
                   </button>
                 )}
-                <SectionTitle tone="teal" kicker={isEN ? 'Prevention' : 'Prevenzione'} title={isEN ? 'Train so you don\'t get hurt' : 'Allenati per non farti male'} hint={isEN ? 'The best time to work on an injury is before it happens: nothing needs to hurt.' : 'Il momento migliore per lavorare su un infortunio è prima che succeda: non serve avere nulla che fa male.'} />
-                <SectionNav
-                  isEN={isEN}
-                  tone="teal"
-                  items={[
-                    { id: 'warmup', icon: Flame, label: isEN ? 'Warm-up' : 'Riscaldamento', badge: warmupWeekCount >= 2 ? '✓' : `${warmupWeekCount}/2`, onClick: () => scrollToId('prev-warmup') },
-                    { id: 'foryou', icon: Target, label: isEN ? 'For you' : 'Per te', onClick: () => scrollToId('prev-foryou') },
-                    { id: 'zones', icon: ShieldCheck, label: isEN ? 'Areas' : 'Zone', badge: `${coveredRegions.length}/${Object.keys(preventionData).length}`, onClick: () => scrollToId('prev-zones') },
-                  ]}
-                />
+                <SectionTitle title={isEN ? 'Train so you don\'t get hurt' : 'Allenati per non farti male'} hint={isEN ? 'The best time to work on an injury is before it happens: nothing needs to hurt.' : 'Il momento migliore per lavorare su un infortunio è prima che succeda: non serve avere nulla che fa male.'} />
 
-                <SectionTitle id="prev-warmup" className="mt-7" tone="teal" kicker={isEN ? 'Before you play' : 'Prima di giocare'} title={isEN ? 'Preventive warm-up' : 'Riscaldamento preventivo'} hint={isEN ? `${warmupMinutes} minutes before training and matches. Do it at least twice a week: it works on several areas at once.` : `${warmupMinutes} minuti prima di allenamento e partita. Fallo almeno 2 volte a settimana: lavora su più zone insieme.`} />
-                <div style={{ background: PITCH_BG_TEAL }} className="relative overflow-hidden rounded-3xl p-5 mb-3 shadow-lg">
-                  <PitchArc size={190} />
+                <div id="prev-warmup" data-rv="" className="os-pitch-teal os-floodsweep p-5 mb-7 scroll-mt-4">
+                  <PitchArc size={200} />
                   <div className="relative flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p style={{ fontFamily: BRICOLAGE, color: LED_TEAL, letterSpacing: '0.14em' }} className="text-[10px] font-bold uppercase mb-1">{isEN ? 'Your week' : 'La tua settimana'}</p>
-                      <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[40px] leading-[0.85] os-tabular">{warmupWeekCount}<span style={{ color: 'rgba(255,255,255,0.45)' }} className="text-[24px]"> {isEN ? (warmupWeekCount === 1 ? 'session' : 'sessions') : (warmupWeekCount === 1 ? 'sessione' : 'sessioni')}</span></p>
-                      <p style={{ color: 'rgba(255,255,255,0.7)' }} className="text-xs mt-1.5">{warmupWeekCount >= 2 ? (isEN ? 'Weekly goal reached. Keep it up.' : 'Obiettivo della settimana raggiunto. Continua così.') : (isEN ? `Goal: at least 2 a week (${2 - warmupWeekCount} to go)` : `Obiettivo: almeno 2 a settimana (${2 - warmupWeekCount === 1 ? 'ne manca 1' : `ne mancano ${2 - warmupWeekCount}`})`)}</p>
+                      <h3 style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[19px] font-bold leading-tight">{isEN ? 'Preventive warm-up' : 'Riscaldamento preventivo'}</h3>
+                      <p style={{ color: 'rgba(255,255,255,0.72)' }} className="text-[12.5px] leading-snug mt-1 max-w-[30ch]">{isEN ? `${warmupMinutes} minutes before training and matches. Do it at least twice a week: it works on several areas at once.` : `${warmupMinutes} minuti prima di allenamento e partita. Fallo almeno 2 volte a settimana: lavora su più zone insieme.`}</p>
                     </div>
-                    <div style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)' }} className="flex-shrink-0 rounded-xl px-3 py-2 text-center">
-                      <p style={{ fontFamily: BEBAS, color: LED_TEAL, textShadow: `0 0 10px ${LED_TEAL}88` }} className="text-[26px] leading-none os-tabular">{coveredRegions.length}/{Object.keys(preventionData).length}</p>
-                      <p style={{ fontFamily: BRICOLAGE, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.1em' }} className="text-[9px] font-bold uppercase mt-1">{isEN ? 'Areas trained' : 'Zone allenate'}</p>
+                    <div style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)' }} className="flex-shrink-0 rounded-xl px-3 py-2 text-center">
+                      <p style={{ fontFamily: BEBAS, color: LED_TEAL, textShadow: `0 0 10px ${LED_TEAL}88` }} className="text-[26px] leading-none os-tabular"><CountUp value={coveredRegions.length} />/{Object.keys(preventionData).length}</p>
+                      <p style={{ fontFamily: BRICOLAGE, color: 'rgba(255,255,255,0.58)', letterSpacing: '0.1em' }} className="text-[8.5px] font-bold uppercase mt-1">{isEN ? 'Areas trained' : 'Zone allenate'}</p>
                     </div>
                   </div>
+                  <div className="relative flex items-baseline gap-2 mt-4">
+                    <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[46px] leading-[0.85] os-tabular"><CountUp value={warmupWeekCount} /></p>
+                    <p style={{ fontFamily: BEBAS, color: 'rgba(255,255,255,0.5)' }} className="text-[22px] leading-none">{isEN ? (warmupWeekCount === 1 ? 'session this week' : 'sessions this week') : (warmupWeekCount === 1 ? 'sessione questa settimana' : 'sessioni questa settimana')}</p>
+                  </div>
+                  <p style={{ color: 'rgba(255,255,255,0.72)' }} className="relative text-xs mt-1">{warmupWeekCount >= 2 ? (isEN ? 'Weekly goal reached. Keep it up.' : 'Obiettivo della settimana raggiunto. Continua così.') : (isEN ? `Goal: at least 2 a week (${2 - warmupWeekCount} to go)` : `Obiettivo: almeno 2 a settimana (${2 - warmupWeekCount === 1 ? 'ne manca 1' : `ne mancano ${2 - warmupWeekCount}`})`)}</p>
                   <div className="relative grid grid-cols-7 gap-1.5 mt-4" role="img" aria-label={isEN ? `Warm-ups this week: ${warmupWeekCount}` : `Riscaldamenti questa settimana: ${warmupWeekCount}`}>
-                    {weekDays.map((d) => (
+                    {weekDays.map((d, i) => (
                       <div key={d.iso} className="flex flex-col items-center gap-1">
-                        <span style={{ backgroundColor: d.done ? LED_TEAL : 'rgba(255,255,255,0.08)', border: d.isToday ? `2px solid ${d.done ? LED_TEAL : 'rgba(255,255,255,0.6)'}` : '2px solid transparent', boxShadow: d.done ? `0 0 12px ${LED_TEAL}88` : 'none', opacity: d.future ? 0.45 : 1 }} className="w-full aspect-square max-w-[34px] rounded-lg flex items-center justify-center">
-                          {d.done && <Check size={14} color="#06282D" />}
+                        <span className="os-rise w-full aspect-square max-w-[36px] rounded-[10px] flex items-center justify-center" style={{ '--d': `${200 + i * 55}ms`, backgroundColor: d.done ? LED_TEAL : 'rgba(255,255,255,0.08)', border: d.isToday ? `2px solid ${d.done ? LED_TEAL : 'rgba(255,255,255,0.6)'}` : '2px solid transparent', boxShadow: d.done ? `0 0 14px ${LED_TEAL}99` : 'none', opacity: d.future ? 0.45 : 1 }}>
+                          {d.done && <Check size={14} color="#06282D" weight="bold" />}
                         </span>
                         <span style={{ fontFamily: BRICOLAGE, color: d.isToday ? '#FFFFFF' : 'rgba(255,255,255,0.5)' }} className="text-[10px] font-bold">{d.label}</span>
                       </div>
                     ))}
                   </div>
-                  <div className="relative flex gap-2 mt-4">
-                    <button onClick={toggleWarmupToday} aria-pressed={warmupDoneToday} style={{ backgroundColor: warmupDoneToday ? LED_TEAL : colors.preventionDark, color: warmupDoneToday ? '#06282D' : '#FFFFFF' }} className="os-focus flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold uppercase tracking-wide shadow-md active:scale-[0.98] transition">
-                      {warmupDoneToday ? <><Check size={16} className="os-check-pop" />{isEN ? 'Done today' : 'Fatto oggi'}</> : <><Flame size={16} />{isEN ? 'Mark today as done' : 'Segna fatto oggi'}</>}
+                  <button onClick={() => openSession('warmup')} className="os-focus os-btn os-btn-teal relative w-full py-4 mt-5 text-[14px] uppercase tracking-wide">
+                    <Play size={17} weight="fill" />{isEN ? 'Start the warm-up' : 'Inizia il riscaldamento'}
+                    <span className="os-sheen" aria-hidden="true" />
+                  </button>
+                  <div className="relative flex gap-2 mt-2.5">
+                    <button onClick={toggleWarmupToday} aria-pressed={warmupDoneToday} className={`os-focus os-btn flex-1 py-3 text-[13px] ${warmupDoneToday ? '' : 'os-btn-dark'}`} style={warmupDoneToday ? { background: 'rgba(114,230,242,0.16)', color: LED_TEAL, border: `1px solid ${LED_TEAL}66` } : undefined}>
+                      {warmupDoneToday ? <><Check size={16} weight="bold" className="os-check-pop" />{isEN ? 'Done today' : 'Fatto oggi'}</> : <><Flame size={16} />{isEN ? 'Mark today as done' : 'Segna fatto oggi'}</>}
                     </button>
-                    <button onClick={() => setWarmupOpen(!warmupOpen)} aria-expanded={warmupOpen} style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#FFFFFF' }} className="os-focus flex-shrink-0 flex items-center gap-1 rounded-xl px-3.5 py-3 text-xs font-semibold hover:bg-white/20 transition-colors">
-                      {warmupOpen ? (isEN ? 'Hide' : 'Chiudi') : (isEN ? 'Exercises' : 'Esercizi')}<ChevronDown size={13} style={{ transform: warmupOpen ? 'rotate(180deg)' : 'none', transition: 'transform 200ms var(--ease-in-out)' }} />
+                    <button onClick={() => setWarmupOpen(true)} aria-haspopup="dialog" className="os-focus os-btn os-btn-dark flex-shrink-0 px-4 py-3 text-[13px]">
+                      <ClipboardCheck size={15} />{isEN ? 'Exercises' : 'Esercizi'}
                     </button>
                   </div>
                 </div>
-                {warmupOpen && (
-                  <div className="os-fadein mb-3">
-                    {warmupRoutine.map((part, pi) => (
-                      <div key={part.part} className="mb-4">
-                        <div className="flex items-center justify-between gap-2 mb-2 px-1">
-                          <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-2 text-sm font-bold">
-                            <span style={{ backgroundColor: '#06282D', color: LED_TEAL, fontFamily: BEBAS }} className="w-6 h-6 rounded-full flex items-center justify-center text-[14px] leading-none">{pi + 1}</span>{part.part}
-                          </p>
-                          <span style={{ color: colors.mutedInk }} className="text-[11px] font-semibold">~{part.minutes} min</span>
-                        </div>
-                        <div className="space-y-2">
-                          {part.exercises.map((ex, i) => {
-                            const wKey = `warmup-${pi}-${i}`;
-                            const wOpen = expandedPreventionTip === wKey;
-                            return (
-                              <DrillCard key={wKey} index={warmupRoutine.slice(0, pi).reduce((n, p) => n + p.exercises.length, 0) + i} ex={ex} tone="teal" catLabel={catLabels[ex.cat]} helpOpen={wOpen} onToggleHelp={() => setExpandedPreventionTip(wOpen ? null : wKey)} isEN={isEN} />
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                    <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed px-1">
-                      {isEN ? `${warmupExerciseCount} exercises inspired by the preventive warm-ups studied in football, such as FIFA 11+. They work when done regularly: at least twice a week, all season long.` : `${warmupExerciseCount} esercizi ispirati ai riscaldamenti preventivi studiati nel calcio, come il FIFA 11+. Funzionano se fatti con costanza: almeno 2 volte a settimana, per tutta la stagione.`}
-                    </p>
-                  </div>
-                )}
 
-                <SectionTitle id="prev-foryou" className="mt-7" tone="teal" kicker={isEN ? 'For you' : 'Per te'} title={historyRegions.length ? (isEN ? 'So it doesn\'t happen again' : 'Per non ricaderci') : (isEN ? 'Where footballers get hurt most' : 'Dove i calciatori si fanno male di più')} hint={historyRegions.length ? (isEN ? 'Having been injured in an area raises the risk of it happening again: start here.' : 'Chi si è già fatto male in una zona ha più rischio di rifarselo: parti da qui.') : (isEN ? 'Thigh, groin, knee and ankle are the areas where footballers get injured most often.' : 'Coscia, inguine, ginocchio e caviglia sono le zone dove i calciatori si fanno male più spesso.')} />
-                <div className="grid grid-cols-2 gap-2.5 mb-7">
+                <SectionTitle id="prev-foryou" title={historyRegions.length ? (isEN ? 'So it doesn\'t happen again' : 'Per non ricaderci') : (isEN ? 'Where footballers get hurt most' : 'Dove i calciatori si fanno male di più')} hint={historyRegions.length ? (isEN ? 'Having been injured in an area raises the risk of it happening again: start here.' : 'Chi si è già fatto male in una zona ha più rischio di rifarselo: parti da qui.') : (isEN ? 'Thigh, groin, knee and ankle are the areas where footballers get injured most often.' : 'Coscia, inguine, ginocchio e caviglia sono le zone dove i calciatori si fanno male più spesso.')} />
+                <div className="os-shelf mb-6" data-rv="">
                   {recommendedRegions.map((key) => {
                     const data = preventionData[key];
                     if (!data) return null;
                     const done = Object.values(preventionProgress[key] || {}).filter(Boolean).length;
                     return (
-                      <button key={key} onClick={() => { setExpandedPrevention(key); setTimeout(() => scrollToId(`prevention-${key}`), 120); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus flex items-center gap-2.5 rounded-2xl p-2.5 text-left shadow-sm hover:shadow-md active:scale-[0.98] transition">
-                        <span style={{ background: PITCH_BG_TEAL }} className="flex-shrink-0 w-10 h-12 rounded-lg flex items-center justify-center"><RegionFigure region={key} tone="teal" height={42} /></span>
+                      <button key={key} onClick={() => openZone(key)} className="os-focus os-press os-shelf-card os-panel w-[176px] flex items-center gap-3 p-3 text-left">
+                        <span className="os-pitch-teal flex-shrink-0 w-[52px] h-[64px] flex items-center justify-center" style={{ borderRadius: 14 }}><RegionFigure region={key} tone="teal" height={56} /></span>
                         <span className="min-w-0">
-                          <span style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="block text-[13px] font-bold leading-tight">{data.label}</span>
-                          <span style={{ color: done ? colors.preventionDark : colors.mutedInk }} className="block text-[11px] font-semibold mt-0.5 os-tabular">{done}/{data.exercises.length} {isEN ? 'done' : 'fatti'}</span>
+                          <span style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="block text-[13.5px] font-bold leading-tight">{data.label}</span>
+                          <span style={{ color: done ? LED_TEAL : colors.mutedInk }} className="block text-[11.5px] font-semibold mt-1 os-tabular">{done}/{data.exercises.length} {isEN ? 'done' : 'fatti'}</span>
                         </span>
                       </button>
                     );
@@ -6497,31 +7199,31 @@ export default function Offside() {
                 </div>
 
                 {!premiumUnlocked ? (
-                  <button onClick={() => { trackEvent('movement_screening_teaser_clicked'); setScreen('premium'); }} style={{ background: 'linear-gradient(120deg, #F9DD85, #8A6414 38%, #F0B429 70%, #6B4D0C)' }} className="os-focus relative w-full overflow-hidden rounded-3xl p-[1.5px] mb-6 text-left shadow-md hover:brightness-110 active:scale-[0.99] transition">
-                    <div style={{ background: PREMIUM_BG }} className="relative overflow-hidden rounded-[22px] p-5">
+                  <button data-rv="" onClick={() => { trackEvent('movement_screening_teaser_clicked'); setScreen('premium'); }} style={{ background: 'linear-gradient(120deg, #FBE29A, #8A6414 38%, #F5C451 70%, #6B4D0C)' }} className="os-focus os-press [--press:0.98] relative w-full overflow-hidden rounded-[28px] p-[1.5px] mb-7 text-left shadow-lg hover:brightness-110">
+                    <div className="os-pitch-gold relative rounded-[27px] p-5" style={{ border: 0 }}>
                       <PitchArc size={170} />
                       <div className="relative flex items-center gap-2.5 mb-3">
-                        <div style={{ background: GOLD_GRADIENT }} className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"><Camera size={19} color="#0B121A" /></div>
-                        <span style={{ fontFamily: BEBAS, letterSpacing: '0.14em' }} className="os-gold-text text-[15px] leading-none">Premium</span>
-                        <span style={{ border: '1px solid rgba(240,180,41,0.5)', color: colors.premiumGold }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">Beta</span>
+                        <div style={{ background: GOLD_GRADIENT }} className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"><Camera size={19} color="#0B121A" weight="fill" /></div>
+                        <span style={{ fontFamily: BEBAS, letterSpacing: '0.14em' }} className="os-gold-text text-[16px] leading-none">Premium</span>
+                        <span style={{ border: '1px solid rgba(245,196,81,0.5)', color: colors.premiumGold }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">Beta</span>
                       </div>
-                      <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[17px] font-bold mb-1.5">{isEN ? 'Movement screening' : 'Screening del movimento'}</p>
-                      <p style={{ color: '#A9B7C4' }} className="relative text-sm leading-relaxed mb-4">{isEN ? 'Use your camera for a real-time look at squats and balance: symmetry, knee control, stability. It all runs on your phone.' : 'Usa la fotocamera per uno sguardo in tempo reale a squat ed equilibrio: simmetria, controllo del ginocchio, stabilità. Gira tutto sul telefono.'}</p>
+                      <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[18px] font-bold mb-1.5">{isEN ? 'Movement screening' : 'Screening del movimento'}</p>
+                      <p style={{ color: '#B8C4CE' }} className="relative text-sm leading-relaxed mb-4">{isEN ? 'Use your camera for a real-time look at squats and balance: symmetry, knee control, stability. It all runs on your phone.' : 'Usa la fotocamera per uno sguardo in tempo reale a squat ed equilibrio: simmetria, controllo del ginocchio, stabilità. Gira tutto sul telefono.'}</p>
                       <span style={{ background: GOLD_GRADIENT, color: '#0B121A', fontFamily: BRICOLAGE }} className="relative inline-flex items-center gap-1.5 overflow-hidden px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide shadow-sm">
-                        <Lock size={12} />{isEN ? 'Unlock Premium' : 'Sblocca Premium'}
+                        <Lock size={12} weight="fill" />{isEN ? 'Unlock Premium' : 'Sblocca Premium'}
                       </span>
                     </div>
                   </button>
                 ) : (
-                  <button onClick={() => { trackEvent('movement_screening_opened'); setScreen('movementScreen'); }} style={{ backgroundColor: colors.card, border: `1.5px solid ${colors.prevention}45` }} className="os-focus w-full text-left rounded-2xl p-5 mb-6 shadow-sm hover:opacity-95 transition-opacity">
+                  <button data-rv="" onClick={() => { trackEvent('movement_screening_opened'); setScreen('movementScreen'); }} className="os-focus os-press [--press:0.98] os-panel w-full text-left p-5 mb-7" style={{ borderColor: `${LED_TEAL}44` }}>
                     <div className="flex items-start gap-3.5">
-                      <div style={{ backgroundColor: colors.preventionTint }} className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center">
-                        <Camera size={22} color={colors.preventionDark} />
+                      <div style={{ background: 'rgba(114,230,242,0.12)', border: `1px solid ${LED_TEAL}44` }} className="flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center">
+                        <Camera size={22} color={LED_TEAL} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <p style={{ ...displayFont, color: colors.ink }} className="text-base font-bold">{isEN ? 'Movement screening' : 'Screening del movimento'}</p>
-                          <span style={{ backgroundColor: colors.preventionTint, color: colors.preventionDark }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0">Beta</span>
+                          <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-base font-bold">{isEN ? 'Movement screening' : 'Screening del movimento'}</p>
+                          <span style={{ background: 'rgba(114,230,242,0.12)', color: LED_TEAL }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0">Beta</span>
                         </div>
                         <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed">{isEN ? 'Camera-based squat and balance check — nothing ever leaves your phone.' : 'Analisi di squat ed equilibrio con la fotocamera — nulla lascia mai il tuo telefono.'}</p>
                         {movementScreenings.length > 0 && (() => {
@@ -6539,9 +7241,10 @@ export default function Offside() {
                   </button>
                 )}
 
-                <div className="mb-6 mt-1">
+                <SectionTitle id="prev-zones" title={isEN ? 'Prevention exercises' : 'Esercizi di prevenzione'} hint={isEN ? 'Each area: what it protects you from, how often, a quick test and practical tips. Tick what you do: it stays saved.' : 'Per ogni zona: da cosa ti protegge, quanto spesso, un test rapido e consigli pratici. Spunta quello che fai: resta salvato.'} aside={<span className="os-led-chip" style={{ color: LED_TEAL, borderColor: `${LED_TEAL}33` }}>{coveredRegions.length}/{Object.keys(preventionData).length}</span>} />
+                <div className="mb-4" data-rv="">
                   <BodyDiagram
-                    onSelectRegion={(key) => { setExpandedPrevention(key); setTimeout(() => scrollToId(`prevention-${key}`), 120); }}
+                    onSelectRegion={openZone}
                     tone="teal"
                     labels={regionLabels}
                     isEN={isEN}
@@ -6549,94 +7252,27 @@ export default function Offside() {
                     caption={preventionDoneCount > 0 ? (isEN ? `${preventionDoneCount} done` : `${preventionDoneCount} fatti`) : null}
                   />
                 </div>
-
-                <SectionTitle id="prev-zones" className="mt-2" tone="teal" kicker={isEN ? 'Area by area' : 'Zona per zona'} title={isEN ? 'Prevention exercises' : 'Esercizi di prevenzione'} hint={isEN ? 'Each area: what it protects you from, how often, a quick test and practical tips. Tick what you do: it stays saved.' : 'Per ogni zona: da cosa ti protegge, quanto spesso, un test rapido e consigli pratici. Spunta quello che fai: resta salvato.'} />
-                <div className="space-y-2.5">
+                <div className="grid grid-cols-2 gap-2.5 mb-2">
                   {Object.entries(preventionData).map(([key, data]) => {
-                    const isExpanded = expandedPrevention === key;
                     const regionProgress = preventionProgress[key] || {};
                     const doneFlags = data.exercises.map((_, i) => !!regionProgress[i]);
                     const doneCount = doneFlags.filter(Boolean).length;
                     return (
-                      <div key={key} id={`prevention-${key}`} style={{ backgroundColor: colors.card, border: `1.5px solid ${isExpanded ? colors.prevention + '66' : colors.hairline}` }} className="rounded-2xl overflow-hidden shadow-sm scroll-mt-4">
-                        <button onClick={(e) => { const el = e.currentTarget; const y = el.getBoundingClientRect().top; flushSync(() => setExpandedPrevention(isExpanded ? null : key)); window.scrollBy(0, el.getBoundingClientRect().top - y); }} aria-expanded={isExpanded} className="os-focus w-full flex items-center gap-3.5 p-3 text-left">
-                          <div style={{ background: PITCH_BG_TEAL }} className="flex-shrink-0 w-14 h-[68px] rounded-xl flex items-center justify-center">
-                            <RegionFigure region={key} tone="teal" height={60} />
+                      <button key={key} data-rv="" id={`prevention-${key}`} onClick={() => openZone(key)} aria-haspopup="dialog" className="os-focus os-press [--press:0.97] os-panel overflow-hidden text-left flex flex-col">
+                        <div className="os-pitch-teal relative h-[96px] flex items-center justify-between pl-4 pr-3" style={{ borderRadius: 0, border: 0, boxShadow: 'none' }}>
+                          <RegionFigure region={key} tone="teal" height={84} />
+                          <span style={{ fontFamily: BEBAS, color: doneCount ? LED_TEAL : 'rgba(255,255,255,0.75)', textShadow: doneCount ? `0 0 10px ${LED_TEAL}88` : 'none' }} className="text-[26px] leading-none os-tabular">{doneCount}/{data.exercises.length}</span>
+                        </div>
+                        <div className="px-3.5 pt-2.5 pb-3">
+                          <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[13.5px] font-bold leading-tight min-h-[2.2em]">{data.label}</p>
+                          <div className="flex gap-0.5 mt-2">
+                            {doneFlags.map((f, i) => <span key={i} style={{ backgroundColor: f ? colors.prevention : 'rgba(255,255,255,0.1)', boxShadow: f ? `0 0 6px ${LED_TEAL}88` : 'none' }} className="h-1.5 flex-1 rounded-full" />)}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold leading-tight">{data.label}</p>
-                            <div className="flex items-center gap-2 mt-2">
-                              <div className="flex gap-0.5 w-24">
-                                {doneFlags.map((f, i) => <span key={i} style={{ backgroundColor: f ? colors.prevention : colors.hairline }} className="h-1.5 flex-1 rounded-full" />)}
-                              </div>
-                              <span style={{ color: doneCount ? colors.preventionDark : colors.mutedInk }} className="text-[11px] font-semibold os-tabular">{isEN ? `${doneCount}/${data.exercises.length} done` : `${doneCount}/${data.exercises.length} fatti`}</span>
-                            </div>
-                          </div>
-                          <ChevronDown size={20} color={colors.mutedInk} className="flex-shrink-0" style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 200ms var(--ease-in-out)' }} />
-                        </button>
-                        {isExpanded && (
-                          <div className="px-3 pb-3 os-fadein">
-                            <p style={{ color: colors.mutedInk, backgroundColor: colors.preventionPaper, borderLeft: `3px solid ${colors.prevention}` }} className="text-xs leading-relaxed mb-3 px-3 py-2.5 rounded-r-lg">{data.why}</p>
-                            {regions[key] && (
-                              <div className="mb-3">
-                                <p style={{ fontFamily: BRICOLAGE, color: colors.preventionDark, letterSpacing: '0.12em' }} className="text-[10px] font-bold uppercase mb-1.5">{isEN ? 'Protects you from' : 'Ti protegge da'}</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {regions[key].injuries.filter((k) => injuriesData[k]).map((k) => (
-                                    <button key={k} onClick={() => openRegion(key)} style={{ backgroundColor: colors.card, border: `1px solid ${colors.prevention}55`, color: colors.ink }} className="os-focus inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-semibold hover:bg-teal-50 transition-colors">
-                                      <ShieldCheck size={11} color={colors.preventionDark} />{injuriesData[k].label}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            {preventionExtras[key] && (
-                              <p style={{ color: colors.ink }} className="flex items-start gap-2 text-xs leading-relaxed mb-3"><Timer size={14} color={colors.preventionDark} className="flex-shrink-0 mt-px" />{preventionExtras[key].dose}</p>
-                            )}
-                            <div className="space-y-2.5">
-                              {data.exercises.map((ex, i) => {
-                                const tipKey = `${key}-${i}`;
-                                const tipOpen = expandedPreventionTip === tipKey;
-                                return (
-                                  <DrillCard
-                                    key={tipKey}
-                                    index={i}
-                                    ex={ex}
-                                    tone="teal"
-                                    catLabel={catLabels[ex.cat]}
-                                    done={!!regionProgress[i]}
-                                    onToggle={() => togglePreventionExercise(key, i)}
-                                    helpOpen={tipOpen}
-                                    onToggleHelp={() => setExpandedPreventionTip(tipOpen ? null : tipKey)}
-                                    isEN={isEN}
-                                  />
-                                );
-                              })}
-                            </div>
-                            {preventionExtras[key] && (
-                              <>
-                                <div style={{ background: PITCH_BG_TEAL }} className="relative overflow-hidden rounded-2xl p-4 mt-3">
-                                  <p style={{ fontFamily: BRICOLAGE, color: LED_TEAL, letterSpacing: '0.14em' }} className="flex items-center gap-1.5 text-[10px] font-bold uppercase mb-1.5"><Gauge size={12} />{isEN ? 'Quick test' : 'Test rapido'}</p>
-                                  <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[15px] font-bold leading-snug mb-1">{preventionExtras[key].test.title}</p>
-                                  <p style={{ color: 'rgba(255,255,255,0.78)' }} className="text-xs leading-relaxed">{preventionExtras[key].test.how}</p>
-                                  <p style={{ backgroundColor: 'rgba(0,0,0,0.25)', color: '#E6FBFD' }} className="flex items-start gap-2 text-xs leading-relaxed mt-2.5 rounded-lg px-3 py-2"><Info size={13} color={LED_TEAL} className="flex-shrink-0 mt-px" />{preventionExtras[key].test.check}</p>
-                                </div>
-                                <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}30` }} className="rounded-2xl p-4 mt-3">
-                                  <p style={{ fontFamily: BRICOLAGE, color: colors.preventionDark, letterSpacing: '0.12em' }} className="text-[10px] font-bold uppercase mb-2">{isEN ? 'Practical tips' : 'Consigli pratici'}</p>
-                                  <ul className="space-y-2">
-                                    {preventionExtras[key].tips.map((tip, ti) => (
-                                      <li key={ti} style={{ color: colors.ink }} className="flex gap-2 text-[12.5px] leading-snug"><span style={{ backgroundColor: colors.prevention }} className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-[6px]" /><span>{tip}</span></li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                        </div>
+                      </button>
                     );
                   })}
                 </div>
-
               </>
             ) : (
               <>
@@ -6650,45 +7286,50 @@ export default function Offside() {
                     preview={(techniqueData.centrocampista?.exercises || []).slice(0, 5).map((ex) => splitDose(ex.text).main)}
                   />
                 ) : !playerPosition ? (
-                  <div style={{ background: PREMIUM_BG }} className="relative overflow-hidden rounded-3xl p-5 shadow-lg">
+                  <div data-rv="" className="os-pitch-gold p-5">
                     <PitchArc size={180} />
-                    <p style={{ fontFamily: BEBAS, letterSpacing: '0.12em' }} className="os-gold-text relative text-[15px] leading-none mb-2">{isEN ? 'Technique · Premium' : 'Tecnica · Premium'}</p>
-                    <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[17px] font-bold leading-snug mb-4">{isEN ? 'Pick your position to see the right drills' : 'Scegli il tuo ruolo per vedere gli esercizi giusti'}</p>
+                    <p style={{ fontFamily: BEBAS, letterSpacing: '0.12em' }} className="os-gold-text relative text-[16px] leading-none mb-2">{isEN ? 'Technique · Premium' : 'Tecnica · Premium'}</p>
+                    <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[18px] font-bold leading-snug mb-4">{isEN ? 'Pick your position to see the right drills' : 'Scegli il tuo ruolo per vedere gli esercizi giusti'}</p>
                     <div className="relative">
-                      <PositionPicker positions={playerPositions} value={playerPosition} dark onPick={(k) => { setPlayerPosition(k); persist(snapshot({ playerPosition: k })); }} />
+                      <PositionPicker positions={playerPositions} value={playerPosition} onPick={(k) => { setPlayerPosition(k); persist(snapshot({ playerPosition: k })); }} />
                     </div>
                   </div>
                 ) : (
                   <div>
-                    <div style={{ background: PREMIUM_BG }} className="relative overflow-hidden rounded-3xl p-5 mb-4 shadow-lg">
+                    <div data-rv="" className="os-pitch-gold os-floodsweep p-5 mb-4">
                       <PitchArc size={190} />
                       <div className="relative flex items-center justify-between gap-3 mb-2">
                         <p style={{ fontFamily: BRICOLAGE, color: colors.premiumGold, letterSpacing: '0.14em' }} className="text-[10px] font-bold uppercase">{isEN ? 'Your position' : 'Il tuo ruolo'}</p>
-                        <button onClick={() => setPlayerPosition(null)} style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#FFFFFF' }} className="os-focus flex-shrink-0 flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-semibold hover:bg-white/20 transition-colors">
+                        <button onClick={() => setPlayerPosition(null)} className="os-focus os-btn os-btn-dark flex-shrink-0 rounded-full px-3 py-1.5 text-[11px]">
                           <RotateCw size={12} />{isEN ? 'Change' : 'Cambia'}
                         </button>
                       </div>
-                      <div className="relative flex items-end gap-2.5">
-                        <span style={{ fontFamily: BEBAS }} className="os-gold-text text-[56px] leading-[0.8]">{POSITION_NUMBERS[playerPosition] || ''}</span>
-                        <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[34px] leading-[0.85] min-w-0 break-words">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>
+                      <div className="relative flex items-end gap-3">
+                        <span style={{ fontFamily: BEBAS }} className="os-gold-text text-[72px] leading-[0.78]">{POSITION_NUMBERS[playerPosition] || ''}</span>
+                        <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[38px] leading-[0.85] min-w-0 break-words">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>
                       </div>
-                      <p style={{ color: '#A9B7C4' }} className="relative text-sm leading-relaxed mt-3">{techniqueData[playerPosition].why}</p>
+                      <p style={{ color: '#B8C4CE' }} className="relative text-sm leading-relaxed mt-3">{techniqueData[playerPosition].why}</p>
+                      <button onClick={() => openSession('technique')} className="os-focus os-btn relative w-full py-3.5 mt-4 text-[13.5px] uppercase tracking-wide" style={{ background: GOLD_GRADIENT, color: '#0B121A', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), 0 10px 24px -10px rgba(245,196,81,0.6)' }}>
+                        <Play size={16} weight="fill" />{isEN ? 'Guided session' : 'Sessione guidata'}
+                      </button>
                     </div>
                     <div className="space-y-2.5">
                       {techniqueData[playerPosition].exercises.map((ex, i) => {
                         const techKey = `tech-${i}`;
                         const tipOpen = activeVideo === techKey;
                         return (
-                          <DrillCard
-                            key={techKey}
-                            index={i}
-                            ex={ex}
-                            tone="gold"
-                            catLabel={catLabels[ex.cat]}
-                            helpOpen={tipOpen}
-                            onToggleHelp={() => setActiveVideo(tipOpen ? null : techKey)}
-                            isEN={isEN}
-                          />
+                          <div key={techKey} data-rv="">
+                            <DrillCard
+                              index={i}
+                              ex={ex}
+                              tone="gold"
+                              catLabel={catLabels[ex.cat]}
+                              helpOpen={tipOpen}
+                              onToggleHelp={() => setActiveVideo(tipOpen ? null : techKey)}
+                              onPlay={() => openSession('technique', { start: i })}
+                              isEN={isEN}
+                            />
+                          </div>
                         );
                       })}
                     </div>
@@ -6696,55 +7337,64 @@ export default function Offside() {
                 )}
               </>
             )}
+            </div>
 
             {regionsTab !== 'technique' && !premiumUnlocked && (
-              <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="pt-5 mt-2">
+              <div className="pt-6 mt-2">
                 <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: exercises for your role and this area' : 'Premium: esercizi per il tuo ruolo e per questa zona'} />
               </div>
             )}
 
-            <button onClick={() => setScreen('cover')} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-5 block mx-auto">{isEN ? 'Back to cover' : 'Torna alla copertina'}</button>
+            <button onClick={() => { navKindRef.current = 'back'; setScreen('cover'); }} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-6 block mx-auto">{isEN ? 'Back to cover' : 'Torna alla copertina'}</button>
           </>
         )}
 
         {screen === 'premium' && (
           <div>
-            <div style={{ backgroundColor: colors.laneBg }} className="flex gap-1 p-1 rounded-full mb-5">
-              <button onClick={() => setPremiumTab('individual')} style={{ backgroundColor: premiumTab === 'individual' ? colors.card : 'transparent', color: premiumTab === 'individual' ? colors.ink : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
-                <User size={14} />{isEN ? 'For you' : 'Per te'}
-              </button>
-              <button onClick={() => setPremiumTab('team')} style={{ backgroundColor: premiumTab === 'team' ? colors.card : 'transparent', color: premiumTab === 'team' ? colors.preventionDark : colors.mutedInk }} className="os-focus flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors">
-                <Users size={14} />{isEN ? 'For your team' : 'Per la squadra'}
-              </button>
+            <h1 className="os-sr">Premium</h1>
+            <div data-rv="" className="mb-5">
+              <Segmented
+                ariaLabel={isEN ? 'Premium for' : 'Premium per'}
+                value={premiumTab}
+                onChange={setPremiumTab}
+                led={premiumTab === 'team' ? LED_TEAL : colors.premiumGold}
+                items={[
+                  { key: 'individual', icon: User, label: isEN ? 'For you' : 'Per te', color: colors.premiumGold },
+                  { key: 'team', icon: Users, label: isEN ? 'For your team' : 'Per la squadra', color: LED_TEAL },
+                ]}
+              />
             </div>
 
+            <div key={premiumTab} className="os-pane-in">
             {premiumTab === 'individual' && (
             <>
             {!premiumUnlocked ? (
               <>
-                <div style={{ background: PREMIUM_BG, border: '1px solid rgba(240,180,41,0.3)' }} className="relative overflow-hidden rounded-3xl mb-4 shadow-xl">
-                  <PitchArc size={240} />
+                <div data-rv="" className="os-pitch-gold os-floodsweep mb-4" style={{ borderRadius: 30 }}>
+                  <PitchArc size={250} />
                   <div className="relative px-6 pt-6 pb-5">
                     <div className="flex items-center gap-1.5 mb-4">
                       <LogoMark size={15} color={colors.premiumGold} strokeWidth={2.5} />
-                      <span style={{ fontFamily: BRICOLAGE, color: 'rgba(240,180,41,0.85)', letterSpacing: '0.18em' }} className="text-[10px] font-bold uppercase">Offside</span>
+                      <span style={{ fontFamily: BRICOLAGE, color: 'rgba(245,196,81,0.85)', letterSpacing: '0.18em' }} className="text-[10px] font-bold uppercase">Offside</span>
                     </div>
-                    <p style={{ fontFamily: BEBAS, letterSpacing: '0.02em', filter: 'drop-shadow(0 4px 18px rgba(240,180,41,0.35))' }} className="os-gold-text text-[78px] leading-[0.82]">Premium</p>
-                    <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[18px] font-bold leading-snug mt-3">{isEN ? 'Train like your role and injury need' : 'Allenati come richiedono ruolo e infortunio'}</p>
-                    <p style={{ color: '#A9B7C4' }} className="text-sm leading-relaxed mt-1.5">{isEN ? 'Exercises tailored to your position and the specific area, plus your real progress over time.' : 'Esercizi su misura per il tuo ruolo e la zona specifica, più il tuo vero andamento nel tempo.'}</p>
+                    <p style={{ fontFamily: BEBAS, letterSpacing: '0.02em' }} className="os-gold-text text-[84px] leading-[0.82]" aria-hidden="true">
+                      <SplitWords text="PREMIUM" base={80} step={50} />
+                    </p>
+                    <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[19px] font-bold leading-snug mt-3">{isEN ? 'Train like your role and injury need' : 'Allenati come richiedono ruolo e infortunio'}</p>
+                    <p style={{ color: '#B8C4CE' }} className="text-sm leading-relaxed mt-1.5">{isEN ? 'Exercises tailored to your position and the specific area, plus your real progress over time.' : 'Esercizi su misura per il tuo ruolo e la zona specifica, più il tuo vero andamento nel tempo.'}</p>
                     <p className="flex items-baseline gap-2 mt-4">
-                      <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-[44px] leading-none">{isEN ? PREMIUM_PRICE.en : PREMIUM_PRICE.it}</span>
-                      <span style={{ color: '#A9B7C4' }} className="text-sm">{isEN ? 'per month' : 'al mese'}</span>
+                      <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-[48px] leading-none">{isEN ? PREMIUM_PRICE.en : PREMIUM_PRICE.it}</span>
+                      <span style={{ color: '#B8C4CE' }} className="text-sm">{isEN ? 'per month' : 'al mese'}</span>
                     </p>
                   </div>
                   <div className="relative h-5" aria-hidden="true">
-                    <span style={{ backgroundColor: colors.paper }} className="absolute -left-2.5 top-0 w-5 h-5 rounded-full" />
-                    <span style={{ backgroundColor: colors.paper }} className="absolute -right-2.5 top-0 w-5 h-5 rounded-full" />
-                    <div style={{ borderTop: '2px dashed rgba(240,180,41,0.3)' }} className="absolute left-5 right-5 top-1/2" />
+                    <span style={{ backgroundColor: colors.night }} className="absolute -left-2.5 top-0 w-5 h-5 rounded-full" />
+                    <span style={{ backgroundColor: colors.night }} className="absolute -right-2.5 top-0 w-5 h-5 rounded-full" />
+                    <div style={{ borderTop: '2px dashed rgba(245,196,81,0.3)' }} className="absolute left-5 right-5 top-1/2" />
                   </div>
-                  <div className="relative px-5 pt-2 pb-5">
-                    <p style={{ fontFamily: BEBAS, color: colors.premiumGold, letterSpacing: '0.12em' }} className="text-[15px] leading-none mb-3.5">{isEN ? 'What you unlock' : 'Cosa sblocchi'}</p>
-                    <div className="space-y-3">
+                  <div className="relative px-4 pt-2 pb-4">
+                    <p style={{ fontFamily: BEBAS, color: colors.premiumGold, letterSpacing: '0.12em' }} className="text-[16px] leading-none mb-3 px-1">{isEN ? 'What you unlock' : 'Cosa sblocchi'}</p>
+                    <div className="grid grid-cols-2 gap-2">
                       {[
                         { icon: Target, title: isEN ? 'Role + area training' : 'Allenamento ruolo + zona', text: isEN ? 'Exercises that combine your position and the injured area' : 'Esercizi che uniscono il tuo ruolo e la zona dell\'infortunio' },
                         { icon: TrendingUp, title: isEN ? 'Your progress, charted' : 'Il tuo andamento, in grafico', text: isEN ? 'Feeling and stiffness day by day' : 'Feeling e rigidità giorno per giorno' },
@@ -6753,15 +7403,13 @@ export default function Offside() {
                         { icon: Camera, title: isEN ? 'Movement screening' : 'Screening del movimento', beta: true, text: isEN ? 'Squat and balance with your camera, all on your phone' : 'Squat ed equilibrio con la fotocamera, tutto sul telefono' },
                         { icon: User, title: isEN ? 'Return tip for your role' : 'Consiglio di rientro per ruolo', text: isEN ? 'In the final phase, a return-to-play tip built for your position' : 'Nell\'ultima fase, un consiglio sul rientro pensato per il tuo ruolo' },
                       ].map((f) => (
-                        <div key={f.title} className="flex items-start gap-3">
-                          <div style={{ backgroundColor: 'rgba(240,180,41,0.12)', border: '1px solid rgba(240,180,41,0.3)' }} className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"><f.icon size={17} color={colors.premiumGold} /></div>
-                          <div className="min-w-0">
-                            <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="flex items-center gap-1.5 text-sm font-bold leading-snug">
-                              {f.title}
-                              {f.beta && <span style={{ border: '1px solid rgba(240,180,41,0.5)', color: colors.premiumGold }} className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full">Beta</span>}
-                            </p>
-                            <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed mt-0.5">{f.text}</p>
-                          </div>
+                        <div key={f.title} data-rv="pop" className="rounded-2xl p-3" style={{ background: 'rgba(0,0,0,0.28)', border: '1px solid rgba(245,196,81,0.16)' }}>
+                          <div style={{ backgroundColor: 'rgba(245,196,81,0.12)', border: '1px solid rgba(245,196,81,0.3)' }} className="w-9 h-9 rounded-xl flex items-center justify-center mb-2.5"><f.icon size={17} color={colors.premiumGold} /></div>
+                          <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[13px] font-bold leading-snug">
+                            {f.title}
+                            {f.beta && <span style={{ border: '1px solid rgba(245,196,81,0.5)', color: colors.premiumGold }} className="ml-1.5 align-middle text-[8.5px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full">Beta</span>}
+                          </p>
+                          <p style={{ color: '#B8C4CE' }} className="text-[11.5px] leading-snug mt-1">{f.text}</p>
                         </div>
                       ))}
                     </div>
@@ -6770,7 +7418,7 @@ export default function Offside() {
                 <GoldButton full href={STRIPE_PAYMENT_LINK} onClick={() => trackEvent('premium_unlock_clicked')}>
                   <span>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{isEN ? `${PREMIUM_PRICE.en}/month` : `${PREMIUM_PRICE.it}/mese`}</span><ArrowRight size={16} />
                 </GoldButton>
-                <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed text-center mt-2.5">
+                <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed text-center mt-3">
                   {isEN ? 'Secure payment with Stripe: after paying you come back here and Premium turns on by itself. ' : 'Pagamento sicuro con Stripe: dopo il pagamento torni qui e Premium si attiva da solo. '}
                   <a href="/privacy.html" style={{ color: colors.mutedInk }} className="underline hover:opacity-70">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>
                 </p>
@@ -6782,36 +7430,36 @@ export default function Offside() {
                   const roleRegion = injury ? regionOfInjury(selectedInjury, injuriesData) : selectedRegion;
                   const rr = roleRegion && playerPosition ? regionRoleExercises[roleRegion]?.[playerPosition] : null;
                   return (
-                    <div style={{ background: PREMIUM_BG, border: '1px solid rgba(240,180,41,0.3)' }} className="relative overflow-hidden rounded-3xl p-5 mb-5 shadow-lg">
+                    <div data-rv="" className="os-pitch-gold p-5 mb-5">
                       <PitchArc size={200} />
                       <div className="relative flex items-center justify-between gap-3 mb-3">
-                        <p style={{ fontFamily: BEBAS, letterSpacing: '0.12em' }} className="os-gold-text text-[15px] leading-none">{isEN ? 'Premium · Area + role' : 'Premium · Zona + ruolo'}</p>
-                        <span style={{ backgroundColor: 'rgba(125,255,168,0.12)', color: LED_GREEN }} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"><Check size={11} />{isEN ? 'Active' : 'Attivo'}</span>
+                        <p style={{ fontFamily: BEBAS, letterSpacing: '0.12em' }} className="os-gold-text text-[16px] leading-none">{isEN ? 'Premium · Area + role' : 'Premium · Zona + ruolo'}</p>
+                        <span className="os-led-chip" style={{ fontSize: 12 }}><Check size={11} weight="bold" />{isEN ? 'Active' : 'Attivo'}</span>
                       </div>
                       {!roleRegion ? (
                         <p style={{ color: '#D7E1EA' }} className="relative text-sm leading-relaxed">{isEN ? 'Select an injury or area first, to see training built specifically for it.' : 'Scegli prima un infortunio o una zona, per vedere l\'allenamento pensato apposta per quella.'}</p>
                       ) : !playerPosition ? (
                         <div className="relative">
                           <p style={{ color: '#D7E1EA' }} className="text-sm mb-3">{isEN ? `Pick your position to see exercises for ${regionLabels[roleRegion].toLowerCase()}, built for your role.` : `Scegli il tuo ruolo per vedere gli esercizi per ${regionLabels[roleRegion].toLowerCase()}, pensati per te.`}</p>
-                          <PositionPicker positions={playerPositions} value={playerPosition} dark onPick={(k) => { setPlayerPosition(k); persist(snapshot({ playerPosition: k })); }} />
+                          <PositionPicker positions={playerPositions} value={playerPosition} onPick={(k) => { setPlayerPosition(k); persist(snapshot({ playerPosition: k })); }} />
                         </div>
                       ) : (
                         <div className="relative">
                           <div className="flex items-center gap-3 mb-3">
-                            <div style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.08)' }} className="flex-shrink-0 rounded-xl px-2 py-1.5">
+                            <div className="os-well flex-shrink-0 px-2 py-1.5">
                               <RegionFigure region={roleRegion} height={64} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[28px] leading-[0.9]">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>
+                              <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[30px] leading-[0.9]">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>
                               <p style={{ color: colors.premiumGold }} className="text-[11px] font-bold uppercase tracking-wide mt-1">{regionLabels[roleRegion]}</p>
                             </div>
-                            <button onClick={() => setPlayerPosition(null)} style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#FFFFFF' }} className="os-focus flex-shrink-0 flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-semibold hover:bg-white/20 transition-colors">
+                            <button onClick={() => setPlayerPosition(null)} className="os-focus os-btn os-btn-dark flex-shrink-0 rounded-full px-3 py-1.5 text-[11px]">
                               <RotateCw size={12} />{isEN ? 'Change' : 'Cambia'}
                             </button>
                           </div>
                           {rr ? (
                             <>
-                              <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed mb-3">{rr.why}</p>
+                              <p style={{ color: '#B8C4CE' }} className="text-xs leading-relaxed mb-3">{rr.why}</p>
                               <div className="space-y-2">
                                 {rr.exercises.map((ex, i) => {
                                   const rrKey = `rr-${roleRegion}-${playerPosition}-${i}`;
@@ -6833,7 +7481,7 @@ export default function Offside() {
                               </div>
                             </>
                           ) : (
-                            <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed">{isEN ? 'Role-specific training for this area is coming soon.' : 'L\'allenamento per ruolo per questa zona arriva presto.'}</p>
+                            <p style={{ color: '#B8C4CE' }} className="text-xs leading-relaxed">{isEN ? 'Role-specific training for this area is coming soon.' : 'L\'allenamento per ruolo per questa zona arriva presto.'}</p>
                           )}
                         </div>
                       )}
@@ -6846,45 +7494,45 @@ export default function Offside() {
               const chartData = buildChartData(injuryLog, isEN);
               const feelingLabel = (v) => ({ 3: isEN ? 'Good' : 'Bene', 2: isEN ? 'So-so' : 'Così così', 1: isEN ? 'Bad' : 'Male' }[v] || '');
               const stiffnessLabel = (v) => ({ 3: isEN ? 'None' : 'Nessuna', 2: isEN ? 'A little' : 'Un po\'', 1: isEN ? 'A lot' : 'Tanta' }[v] || '');
+              const tooltipStyle = { contentStyle: { background: '#0C1A14', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, color: '#ECF5EF' }, labelStyle: { color: '#9DB3A7' }, itemStyle: { color: '#ECF5EF' } };
               return (
                 <>
                   {chartData.length === 0 ? (
                     <p style={{ color: colors.mutedInk }} className="text-sm text-center py-10 leading-relaxed">{isEN ? 'Not enough data yet — log a few daily sessions first, then come back here.' : 'Non ci sono ancora abbastanza dati — registra qualche sessione giornaliera, poi torna qui.'}</p>
                   ) : (
                     <>
-                      <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-4 shadow-sm">
-                        <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-3">{isEN ? 'How you\'ve been feeling' : 'Come ti sei sentito'}</p>
+                      <div data-rv="" className="os-panel p-4 mb-4">
+                        <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold mb-3">{isEN ? 'How you\'ve been feeling' : 'Come ti sei sentito'}</p>
                         <ResponsiveContainer width="100%" height={180}>
-                          <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke={colors.hairline} />
-                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: colors.mutedInk }} />
-                            <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tickFormatter={feelingLabel} tick={{ fontSize: 11, fill: colors.mutedInk }} width={70} />
-                            <Tooltip formatter={feelingLabel} isAnimationActive={false} />
-                            <Line type="monotone" dataKey="feeling" stroke={colors.accent} strokeWidth={2.5} dot={{ r: 4, fill: colors.accent }} connectNulls animationDuration={500} animationEasing="ease-out" />
+                          <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: colors.mutedInk }} stroke="rgba(255,255,255,0.15)" />
+                            <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tickFormatter={feelingLabel} tick={{ fontSize: 11, fill: colors.mutedInk }} width={70} stroke="rgba(255,255,255,0.15)" />
+                            <Tooltip formatter={feelingLabel} isAnimationActive={false} {...tooltipStyle} />
+                            <Line type="monotone" dataKey="feeling" stroke={LED_GREEN} strokeWidth={2.5} dot={{ r: 4, fill: LED_GREEN }} connectNulls animationDuration={900} animationEasing="ease-out" />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
 
-                      <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
-                        <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-3">{isEN ? 'Stiffness trend' : 'Andamento rigidità'}</p>
+                      <div data-rv="" className="os-panel p-4 mb-5">
+                        <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold mb-3">{isEN ? 'Stiffness trend' : 'Andamento rigidità'}</p>
                         <ResponsiveContainer width="100%" height={180}>
-                          <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke={colors.hairline} />
-                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: colors.mutedInk }} />
-                            <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tickFormatter={stiffnessLabel} tick={{ fontSize: 11, fill: colors.mutedInk }} width={70} />
-                            <Tooltip formatter={stiffnessLabel} isAnimationActive={false} />
-                            <Line type="monotone" dataKey="stiffness" stroke={colors.orange} strokeWidth={2.5} dot={{ r: 4, fill: colors.orange }} connectNulls animationDuration={500} animationEasing="ease-out" />
+                          <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: colors.mutedInk }} stroke="rgba(255,255,255,0.15)" />
+                            <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tickFormatter={stiffnessLabel} tick={{ fontSize: 11, fill: colors.mutedInk }} width={70} stroke="rgba(255,255,255,0.15)" />
+                            <Tooltip formatter={stiffnessLabel} isAnimationActive={false} {...tooltipStyle} />
+                            <Line type="monotone" dataKey="stiffness" stroke={colors.orange} strokeWidth={2.5} dot={{ r: 4, fill: colors.orange }} connectNulls animationDuration={900} animationEasing="ease-out" />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
                     </>
                   )}
 
-                  <button onClick={() => { trackEvent('premium_print_clicked'); window.print(); }} style={{ backgroundColor: colors.ink, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium shadow-sm hover:opacity-90 transition-opacity mb-2">
-                    <Share2 size={16} />
-                    <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Print / Export PDF' : 'Stampa / Esporta PDF'}</span>
+                  <button onClick={() => { trackEvent('premium_print_clicked'); window.print(); }} className="os-focus os-btn os-btn-ghost w-full py-3.5 text-[13.5px] uppercase tracking-wide mb-2">
+                    <Share2 size={16} />{isEN ? 'Print / Export PDF' : 'Stampa / Esporta PDF'}
                   </button>
-                  <p style={{ color: colors.mutedInk }} className="text-[11px] text-center mb-4">{isEN ? 'Opens your device\'s print dialog — choose "Save as PDF" to download it.' : 'Apre la finestra di stampa del dispositivo — scegli "Salva come PDF" per scaricarlo.'}</p>
+                  <p style={{ color: colors.mutedInk }} className="text-[11.5px] text-center mb-4">{isEN ? 'Opens your device\'s print dialog — choose "Save as PDF" to download it.' : 'Apre la finestra di stampa del dispositivo — scegli "Salva come PDF" per scaricarlo.'}</p>
 
                   <div className="os-print-only">
                     <h1>{isEN ? 'Recovery Summary' : 'Riepilogo del percorso'} — OFFSIDE</h1>
@@ -6943,12 +7591,12 @@ export default function Offside() {
               <>
                 {teamAuth ? (
                   <>
-                    <button onClick={() => setScreen('teamDashboard')} style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}40` }} className="os-focus w-full flex items-center gap-3 rounded-xl p-4 text-left hover:opacity-90 transition-opacity mb-4">
-                      <div style={{ backgroundColor: colors.preventionTint }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
-                        <Users size={18} color={colors.preventionDark} />
+                    <button data-rv="" onClick={() => setScreen('teamDashboard')} className="os-focus os-press os-panel w-full flex items-center gap-3 p-4 text-left mb-4" style={{ borderColor: `${LED_TEAL}44` }}>
+                      <div style={{ background: 'rgba(114,230,242,0.12)', border: `1px solid ${LED_TEAL}44` }} className="flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center">
+                        <Users size={19} color={LED_TEAL} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{teamAuth.teamName}</p>
+                        <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold">{teamAuth.teamName}</p>
                         <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? 'Go to the team dashboard' : 'Vai alla dashboard della squadra'}</p>
                       </div>
                       <ChevronRight size={16} color={colors.mutedInk} />
@@ -6959,17 +7607,17 @@ export default function Offside() {
                   </>
                 ) : (
                   <>
-                    <div style={{ background: PITCH_BG_TEAL }} className="relative overflow-hidden rounded-3xl p-6 mb-5 shadow-lg">
+                    <div data-rv="" className="os-pitch-teal os-floodsweep p-6 mb-5">
                       <PitchArc size={200} />
                       <div className="relative flex items-center gap-2 mb-3">
                         <div style={{ backgroundColor: 'rgba(114,230,242,0.14)', border: '1px solid rgba(114,230,242,0.35)' }} className="w-10 h-10 rounded-xl flex items-center justify-center"><Users size={19} color={LED_TEAL} /></div>
                         <span style={{ fontFamily: BRICOLAGE, color: LED_TEAL, letterSpacing: '0.16em' }} className="text-[10px] font-bold uppercase">{isEN ? 'For staff' : 'Per lo staff'}</span>
                       </div>
-                      <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="relative text-[46px] leading-[0.85]">Offside <span style={{ color: LED_TEAL }}>{isEN ? 'Teams' : 'Squadre'}</span></p>
-                      <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[17px] font-bold mt-3 mb-1.5">{isEN ? 'One dashboard for the whole squad' : 'Una dashboard per tutta la squadra'}</p>
-                      <p style={{ color: 'rgba(255,255,255,0.75)' }} className="relative text-sm leading-relaxed">{isEN ? 'See every consenting player\'s injury, recovery phase and indicative return time — all in one place.' : 'Vedi infortunio, fase di recupero e rientro indicativo di ogni giocatore che ha dato il consenso — tutto in un posto.'}</p>
+                      <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="relative text-[52px] leading-[0.85]">Offside <span style={{ color: LED_TEAL, textShadow: `0 0 18px ${LED_TEAL}77` }}>{isEN ? 'Teams' : 'Squadre'}</span></p>
+                      <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[18px] font-bold mt-3 mb-1.5">{isEN ? 'One dashboard for the whole squad' : 'Una dashboard per tutta la squadra'}</p>
+                      <p style={{ color: 'rgba(255,255,255,0.78)' }} className="relative text-sm leading-relaxed">{isEN ? 'See every consenting player\'s injury, recovery phase and indicative return time — all in one place.' : 'Vedi infortunio, fase di recupero e rientro indicativo di ogni giocatore che ha dato il consenso — tutto in un posto.'}</p>
                     </div>
-                    <div className="space-y-3 mb-6">
+                    <div className="os-panel p-4 mb-6 space-y-3.5" data-rv="">
                       {[
                         isEN ? 'Real injury name and indicative recovery time for every player who joins' : 'Nome vero dell\'infortunio e tempi di recupero indicativi di ogni giocatore che aderisce',
                         isEN ? 'Who\'s available, doubtful or out for your next match, at a glance' : 'Chi è disponibile, in dubbio o fuori per la prossima partita, a colpo d\'occhio',
@@ -6980,28 +7628,28 @@ export default function Offside() {
                         isEN ? 'Their daily journal and personal notes are never visible to the team' : 'Il loro diario giornaliero e le note personali non sono mai visibili alla squadra',
                       ].map((text, i) => (
                         <div key={i} className="flex gap-3 items-start">
-                          <CheckCircle2 size={18} color={colors.preventionDark} className="flex-shrink-0 mt-0.5" />
-                          <p style={{ color: colors.ink }} className="text-sm leading-snug">{text}</p>
+                          <span style={{ background: 'rgba(114,230,242,0.14)' }} className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-px"><Check size={13} color={LED_TEAL} weight="bold" /></span>
+                          <p style={{ color: colors.ink }} className="text-[13.5px] leading-snug">{text}</p>
                         </div>
                       ))}
                     </div>
                     <div className="space-y-2.5 mb-6">
-                      <div style={{ backgroundColor: colors.preventionPaper, border: `2px solid ${colors.prevention}` }} className="rounded-xl p-4 pt-5 text-center relative">
-                        <span style={{ backgroundColor: colors.preventionDark, color: '#FFFFFF' }} className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full whitespace-nowrap">{isEN ? `Save €${TEAM_SEASON_FULL_PRICE - TEAM_SEASON_PASS_PRICE}` : `Risparmi ${TEAM_SEASON_FULL_PRICE - TEAM_SEASON_PASS_PRICE}€`}</span>
-                        <p style={{ color: colors.mutedInk }} className="text-[11px] font-medium mb-1">{isEN ? 'Season Pass — one payment' : 'Pass Stagionale — un pagamento unico'}</p>
-                        <p style={{ ...displayFont, color: colors.preventionDark }} className="text-2xl font-bold">
-                          <span style={{ textDecoration: 'line-through', color: colors.mutedInk }} className="text-base font-medium mr-1.5">{TEAM_SEASON_FULL_PRICE}€</span>{TEAM_SEASON_PASS_PRICE}€
+                      <div data-rv="" style={{ background: 'linear-gradient(180deg, rgba(114,230,242,0.14), rgba(114,230,242,0.04))', border: `1.5px solid ${LED_TEAL}88`, boxShadow: `0 0 30px -14px ${LED_TEAL}` }} className="rounded-[22px] p-4 pt-6 text-center relative">
+                        <span style={{ background: LED_TEAL, color: '#021316' }} className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase px-3 py-1 rounded-full whitespace-nowrap shadow-lg">{isEN ? `Save €${TEAM_SEASON_FULL_PRICE - TEAM_SEASON_PASS_PRICE}` : `Risparmi ${TEAM_SEASON_FULL_PRICE - TEAM_SEASON_PASS_PRICE}€`}</span>
+                        <p style={{ color: colors.mutedInk }} className="text-[11.5px] font-medium mb-1">{isEN ? 'Season Pass — one payment' : 'Pass Stagionale — un pagamento unico'}</p>
+                        <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[46px] leading-none">
+                          <span style={{ textDecoration: 'line-through', color: colors.mutedInk }} className="text-[24px] mr-2">{TEAM_SEASON_FULL_PRICE}€</span>{TEAM_SEASON_PASS_PRICE}€
                         </p>
-                        <p style={{ color: colors.preventionDark }} className="text-xs font-semibold mt-1">{isEN ? 'Valid until end of season (May)' : 'Valido fino a fine stagione (maggio)'}</p>
+                        <p style={{ color: LED_TEAL }} className="text-xs font-semibold mt-1">{isEN ? 'Valid until end of season (May)' : 'Valido fino a fine stagione (maggio)'}</p>
                       </div>
-                      <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-3 text-center">
-                        <p style={{ ...displayFont, color: colors.ink }} className="text-lg font-bold">50€<span style={{ color: colors.mutedInk }} className="text-xs font-medium">/{isEN ? 'month per team' : 'mese a squadra'}</span></p>
-                        <p style={{ color: colors.mutedInk }} className="text-[11px] mt-0.5">{isEN ? 'or pay month by month' : 'oppure paga mese per mese'}</p>
+                      <div data-rv="" className="os-panel-flat p-3.5 text-center">
+                        <p style={{ fontFamily: BEBAS, color: colors.ink }} className="text-[30px] leading-none">50€<span style={{ color: colors.mutedInk, fontFamily: "'Public Sans', sans-serif" }} className="text-xs font-medium">/{isEN ? 'month per team' : 'mese a squadra'}</span></p>
+                        <p style={{ color: colors.mutedInk }} className="text-[11.5px] mt-1">{isEN ? 'or pay month by month' : 'oppure paga mese per mese'}</p>
                       </div>
-                      <p style={{ color: colors.preventionDark }} className="text-xs font-semibold text-center pt-1">{isEN ? 'First month free for new teams, either way' : 'Primo mese gratis per le nuove squadre, in entrambi i casi'}</p>
+                      <p style={{ color: LED_TEAL }} className="text-xs font-semibold text-center pt-1">{isEN ? 'First month free for new teams, either way' : 'Primo mese gratis per le nuove squadre, in entrambi i casi'}</p>
                     </div>
-                    <button onClick={() => { trackEvent('team_register_clicked'); setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamRegister'); }} style={{ backgroundColor: colors.preventionDark, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
-                      <Building2 size={16} /><span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Register your team' : 'Registra la tua squadra'}</span>
+                    <button onClick={() => { trackEvent('team_register_clicked'); setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamRegister'); }} className="os-focus os-btn os-btn-teal w-full py-4 text-[14px] uppercase tracking-wide mb-3">
+                      <Building2 size={17} />{isEN ? 'Register your team' : 'Registra la tua squadra'}
                     </button>
                     <button onClick={() => { setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamLogin'); }} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">
                       {isEN ? 'Already have an account? Log in' : 'Hai già un account? Accedi'}
@@ -7010,187 +7658,201 @@ export default function Offside() {
                 )}
               </>
             )}
+            </div>
           </div>
         )}
 
-        {screen === 'teamRegister' && (
-          <div>
-            <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">{isEN ? 'One account per team. You choose who on your staff manages it.' : 'Un account per squadra. Scegliete voi chi dello staff lo gestisce.'}</p>
+        {screen === 'teamRegister' && (() => {
+          const inputCls = 'os-focus w-full rounded-xl px-3.5 py-3 text-base';
+          const inputStyle = { backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', color: colors.ink };
+          const labelCls = 'os-label block mb-1.5';
+          return (
+          <div className="max-w-[520px]">
+            <PageTitle title={isEN ? 'Register your team' : 'Registra la squadra'} sub={isEN ? 'One account per team. You choose who on your staff manages it.' : 'Un account per squadra. Scegliete voi chi dello staff lo gestisce.'} />
 
-            <label htmlFor="tr-team" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Team name' : 'Nome squadra'}</label>
-            <input id="tr-team" autoComplete="organization" type="text" value={teamForm.teamName} onChange={(e) => setTeamForm({ ...teamForm, teamName: e.target.value })} placeholder={isEN ? 'e.g. ASD Real Offside' : 'es. ASD Real Offside'} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-base mb-3.5" />
+            <div className="os-panel p-4 sm:p-5" data-rv="">
+            <label htmlFor="tr-team" style={{ color: colors.mutedInk }} className={labelCls}>{isEN ? 'Team name' : 'Nome squadra'}</label>
+            <input id="tr-team" autoComplete="organization" type="text" value={teamForm.teamName} onChange={(e) => setTeamForm({ ...teamForm, teamName: e.target.value })} placeholder={isEN ? 'e.g. ASD Real Offside' : 'es. ASD Real Offside'} style={inputStyle} className={`${inputCls} mb-4`} />
 
-            <label htmlFor="tr-name" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Your name' : 'Il tuo nome'}</label>
-            <input id="tr-name" autoComplete="name" type="text" value={teamForm.responsibleName} onChange={(e) => setTeamForm({ ...teamForm, responsibleName: e.target.value })} placeholder={isEN ? 'Full name' : 'Nome e cognome'} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-base mb-3.5" />
+            <label htmlFor="tr-name" style={{ color: colors.mutedInk }} className={labelCls}>{isEN ? 'Your name' : 'Il tuo nome'}</label>
+            <input id="tr-name" autoComplete="name" type="text" value={teamForm.responsibleName} onChange={(e) => setTeamForm({ ...teamForm, responsibleName: e.target.value })} placeholder={isEN ? 'Full name' : 'Nome e cognome'} style={inputStyle} className={`${inputCls} mb-4`} />
 
-            <label style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Your role' : 'Il tuo ruolo'}</label>
-            <div className="flex flex-wrap gap-2 mb-3.5">
-              {TEAM_ROLE_OPTIONS.map((opt) => (
-                <button aria-pressed={teamForm.responsibleRole === opt.key} key={opt.key} onClick={() => setTeamForm({ ...teamForm, responsibleRole: opt.key })} style={{ backgroundColor: teamForm.responsibleRole === opt.key ? colors.preventionDark : colors.card, color: teamForm.responsibleRole === opt.key ? '#FFFFFF' : colors.ink, border: `1px solid ${teamForm.responsibleRole === opt.key ? colors.prevention : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
-                  {isEN ? opt.labelEN : opt.labelIT}
-                </button>
-              ))}
+            <label style={{ color: colors.mutedInk }} className={labelCls}>{isEN ? 'Your role' : 'Il tuo ruolo'}</label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {TEAM_ROLE_OPTIONS.map((opt) => {
+                const on = teamForm.responsibleRole === opt.key;
+                return (
+                  <button aria-pressed={on} key={opt.key} onClick={() => setTeamForm({ ...teamForm, responsibleRole: opt.key })} style={{ background: on ? 'rgba(114,230,242,0.16)' : 'rgba(255,255,255,0.04)', color: on ? LED_TEAL : colors.ink, border: `1px solid ${on ? LED_TEAL + '88' : 'rgba(255,255,255,0.1)'}` }} className="os-focus os-press px-3.5 py-2 rounded-full text-xs font-semibold">
+                    {isEN ? opt.labelEN : opt.labelIT}
+                  </button>
+                );
+              })}
             </div>
-            <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-3.5">{isEN ? 'Not a restriction — just so players know who they\'re sharing with. The team decides.' : 'Non è un vincolo — serve solo a far sapere ai giocatori con chi condividono. Decide la squadra.'}</p>
+            <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed mb-4">{isEN ? 'Not a restriction — just so players know who they\'re sharing with. The team decides.' : 'Non è un vincolo — serve solo a far sapere ai giocatori con chi condividono. Decide la squadra.'}</p>
 
-            <label htmlFor="tr-email" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Email</label>
-            <input id="tr-email" autoComplete="email" type="email" value={teamForm.email} onChange={(e) => setTeamForm({ ...teamForm, email: e.target.value })} placeholder="email@esempio.com" style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-base mb-3.5" />
-            <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-3.5 -mt-2.5">{isEN ? 'Use the same email when you pay, so the subscription activates automatically.' : 'Usa la stessa email al momento del pagamento, così l\'abbonamento si attiva in automatico.'}</p>
+            <label htmlFor="tr-email" style={{ color: colors.mutedInk }} className={labelCls}>Email</label>
+            <input id="tr-email" autoComplete="email" type="email" value={teamForm.email} onChange={(e) => setTeamForm({ ...teamForm, email: e.target.value })} placeholder="email@esempio.com" style={inputStyle} className={`${inputCls} mb-1.5`} />
+            <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed mb-4">{isEN ? 'Use the same email when you pay, so the subscription activates automatically.' : 'Usa la stessa email al momento del pagamento, così l\'abbonamento si attiva in automatico.'}</p>
 
-            <label htmlFor="tr-password" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Password</label>
-            <div className="relative mb-3.5">
-              <input id="tr-password" autoComplete="new-password" type={showTeamPassword ? 'text' : 'password'} value={teamForm.password} onChange={(e) => setTeamForm({ ...teamForm, password: e.target.value })} placeholder={isEN ? 'At least 8 characters' : 'Almeno 8 caratteri'} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg pl-3 pr-10 py-2.5 text-base" />
+            <label htmlFor="tr-password" style={{ color: colors.mutedInk }} className={labelCls}>Password</label>
+            <div className="relative mb-4">
+              <input id="tr-password" autoComplete="new-password" type={showTeamPassword ? 'text' : 'password'} value={teamForm.password} onChange={(e) => setTeamForm({ ...teamForm, password: e.target.value })} placeholder={isEN ? 'At least 8 characters' : 'Almeno 8 caratteri'} style={inputStyle} className={`${inputCls} pr-11`} />
               <button type="button" onClick={() => setShowTeamPassword(!showTeamPassword)} className="os-focus absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-lg" aria-label={showTeamPassword ? (isEN ? 'Hide password' : 'Nascondi password') : (isEN ? 'Show password' : 'Mostra password')}>
                 {showTeamPassword ? <EyeOff size={16} color={colors.mutedInk} /> : <Eye size={16} color={colors.mutedInk} />}
               </button>
             </div>
 
-            <label htmlFor="tr-password2" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Confirm password' : 'Conferma password'}</label>
-            <input id="tr-password2" autoComplete="new-password" type={showTeamPassword ? 'text' : 'password'} value={teamForm.confirmPassword} onChange={(e) => setTeamForm({ ...teamForm, confirmPassword: e.target.value })} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-base mb-4" />
+            <label htmlFor="tr-password2" style={{ color: colors.mutedInk }} className={labelCls}>{isEN ? 'Confirm password' : 'Conferma password'}</label>
+            <input id="tr-password2" autoComplete="new-password" type={showTeamPassword ? 'text' : 'password'} value={teamForm.confirmPassword} onChange={(e) => setTeamForm({ ...teamForm, confirmPassword: e.target.value })} style={inputStyle} className={`${inputCls} mb-5`} />
 
-            <button onClick={() => setTeamForm({ ...teamForm, minorConsentAttested: !teamForm.minorConsentAttested })} role="checkbox" aria-checked={teamForm.minorConsentAttested} className="os-focus w-full flex items-start gap-2.5 mb-5 text-left">
-              <div style={{ backgroundColor: teamForm.minorConsentAttested ? colors.prevention : colors.card, border: `1.5px solid ${teamForm.minorConsentAttested ? colors.prevention : colors.hairline}` }} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5">
-                {teamForm.minorConsentAttested && <Check size={13} color="#FFFFFF" strokeWidth={3} />}
-              </div>
-              <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'I confirm that, if the team includes players under 18, the club has obtained parental consent to use Offside for Teams for health-related data.' : 'Confermo che, se la squadra include giocatori minorenni, la società ha ottenuto il consenso dei genitori all\'uso di Offside Squadre per i dati sulla salute.'}</p>
+            <button onClick={() => setTeamForm({ ...teamForm, minorConsentAttested: !teamForm.minorConsentAttested })} role="checkbox" aria-checked={teamForm.minorConsentAttested} className="os-focus w-full flex items-start gap-3 mb-4 text-left rounded-lg">
+              <span style={{ background: teamForm.minorConsentAttested ? LED_TEAL : 'rgba(255,255,255,0.05)', border: `1.5px solid ${teamForm.minorConsentAttested ? LED_TEAL : 'rgba(255,255,255,0.25)'}` }} className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center mt-0.5">
+                {teamForm.minorConsentAttested && <Check size={14} color="#021316" weight="bold" className="os-check-pop" />}
+              </span>
+              <span style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'I confirm that, if the team includes players under 18, the club has obtained parental consent to use Offside for Teams for health-related data.' : 'Confermo che, se la squadra include giocatori minorenni, la società ha ottenuto il consenso dei genitori all\'uso di Offside Squadre per i dati sulla salute.'}</span>
             </button>
 
-            <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-4 -mt-2">
+            <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed mb-1">
               {isEN ? 'By creating an account you accept our ' : 'Creando un account accetti la nostra '}
-              <a href="/privacy.html" style={{ color: colors.preventionDark }} className="os-focus underline font-medium hover:opacity-70">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>.
+              <a href="/privacy.html" style={{ color: LED_TEAL }} className="os-focus underline font-medium hover:opacity-70">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>.
             </p>
+            </div>
 
-            {teamFormStatus === 'error' && <p role="alert" style={{ color: colors.red }} className="text-xs mb-3">{teamFormError}</p>}
+            {teamFormStatus === 'error' && <p role="alert" style={{ color: colors.red }} className="text-[13px] font-medium mt-4 os-fadein">{teamFormError}</p>}
 
-            <p style={{ color: colors.preventionDark }} className="text-xs font-semibold text-center mb-3">{isEN ? 'First month free — no card required to start' : 'Primo mese gratis — nessuna carta richiesta per iniziare'}</p>
+            <p style={{ color: LED_TEAL }} className="text-xs font-semibold text-center mt-5 mb-3">{isEN ? 'First month free — no card required to start' : 'Primo mese gratis — nessuna carta richiesta per iniziare'}</p>
 
-            <button onClick={submitTeamRegister} disabled={teamFormStatus === 'submitting'} style={{ backgroundColor: colors.preventionDark, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
-              <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{teamFormStatus === 'submitting' ? '...' : (isEN ? 'Create account' : 'Crea account')}</span>
+            <button onClick={submitTeamRegister} disabled={teamFormStatus === 'submitting'} className="os-focus os-btn os-btn-teal w-full py-4 text-[14px] uppercase tracking-wide mb-3">
+              {teamFormStatus === 'submitting' ? '...' : (isEN ? 'Create account' : 'Crea account')}
             </button>
             <button onClick={() => { setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamLogin'); }} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">
               {isEN ? 'Already have an account? Log in' : 'Hai già un account? Accedi'}
             </button>
           </div>
-        )}
+          );
+        })()}
 
-        {screen === 'teamLogin' && (
-          <div>
-            <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">{isEN ? 'Log in with the email and password you used to register your team.' : 'Accedi con l\'email e la password usate per registrare la squadra.'}</p>
+        {screen === 'teamLogin' && (() => {
+          const inputStyle = { backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', color: colors.ink };
+          return (
+          <div className="max-w-[520px]">
+            <PageTitle title={isEN ? 'Team login' : 'Accedi alla squadra'} sub={isEN ? 'Log in with the email and password you used to register your team.' : 'Accedi con l\'email e la password usate per registrare la squadra.'} />
 
-            <label htmlFor="tl-email" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Email</label>
-            <input id="tl-email" autoComplete="email" type="email" value={teamForm.email} onChange={(e) => setTeamForm({ ...teamForm, email: e.target.value })} placeholder="email@esempio.com" style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-base mb-3.5" />
+            <div className="os-panel p-4 sm:p-5" data-rv="">
+            <label htmlFor="tl-email" style={{ color: colors.mutedInk }} className="os-label block mb-1.5">Email</label>
+            <input id="tl-email" autoComplete="email" type="email" value={teamForm.email} onChange={(e) => setTeamForm({ ...teamForm, email: e.target.value })} placeholder="email@esempio.com" style={inputStyle} className="os-focus w-full rounded-xl px-3.5 py-3 text-base mb-4" />
 
-            <label htmlFor="tl-password" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">Password</label>
-            <div className="relative mb-5">
-              <input id="tl-password" autoComplete="current-password" type={showTeamPassword ? 'text' : 'password'} value={teamForm.password} onChange={(e) => setTeamForm({ ...teamForm, password: e.target.value })} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg pl-3 pr-10 py-2.5 text-base" />
+            <label htmlFor="tl-password" style={{ color: colors.mutedInk }} className="os-label block mb-1.5">Password</label>
+            <div className="relative">
+              <input id="tl-password" autoComplete="current-password" type={showTeamPassword ? 'text' : 'password'} value={teamForm.password} onChange={(e) => setTeamForm({ ...teamForm, password: e.target.value })} style={inputStyle} className="os-focus w-full rounded-xl pl-3.5 pr-11 py-3 text-base" />
               <button type="button" onClick={() => setShowTeamPassword(!showTeamPassword)} className="os-focus absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-lg" aria-label={showTeamPassword ? (isEN ? 'Hide password' : 'Nascondi password') : (isEN ? 'Show password' : 'Mostra password')}>
                 {showTeamPassword ? <EyeOff size={16} color={colors.mutedInk} /> : <Eye size={16} color={colors.mutedInk} />}
               </button>
             </div>
+            </div>
 
-            {teamFormStatus === 'error' && <p role="alert" style={{ color: colors.red }} className="text-xs mb-3">{teamFormError}</p>}
+            {teamFormStatus === 'error' && <p role="alert" style={{ color: colors.red }} className="text-[13px] font-medium mt-4 os-fadein">{teamFormError}</p>}
 
-            <button onClick={submitTeamLogin} disabled={teamFormStatus === 'submitting'} style={{ backgroundColor: colors.preventionDark, color: '#FFFFFF' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium shadow-sm hover:opacity-90 transition-opacity mb-3">
-              <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{teamFormStatus === 'submitting' ? '...' : (isEN ? 'Log in' : 'Accedi')}</span>
+            <button onClick={submitTeamLogin} disabled={teamFormStatus === 'submitting'} className="os-focus os-btn os-btn-teal w-full py-4 text-[14px] uppercase tracking-wide mt-5 mb-3">
+              {teamFormStatus === 'submitting' ? '...' : (isEN ? 'Log in' : 'Accedi')}
             </button>
             <button onClick={() => { setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamRegister'); }} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">
               {isEN ? "Don't have an account? Register your team" : 'Non hai un account? Registra la squadra'}
             </button>
           </div>
-        )}
+          );
+        })()}
 
         {screen === 'teamDashboard' && (
           <div>
+            <PageTitle title={teamAuth?.teamName || 'Offside Squadre'} sub={isEN ? 'Team dashboard' : 'Dashboard squadra'} />
             {teamDashboardLoading && !teamDashboardData ? (
-              <p style={{ color: colors.mutedInk }} className="text-sm text-center py-10">{isEN ? 'Loading...' : 'Caricamento...'}</p>
+              <div className="space-y-3" aria-busy="true" aria-label={isEN ? 'Loading...' : 'Caricamento...'}>
+                {[0, 1, 2].map((i) => <div key={i} className="os-panel h-24 overflow-hidden relative"><span className="os-sheen" style={{ animationIterationCount: 'infinite', animationDuration: '1.6s' }} /></div>)}
+                <p style={{ color: colors.mutedInk }} className="text-sm text-center py-2">{isEN ? 'Loading...' : 'Caricamento...'}</p>
+              </div>
             ) : !teamDashboardData ? (
               <p style={{ color: colors.mutedInk }} className="text-sm text-center py-10">{isEN ? 'Something went wrong loading the dashboard.' : 'Qualcosa è andato storto nel caricare la dashboard.'}</p>
             ) : !teamDashboardData.subscriptionActive ? (
-              <>
-                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
-                  <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold mb-1">{isEN ? 'Team code' : 'Codice squadra'}</p>
-                  <p style={{ ...displayFont, color: colors.preventionDark, letterSpacing: '0.15em' }} className="text-2xl font-bold mb-1">{teamDashboardData.inviteCode}</p>
+              <div className="max-w-[560px]">
+                <div data-rv="" className="os-panel p-4 mb-5">
+                  <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-sm font-semibold mb-1">{isEN ? 'Team code' : 'Codice squadra'}</p>
+                  <p style={{ fontFamily: BEBAS, color: LED_TEAL, letterSpacing: '0.15em', textShadow: `0 0 12px ${LED_TEAL}66` }} className="text-[34px] leading-none mb-1.5">{teamDashboardData.inviteCode}</p>
                   <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'Your code and players are safe — the roster becomes visible again as soon as you activate.' : 'Il codice e i giocatori restano al sicuro — la rubrica torna visibile appena riattivi l\'abbonamento.'}</p>
                 </div>
-                <div style={{ background: 'linear-gradient(135deg, #0F766E, #0B4440)', border: `1px solid ${colors.prevention}40` }} className="rounded-2xl p-5 text-center mb-4">
-                  <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-base font-bold mb-2">{isEN ? 'Your free trial has ended' : 'Il mese di prova è terminato'}</p>
-                  <p style={{ color: '#BFE9E3' }} className="text-xs leading-relaxed mb-4">{isEN ? `Activate to keep using the dashboard. Pay with the same email you registered with (${teamAuth?.email}) so it activates automatically.` : `Attiva per continuare a usare la dashboard. Paga con la stessa email della registrazione (${teamAuth?.email}) così si attiva in automatico.`}</p>
-                  <a href={STRIPE_TEAM_SEASON_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_season_pass_clicked')} style={{ backgroundColor: colors.premiumGold, color: '#101B26' }} className="os-focus w-full flex flex-col items-center justify-center gap-0.5 rounded-xl py-3 font-medium shadow-sm hover:opacity-90 transition-opacity mb-2.5">
-                    <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? `Season Pass — ${TEAM_SEASON_PASS_PRICE}€` : `Pass Stagionale — ${TEAM_SEASON_PASS_PRICE}€`}</span>
-                    <span className="text-[10px] font-medium opacity-80">{isEN ? `instead of ${TEAM_SEASON_FULL_PRICE}€ — valid until end of season` : `invece di ${TEAM_SEASON_FULL_PRICE}€ — valido fino a fine stagione`}</span>
+                <div data-rv="" className="os-pitch-teal p-5 text-center mb-4">
+                  <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[17px] font-bold mb-2">{isEN ? 'Your free trial has ended' : 'Il mese di prova è terminato'}</p>
+                  <p style={{ color: '#BFE9E3' }} className="relative text-xs leading-relaxed mb-4">{isEN ? `Activate to keep using the dashboard. Pay with the same email you registered with (${teamAuth?.email}) so it activates automatically.` : `Attiva per continuare a usare la dashboard. Paga con la stessa email della registrazione (${teamAuth?.email}) così si attiva in automatico.`}</p>
+                  <a href={STRIPE_TEAM_SEASON_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_season_pass_clicked')} style={{ background: GOLD_GRADIENT, color: '#101B26' }} className="os-focus os-press relative w-full flex flex-col items-center justify-center gap-0.5 rounded-2xl py-3 font-medium shadow-lg mb-2.5">
+                    <span style={{ fontFamily: BRICOLAGE }} className="uppercase tracking-wide text-sm font-bold">{isEN ? `Season Pass — ${TEAM_SEASON_PASS_PRICE}€` : `Pass Stagionale — ${TEAM_SEASON_PASS_PRICE}€`}</span>
+                    <span className="text-[10.5px] font-medium opacity-80">{isEN ? `instead of ${TEAM_SEASON_FULL_PRICE}€ — valid until end of season` : `invece di ${TEAM_SEASON_FULL_PRICE}€ — valido fino a fine stagione`}</span>
                   </a>
-                  <a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked')} style={{ backgroundColor: 'transparent', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.35)' }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3 font-medium hover:opacity-90 transition-opacity">
-                    <span style={displayFont} className="uppercase tracking-wide text-xs font-semibold">{isEN ? 'Or pay monthly — €50/month' : 'Oppure mese per mese — 50€/mese'}</span>
+                  <a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked')} className="os-focus os-btn os-btn-dark relative w-full py-3 text-xs uppercase tracking-wide">
+                    {isEN ? 'Or pay monthly — €50/month' : 'Oppure mese per mese — 50€/mese'}
                   </a>
-                  <p style={{ color: 'rgba(255,255,255,0.55)' }} className="text-[10.5px] text-center mt-2.5">
+                  <p style={{ color: 'rgba(255,255,255,0.6)' }} className="relative text-[10.5px] text-center mt-2.5">
                     {isEN ? 'Payments handled securely by Stripe. ' : 'Pagamenti gestiti in sicurezza da Stripe. '}
-                    <a href="/privacy.html" style={{ color: 'rgba(255,255,255,0.8)' }} className="underline hover:opacity-100">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>
+                    <a href="/privacy.html" style={{ color: 'rgba(255,255,255,0.85)' }} className="underline hover:opacity-100">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>
                   </p>
                 </div>
                 <button onClick={loadTeamDashboard} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">{isEN ? 'I already paid — refresh' : 'Ho già pagato — aggiorna'}</button>
-              </>
+              </div>
             ) : (
-              <>
-                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm flex items-center justify-between gap-3">
+              <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] md:items-start">
+                <div>
+                <div data-rv="" className="os-panel p-4 mb-5 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase mb-1">{isEN ? 'Invite code' : 'Codice invito'}</p>
-                    <p style={{ ...displayFont, color: colors.preventionDark, letterSpacing: '0.15em' }} className="text-xl font-bold">{teamDashboardData.inviteCode}</p>
+                    <p className="os-label mb-1" style={{ color: colors.mutedInk }}>{isEN ? 'Invite code' : 'Codice invito'}</p>
+                    <p style={{ fontFamily: BEBAS, color: LED_TEAL, letterSpacing: '0.15em', textShadow: `0 0 12px ${LED_TEAL}66` }} className="text-[30px] leading-none">{teamDashboardData.inviteCode}</p>
                   </div>
-                  <button onClick={shareTeamInviteCode} style={{ backgroundColor: colors.preventionTint, color: colors.preventionDark }} className="os-focus flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity">
-                    {teamInviteCopied ? <Check size={13} /> : <Copy size={13} />}{teamInviteCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Share' : 'Condividi')}
+                  <button onClick={shareTeamInviteCode} className="os-focus os-btn flex-shrink-0 px-3.5 py-2.5 text-xs" style={{ background: 'rgba(114,230,242,0.14)', color: LED_TEAL, border: `1px solid ${LED_TEAL}44` }}>
+                    {teamInviteCopied ? <Check size={13} weight="bold" /> : <Copy size={13} />}{teamInviteCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Share' : 'Condividi')}
                   </button>
                 </div>
 
                 {teamDashboardData.players && teamDashboardData.players.length > 0 && (
-                  <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
-                    <p style={{ ...displayFont, color: colors.ink }} className="text-[10px] font-semibold uppercase tracking-wide mb-3">{isEN ? 'Availability for the next match' : 'Disponibilità per la prossima partita'}</p>
-                    <div className="grid grid-cols-3 gap-2 mb-2.5">
-                      <div className="text-center">
-                        <p style={{ ...displayFont, color: colors.prevention }} className="text-2xl font-bold">{teamAvailabilityCounts.available}</p>
-                        <p style={{ color: colors.mutedInk }} className="text-[10px] uppercase font-semibold">{isEN ? 'Available' : 'Disponibili'}</p>
-                      </div>
-                      <div className="text-center">
-                        <p style={{ ...displayFont, color: colors.orange }} className="text-2xl font-bold">{teamAvailabilityCounts.doubtful}</p>
-                        <p style={{ color: colors.mutedInk }} className="text-[10px] uppercase font-semibold">{isEN ? 'Doubtful' : 'In dubbio'}</p>
-                      </div>
-                      <div className="text-center">
-                        <p style={{ ...displayFont, color: colors.red }} className="text-2xl font-bold">{teamAvailabilityCounts.out}</p>
-                        <p style={{ color: colors.mutedInk }} className="text-[10px] uppercase font-semibold">{isEN ? 'Out' : 'Fuori'}</p>
-                      </div>
+                  <div data-rv="" className="os-pitch-teal p-4 mb-5">
+                    <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[14px] font-bold mb-3">{isEN ? 'Availability for the next match' : 'Disponibilità per la prossima partita'}</p>
+                    <div className="relative grid grid-cols-3 gap-2 mb-2.5">
+                      {[
+                        { v: teamAvailabilityCounts.available, l: isEN ? 'Available' : 'Disponibili', c: LED_TEAL },
+                        { v: teamAvailabilityCounts.doubtful, l: isEN ? 'Doubtful' : 'In dubbio', c: colors.orange },
+                        { v: teamAvailabilityCounts.out, l: isEN ? 'Out' : 'Fuori', c: colors.red },
+                      ].map((s) => (
+                        <div key={s.l} className="os-well text-center py-2.5">
+                          <p style={{ fontFamily: BEBAS, color: s.c, textShadow: `0 0 12px ${s.c}66` }} className="text-[40px] leading-none os-tabular"><CountUp value={s.v} /></p>
+                          <p style={{ color: 'rgba(255,255,255,0.7)' }} className="text-[10px] uppercase font-semibold mt-1">{s.l}</p>
+                        </div>
+                      ))}
                     </div>
-                    <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">{isEN ? 'Indicative only — the medical staff always makes the final call.' : 'Solo indicativo — la decisione finale spetta sempre allo staff medico.'}</p>
+                    <p style={{ color: 'rgba(255,255,255,0.65)' }} className="relative text-[11.5px] leading-relaxed">{isEN ? 'Indicative only — the medical staff always makes the final call.' : 'Solo indicativo — la decisione finale spetta sempre allo staff medico.'}</p>
                   </div>
                 )}
 
                 {teamDashboardData.wellnessSummary && (teamDashboardData.wellnessSummary.rosso + teamDashboardData.wellnessSummary.giallo + teamDashboardData.wellnessSummary.verde) > 0 && (
-                  <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-5 shadow-sm">
-                    <div className="flex items-center gap-1.5 mb-3">
-                      <Gauge size={13} color={colors.ink} />
-                      <p style={{ ...displayFont, color: colors.ink }} className="text-[10px] font-semibold uppercase tracking-wide">{isEN ? 'Weekly wellness signal' : 'Monitoraggio settimanale'}</p>
-                    </div>
+                  <div data-rv="" className="os-panel p-4 mb-5">
+                    <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-1.5 text-[14px] font-bold mb-3"><Gauge size={15} color={LED_GREEN} />{isEN ? 'Weekly wellness signal' : 'Monitoraggio settimanale'}</p>
                     <div className="grid grid-cols-3 gap-2 mb-3">
-                      <div className="text-center">
-                        <p style={{ ...displayFont, color: colors.red }} className="text-2xl font-bold">{teamDashboardData.wellnessSummary.rosso}</p>
-                        <p style={{ color: colors.mutedInk }} className="text-[10px] uppercase font-semibold">{isEN ? 'To watch' : 'Da monitorare'}</p>
-                      </div>
-                      <div className="text-center">
-                        <p style={{ ...displayFont, color: colors.orange }} className="text-2xl font-bold">{teamDashboardData.wellnessSummary.giallo}</p>
-                        <p style={{ color: colors.mutedInk }} className="text-[10px] uppercase font-semibold">{isEN ? 'Attention' : 'Attenzione'}</p>
-                      </div>
-                      <div className="text-center">
-                        <p style={{ ...displayFont, color: colors.accent }} className="text-2xl font-bold">{teamDashboardData.wellnessSummary.verde}</p>
-                        <p style={{ color: colors.mutedInk }} className="text-[10px] uppercase font-semibold">{isEN ? 'OK' : 'OK'}</p>
-                      </div>
+                      {[
+                        { v: teamDashboardData.wellnessSummary.rosso, l: isEN ? 'To watch' : 'Da monitorare', c: colors.red },
+                        { v: teamDashboardData.wellnessSummary.giallo, l: isEN ? 'Attention' : 'Attenzione', c: colors.orange },
+                        { v: teamDashboardData.wellnessSummary.verde, l: 'OK', c: LED_GREEN },
+                      ].map((s) => (
+                        <div key={s.l} className="os-well text-center py-2.5">
+                          <p style={{ fontFamily: BEBAS, color: s.c, textShadow: `0 0 12px ${s.c}55` }} className="text-[36px] leading-none os-tabular"><CountUp value={s.v} /></p>
+                          <p style={{ color: colors.mutedInk }} className="text-[10px] uppercase font-semibold mt-1">{s.l}</p>
+                        </div>
+                      ))}
                     </div>
                     {wellnessToWatch.length > 0 && (
-                      <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-2.5 mb-2.5">
+                      <div className="os-well p-2.5 mb-2.5">
                         <p style={{ color: colors.ink }} className="text-xs leading-relaxed">
                           {isEN ? 'Worth checking in with: ' : 'Vale la pena chiedere come stanno a: '}
                           <strong>{wellnessToWatch.map((p) => p.name).join(', ')}</strong>
                         </p>
                       </div>
                     )}
-                    <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">
+                    <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed">
                       {isEN
                         ? 'Based on each player\'s optional daily check-in (sleep, soreness, training load) — a signal to ask how someone is doing, never a diagnosis.'
                         : 'Basato sul check-in giornaliero facoltativo di ognuno (sonno, indolenzimento, carico) — un segnale per chiedere come sta qualcuno, mai una diagnosi.'}
@@ -7199,29 +7861,29 @@ export default function Offside() {
                 )}
 
                 {teamDashboardData.trialActive && !teamDashboardData.isPaid && (
-                  <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}40` }} className="rounded-xl p-3.5 mb-5">
+                  <div data-rv="" className="os-panel-flat p-3.5 mb-5" style={{ borderColor: `${LED_TEAL}44` }}>
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p style={{ ...displayFont, color: colors.preventionDark }} className="text-xs font-semibold mb-0.5">{isEN ? 'Free trial' : 'Mese di prova'}</p>
+                        <p style={{ fontFamily: BRICOLAGE, color: LED_TEAL }} className="text-xs font-bold mb-0.5">{isEN ? 'Free trial' : 'Mese di prova'}</p>
                         <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">
                           {isEN
                             ? `${teamDashboardData.trialDaysLeft} ${teamDashboardData.trialDaysLeft === 1 ? 'day' : 'days'} left, then €50/month.`
                             : `${teamDashboardData.trialDaysLeft} ${teamDashboardData.trialDaysLeft === 1 ? 'giorno rimasto' : 'giorni rimasti'}, poi 50€/mese.`}
                         </p>
                       </div>
-                      <a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked_early')} style={{ color: colors.preventionDark }} className="os-focus flex-shrink-0 text-xs font-semibold underline hover:opacity-70">
+                      <a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked_early')} style={{ color: LED_TEAL }} className="os-focus flex-shrink-0 text-xs font-semibold underline hover:opacity-70">
                         {isEN ? 'Activate now' : 'Attiva ora'}
                       </a>
                     </div>
-                    <a href={STRIPE_TEAM_SEASON_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_season_pass_clicked_early')} style={{ color: colors.preventionDark }} className="os-focus block mt-1.5 text-[11px] font-semibold underline hover:opacity-70">
+                    <a href={STRIPE_TEAM_SEASON_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_season_pass_clicked_early')} style={{ color: LED_TEAL }} className="os-focus block mt-1.5 text-[11.5px] font-semibold underline hover:opacity-70">
                       {isEN ? `Or save with the Season Pass — ${TEAM_SEASON_PASS_PRICE}€ instead of ${TEAM_SEASON_FULL_PRICE}€` : `Oppure risparmia col Pass Stagionale — ${TEAM_SEASON_PASS_PRICE}€ invece di ${TEAM_SEASON_FULL_PRICE}€`}
                     </a>
                   </div>
                 )}
 
                 {teamDashboardData.seasonPassActive && (
-                  <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}40` }} className="rounded-xl p-3.5 mb-5">
-                    <p style={{ ...displayFont, color: colors.preventionDark }} className="text-xs font-semibold mb-0.5">{isEN ? 'Season Pass active' : 'Pass Stagionale attivo'}</p>
+                  <div data-rv="" className="os-panel-flat p-3.5 mb-5" style={{ borderColor: `${LED_TEAL}44` }}>
+                    <p style={{ fontFamily: BRICOLAGE, color: LED_TEAL }} className="text-xs font-bold mb-0.5">{isEN ? 'Season Pass active' : 'Pass Stagionale attivo'}</p>
                     <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">
                       {isEN
                         ? `Covered until ${new Date(teamDashboardData.paidUntil).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} — no further action needed.`
@@ -7229,10 +7891,12 @@ export default function Offside() {
                     </p>
                   </div>
                 )}
+                </div>
 
+                <div>
                 {(!teamDashboardData.players || teamDashboardData.players.length === 0) ? (
-                  <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-5 text-center">
-                    <UserPlus size={22} color={colors.mutedInk} className="mx-auto mb-2" />
+                  <div data-rv="" className="os-panel p-6 text-center">
+                    <div style={{ background: 'rgba(114,230,242,0.12)' }} className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3"><UserPlus size={24} color={LED_TEAL} /></div>
                     <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed">{isEN ? 'No players yet. Share the code above — each player enters it from their own Profile screen and chooses to share.' : 'Ancora nessun giocatore. Condividi il codice sopra — ogni giocatore lo inserisce dal proprio Profilo e sceglie di condividere.'}</p>
                   </div>
                 ) : (
@@ -7242,21 +7906,20 @@ export default function Offside() {
                       const phaseDetail = (injData && Array.isArray(injData.phases) && Number.isFinite(p.status.phaseIndex))
                         ? injData.phases[p.status.phaseIndex] || null
                         : null;
+                      const avail = classifyPlayerAvailability(p);
+                      const availColor = avail === 'available' ? LED_TEAL : avail === 'doubtful' ? colors.orange : colors.red;
                       return (
-                      <div key={p.playerId} style={{ backgroundColor: colors.card, border: `1px solid ${p.status?.needsAttention ? colors.orange : colors.hairline}` }} className="rounded-xl p-4 shadow-sm">
+                      <div key={p.playerId} data-rv="" className="os-panel p-4" style={p.status?.needsAttention ? { borderColor: `${colors.orange}88` } : undefined}>
                         <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span title={isEN ? 'Availability' : 'Disponibilità'} style={{ backgroundColor: availColor, boxShadow: `0 0 8px ${availColor}` }} className="flex-shrink-0 w-2.5 h-2.5 rounded-full" />
+                            <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold truncate">{p.name}</p>
                             {p.wellness && (p.wellness.level === 'rosso' || p.wellness.level === 'giallo') && (
-                              <span
-                                title={isEN ? 'Worth checking in with them' : 'Vale la pena chiedere come sta'}
-                                style={{ backgroundColor: p.wellness.level === 'rosso' ? colors.red : colors.orange }}
-                                className="flex-shrink-0 w-2 h-2 rounded-full"
-                              />
+                              <span title={isEN ? 'Worth checking in with them' : 'Vale la pena chiedere come sta'} style={{ color: p.wellness.level === 'rosso' ? colors.red : colors.orange, border: `1px solid ${(p.wellness.level === 'rosso' ? colors.red : colors.orange)}55` }} className="flex-shrink-0 inline-flex items-center gap-1 text-[9.5px] font-bold uppercase px-1.5 py-0.5 rounded-full"><Gauge size={10} />{isEN ? 'Check in' : 'Chiedi'}</span>
                             )}
-                            <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold truncate">{p.name}</p>
                           </div>
                           {p.status?.needsAttention && (
-                            <span style={{ backgroundColor: '#FDECD8', color: colors.orange }} className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full flex items-center gap-1"><AlertTriangle size={10} />{isEN ? 'Taking longer' : 'Recupero lungo'}</span>
+                            <span style={{ backgroundColor: 'rgba(255,178,92,0.14)', color: colors.orange }} className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full flex items-center gap-1"><AlertTriangle size={10} />{isEN ? 'Taking longer' : 'Recupero lungo'}</span>
                           )}
                         </div>
                         {!p.status || !p.status.injuryLabel ? (
@@ -7273,13 +7936,13 @@ export default function Offside() {
                               </p>
                             )}
                             {phaseDetail && (
-                              <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-2.5 mt-2">
+                              <div className="os-well p-2.5 mt-2">
                                 <p style={{ color: colors.ink }} className="text-xs leading-relaxed mb-1.5">{phaseDetail.why}</p>
                                 {Array.isArray(phaseDetail.exercises) && phaseDetail.exercises.length > 0 && (
                                   <ul>
                                     {phaseDetail.exercises.slice(0, 2).map((ex, i) => (
-                                      <li key={i} style={{ color: colors.mutedInk }} className="text-[11px] leading-snug flex items-start gap-1.5 mb-0.5">
-                                        <span style={{ color: colors.preventionDark }}>•</span>{ex.text}
+                                      <li key={i} style={{ color: colors.mutedInk }} className="text-[11.5px] leading-snug flex items-start gap-1.5 mb-0.5">
+                                        <span style={{ backgroundColor: LED_TEAL }} className="flex-shrink-0 w-1 h-1 rounded-full mt-[6px]" />{ex.text}
                                       </li>
                                     ))}
                                   </ul>
@@ -7291,50 +7954,57 @@ export default function Offside() {
                       </div>
                       );
                     })}
-                    <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed text-center pt-2">{isEN ? 'Recovery times are estimates based on typical cases, not a promise — every body heals differently.' : 'I tempi di recupero sono stime basate su casi tipici, non una promessa — ogni corpo guarisce a modo suo.'}</p>
+                    <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed text-center pt-2">{isEN ? 'Recovery times are estimates based on typical cases, not a promise — every body heals differently.' : 'I tempi di recupero sono stime basate su casi tipici, non una promessa — ogni corpo guarisce a modo suo.'}</p>
 
                     {teamDashboardData.teamStats && teamDashboardData.teamStats.totalEpisodes > 0 && (
-                      <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4">
-                        <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold mb-3">{isEN ? 'Team stats' : 'Statistiche di squadra'}</p>
-                        <div className="space-y-2 mb-2.5">
-                          {teamDashboardData.teamStats.topInjuries.map((item, i) => (
-                            <div key={i} className="flex items-center justify-between gap-3">
-                              <p style={{ color: colors.ink }} className="text-xs">{item.label}</p>
-                              <p style={{ ...displayFont, color: colors.preventionDark }} className="text-xs font-bold flex-shrink-0">{item.count}</p>
-                            </div>
-                          ))}
+                      <div data-rv="" className="os-panel p-4">
+                        <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold mb-3">{isEN ? 'Team stats' : 'Statistiche di squadra'}</p>
+                        <div className="space-y-2.5 mb-3">
+                          {(() => {
+                            const max = Math.max(1, ...teamDashboardData.teamStats.topInjuries.map((it) => it.count));
+                            return teamDashboardData.teamStats.topInjuries.map((item, i) => (
+                              <div key={i}>
+                                <div className="flex items-center justify-between gap-3 mb-1">
+                                  <p style={{ color: colors.ink }} className="text-xs">{item.label}</p>
+                                  <p style={{ fontFamily: BEBAS, color: LED_TEAL }} className="text-[16px] leading-none flex-shrink-0">{item.count}</p>
+                                </div>
+                                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                                  <div className="os-fill-in h-full rounded-full" style={{ width: '100%', transform: `scaleX(${item.count / max})`, background: colors.prevention, '--d': `${i * 120}ms` }} />
+                                </div>
+                              </div>
+                            ));
+                          })()}
                         </div>
                         {teamDashboardData.teamStats.avgResolvedDays != null && (
-                          <p style={{ color: colors.mutedInk, borderTop: `1px solid ${colors.hairline}` }} className="text-xs leading-relaxed pt-2.5 mb-2">
+                          <p style={{ color: colors.mutedInk, borderTop: '1px solid rgba(255,255,255,0.08)' }} className="text-xs leading-relaxed pt-2.5 mb-2">
                             {isEN ? `Average recovery time so far: ${teamDashboardData.teamStats.avgResolvedDays} days.` : `Tempo medio di recupero finora: ${teamDashboardData.teamStats.avgResolvedDays} giorni.`}
                           </p>
                         )}
-                        <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">{isEN ? 'Aggregated across the whole squad — never tied to a single player.' : 'Dati aggregati su tutta la squadra — mai riconducibili al singolo giocatore.'}</p>
+                        <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed">{isEN ? 'Aggregated across the whole squad — never tied to a single player.' : 'Dati aggregati su tutta la squadra — mai riconducibili al singolo giocatore.'}</p>
                       </div>
                     )}
                   </div>
                 )}
-              </>
+                </div>
+              </div>
             )}
           </div>
         )}
 
         {screen === 'physios' && (
           <div>
-            <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-5">
-              {isEN ? 'A directory of sports physiotherapists, to make it easier to find real help nearby. This is a simple listing, not a vetted or verified recommendation — always check credentials yourself.' : 'Un elenco di fisioterapisti sportivi, per rendere più facile trovare un aiuto vero vicino a te. È un semplice elenco, non una raccomandazione verificata — controlla sempre tu le credenziali.'}
-            </p>
+            <PageTitle title={isEN ? 'Physiotherapists' : 'Fisioterapisti'} sub={isEN ? 'A directory of sports physiotherapists, to make it easier to find real help nearby. This is a simple listing, not a vetted or verified recommendation — always check credentials yourself.' : 'Un elenco di fisioterapisti sportivi, per rendere più facile trovare un aiuto vero vicino a te. È un semplice elenco, non una raccomandazione verificata — controlla sempre tu le credenziali.'} />
 
-            <div className="relative mb-5">
-              <Search size={16} color={colors.mutedInk} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <div className="relative mb-5" data-rv="">
+              <Search size={17} color={colors.mutedInk} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={physioSearch}
                 onChange={(e) => setPhysioSearch(e.target.value)}
                 placeholder={isEN ? 'Search by city...' : 'Cerca per città...'}
-                style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }}
+                style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', color: colors.ink }}
                 aria-label={isEN ? 'Search physiotherapists by city' : 'Cerca fisioterapisti per città'}
-                className="os-focus w-full rounded-xl pl-10 pr-4 py-3 text-base"
+                className="os-focus w-full rounded-2xl pl-11 pr-4 py-3.5 text-base"
               />
             </div>
 
@@ -7342,12 +8012,13 @@ export default function Offside() {
               const filtered = physiosData.filter((p) => !physioSearch.trim() || p.city.toLowerCase().includes(physioSearch.trim().toLowerCase()));
               if (physiosData.length === 0) {
                 return (
-                  <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-2xl p-6 text-center shadow-sm">
-                    <div style={{ backgroundColor: colors.accentTint }} className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <Stethoscope size={26} color={colors.accentDark} />
+                  <div data-rv="" className="os-pitch p-7 text-center">
+                    <PitchArc size={190} />
+                    <div style={{ background: 'rgba(125,255,168,0.12)', border: `1px solid ${LED_GREEN}44`, boxShadow: `0 0 30px -10px ${LED_GREEN}` }} className="relative w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <Stethoscope size={28} color={LED_GREEN} />
                     </div>
-                    <p style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: colors.ink }} className="text-base font-bold mb-2">{isEN ? 'Coming soon' : 'Arriva presto'}</p>
-                    <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed">{isEN ? 'We\'re building this list one physiotherapist at a time. Check back soon.' : 'Stiamo costruendo questo elenco un fisioterapista alla volta. Torna a trovarci presto.'}</p>
+                    <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="relative text-[40px] leading-none mb-2">{isEN ? 'Coming soon' : 'Arriva presto'}</p>
+                    <p style={{ color: 'rgba(255,255,255,0.78)' }} className="relative text-sm leading-relaxed max-w-[30ch] mx-auto">{isEN ? 'We\'re building this list one physiotherapist at a time. Check back soon.' : 'Stiamo costruendo questo elenco un fisioterapista alla volta. Torna a trovarci presto.'}</p>
                   </div>
                 );
               }
@@ -7362,24 +8033,23 @@ export default function Offside() {
                     const href = p.contactType === 'instagram' ? `https://instagram.com/${p.contactValue.replace('@', '')}` : p.contactType === 'email' ? `mailto:${p.contactValue}` : p.contactType === 'phone' ? `tel:${p.contactValue}` : p.contactValue;
                     const ContactIcon = p.contactType === 'email' ? Mail : p.contactType === 'phone' ? Phone : ExternalLink;
                     return (
-                      <div key={p.id} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 shadow-sm">
+                      <div key={p.id} data-rv="" className="os-panel p-4">
                         <div className="flex items-start gap-3 mb-2.5">
-                          <div style={{ backgroundColor: colors.accentTint }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center">
-                            <Stethoscope size={20} color={colors.accentDark} />
+                          <div style={{ background: 'rgba(125,255,168,0.12)' }} className="flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center">
+                            <Stethoscope size={20} color={LED_GREEN} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p style={{ fontFamily: "'Bricolage Grotesque', sans-serif", color: colors.ink }} className="text-sm font-bold">{p.name}</p>
+                            <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold">{p.name}</p>
                             <p style={{ color: colors.mutedInk }} className="text-xs flex items-center gap-1"><MapPin size={11} />{p.city}</p>
                           </div>
                         </div>
-                        <span style={{ backgroundColor: colors.paper, color: colors.ink }} className="text-xs font-medium px-2.5 py-1 rounded-full inline-block mb-2.5">{p.specialization}</span>
+                        <span className="os-chip inline-flex mb-2.5">{p.specialization}</span>
                         {p.bio && <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-3">{p.bio}</p>}
                         <a
                           href={href}
                           target={p.contactType === 'instagram' || p.contactType === 'website' ? '_blank' : undefined}
                           rel="noopener noreferrer"
-                          style={{ backgroundColor: colors.accent, color: colors.onAccent }}
-                          className="os-focus w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold hover:opacity-90 transition-opacity"
+                          className="os-focus os-btn os-btn-primary w-full py-2.5 text-xs"
                         >
                           <ContactIcon size={13} />{isEN ? 'Contact' : 'Contatta'}
                         </a>
@@ -7390,7 +8060,7 @@ export default function Offside() {
               );
             })()}
 
-            <a href="mailto:manuelegusella@icloud.com?subject=Fisioterapista%20-%20Offside" style={{ color: colors.accentDark, borderTop: `1px solid ${colors.hairline}` }} className="os-focus flex items-center justify-center gap-1.5 mt-6 pt-4 text-xs font-medium hover:underline">
+            <a href="mailto:manuelegusella@icloud.com?subject=Fisioterapista%20-%20Offside" style={{ color: LED_GREEN, borderTop: '1px solid rgba(255,255,255,0.08)' }} className="os-focus flex items-center justify-center gap-1.5 mt-7 pt-5 text-xs font-semibold hover:underline">
               <Stethoscope size={13} />{isEN ? 'Are you a sports physiotherapist? Get in touch to be listed' : 'Sei un fisioterapista sportivo? Scrivimi per essere inserito'}
             </a>
           </div>
@@ -7398,6 +8068,7 @@ export default function Offside() {
 
         {screen === 'movementScreen' && (
           <div>
+            <PageTitle title={isEN ? 'Movement screening' : 'Screening del movimento'} right={<span style={{ background: 'rgba(114,230,242,0.12)', color: LED_TEAL }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full mb-1.5 inline-block">Beta</span>} />
             {!premiumUnlocked ? (
               <PremiumLockCard
                 icon={Camera}
@@ -7418,39 +8089,32 @@ export default function Offside() {
                   />
                 )}
 
-                <div style={{ backgroundColor: colors.preventionPaper, border: `1px solid ${colors.prevention}30` }} className="rounded-2xl p-4 mb-6">
-                  <p style={{ color: colors.ink }} className="text-sm leading-relaxed">
+                <div data-rv="" className="os-panel-flat p-4 mb-6" style={{ borderColor: `${LED_TEAL}33`, background: 'rgba(114,230,242,0.05)' }}>
+                  <p style={{ color: colors.ink }} className="text-[13.5px] leading-relaxed">
                     {isEN
                       ? 'A quick, indicative screening of movement symmetry and control, meant to help you notice compensations early — it\'s not a clinical assessment and doesn\'t replace a physiotherapist\'s judgment. Everything runs on your phone: the video is never recorded or sent anywhere, not even to us.'
                       : 'Uno screening rapido e indicativo di simmetria e controllo del movimento, pensato per aiutarti a notare per tempo eventuali compensi — non è una valutazione clinica e non sostituisce il giudizio di un fisioterapista. Tutta l\'analisi avviene sul tuo telefono: il video non viene mai registrato né inviato da nessuna parte, nemmeno a noi.'}
                   </p>
                 </div>
 
-                <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Choose a test' : 'Scegli un test'}</p>
-                <div className="space-y-2.5 mb-7">
-                  <button onClick={() => { trackEvent('movement_test_started', { test: 'squat' }); setMovementActive('squat'); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-3.5 rounded-2xl p-4 text-left shadow-sm hover:opacity-90 transition-opacity">
-                    <div style={{ backgroundColor: colors.preventionTint }} className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center">
-                      <Dumbbell size={22} color={colors.preventionDark} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-bold mb-0.5">{isEN ? 'Bodyweight squat' : 'Squat a corpo libero'}</p>
-                      <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'Checks knee symmetry and control over a few reps.' : 'Analizza simmetria e controllo del ginocchio durante alcune ripetizioni.'}</p>
-                    </div>
-                    <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0" />
-                  </button>
-                  <button onClick={() => { trackEvent('movement_test_started', { test: 'balance' }); setMovementActive('balance'); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="os-focus w-full flex items-center gap-3.5 rounded-2xl p-4 text-left shadow-sm hover:opacity-90 transition-opacity">
-                    <div style={{ backgroundColor: colors.preventionTint }} className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center">
-                      <Scale size={22} color={colors.preventionDark} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-bold mb-0.5">{isEN ? 'Single-leg balance' : 'Equilibrio monopodalico'}</p>
-                      <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? '10 seconds on each leg, comparing stability side to side.' : '10 secondi su ciascuna gamba, per confrontare la stabilità tra i due lati.'}</p>
-                    </div>
-                    <ChevronRight size={18} color={colors.mutedInk} className="flex-shrink-0" />
-                  </button>
+                <SectionTitle title={isEN ? 'Choose a test' : 'Scegli un test'} />
+                <div className="grid grid-cols-2 gap-3 mb-8">
+                  {[
+                    { test: 'squat', icon: Dumbbell, title: isEN ? 'Bodyweight squat' : 'Squat a corpo libero', text: isEN ? 'Checks knee symmetry and control over a few reps.' : 'Analizza simmetria e controllo del ginocchio durante alcune ripetizioni.' },
+                    { test: 'balance', icon: Scale, title: isEN ? 'Single-leg balance' : 'Equilibrio monopodalico', text: isEN ? '10 seconds on each leg, comparing stability side to side.' : '10 secondi su ciascuna gamba, per confrontare la stabilità tra i due lati.' },
+                  ].map((t) => (
+                    <button key={t.test} data-rv="" onClick={() => { trackEvent('movement_test_started', { test: t.test }); setMovementActive(t.test); }} className="os-focus os-press [--press:0.97] os-pitch-teal flex flex-col justify-between gap-6 p-4 text-left min-h-[176px]">
+                      <span style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${LED_TEAL}44` }} className="relative w-12 h-12 rounded-2xl flex items-center justify-center"><t.icon size={22} color={LED_TEAL} /></span>
+                      <span className="relative">
+                        <span style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="block text-[15px] font-bold leading-tight mb-1">{t.title}</span>
+                        <span style={{ color: 'rgba(255,255,255,0.72)' }} className="block text-[11.5px] leading-snug">{t.text}</span>
+                      </span>
+                      <span className="absolute top-4 right-4"><Play size={15} color={LED_TEAL} weight="fill" /></span>
+                    </button>
+                  ))}
                 </div>
 
-                <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'History' : 'Storico'}</p>
+                <SectionTitle title={isEN ? 'History' : 'Storico'} />
                 {movementScreenings.length === 0 ? (
                   <p style={{ color: colors.mutedInk }} className="text-sm text-center py-6">{isEN ? 'No screenings yet — try one above.' : 'Nessuno screening ancora — provane uno qui sopra.'}</p>
                 ) : (
@@ -7460,12 +8124,12 @@ export default function Offside() {
                       const copy = movementVerdictCopy(entry.test, entry.result, isEN);
                       const VIcon = meta.Icon;
                       return (
-                        <div key={entry.id} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-3.5 flex items-center gap-3">
-                          <div style={{ backgroundColor: meta.tint }} className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center">
-                            <VIcon size={16} color={meta.color} />
+                        <div key={entry.id} data-rv="" className="os-panel-flat p-3.5 flex items-center gap-3">
+                          <div style={{ backgroundColor: meta.tint }} className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center">
+                            <VIcon size={17} color={meta.color} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p style={{ color: colors.ink }} className="text-sm font-medium">{entry.test === 'squat' ? (isEN ? 'Squat' : 'Squat') : (isEN ? 'Balance' : 'Equilibrio')} <span style={{ color: colors.mutedInk }} className="font-normal">· {entry.date}</span></p>
+                            <p style={{ color: colors.ink }} className="text-sm font-semibold">{entry.test === 'squat' ? (isEN ? 'Squat' : 'Squat') : (isEN ? 'Balance' : 'Equilibrio')} <span style={{ color: colors.mutedInk }} className="font-normal">· {entry.date}</span></p>
                             <p style={{ color: meta.color }} className="text-xs font-semibold">{copy.title}</p>
                           </div>
                         </div>
@@ -7478,119 +8142,125 @@ export default function Offside() {
           </div>
         )}
 
-        {screen === 'profile' && (
+        {screen === 'profile' && (() => {
+          const chip = (on) => ({ background: on ? 'rgba(125,255,168,0.16)' : 'rgba(255,255,255,0.04)', color: on ? LED_GREEN : colors.ink, border: `1px solid ${on ? LED_GREEN + '88' : 'rgba(255,255,255,0.1)'}`, boxShadow: on ? `0 0 14px -6px ${LED_GREEN}` : 'none' });
+          const inputStyle = { backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', color: colors.ink };
+          const levelLabel = playerLevels.find((l) => l.key === userProfile.level)?.label;
+          const posLabel = playerPosition ? playerPositions.find((p) => p.key === playerPosition)?.label : null;
+          return (
           <div>
-            <div className="flex items-center justify-between gap-3 mb-6">
-              <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Language' : 'Lingua'}</p>
-              <div role="radiogroup" aria-label={isEN ? 'Language' : 'Lingua'} style={{ backgroundColor: colors.laneBg }} className="flex gap-1 p-1 rounded-xl">
-                {[{ key: 'it', label: 'Italiano' }, { key: 'en', label: 'English' }].map((opt) => {
-                  const on = (isEN ? 'en' : 'it') === opt.key;
-                  return (
-                    <button key={opt.key} role="radio" aria-checked={on} lang={opt.key} onClick={() => { setLanguage(opt.key); persist(snapshot({ language: opt.key })); }} style={{ backgroundColor: on ? colors.card : 'transparent', color: on ? colors.accentDark : colors.mutedInk, boxShadow: on ? '0 1px 3px rgba(16,27,38,0.14)' : 'none' }} className="os-focus os-press px-3.5 min-h-[36px] rounded-lg text-xs font-semibold">
-                      {opt.label}
-                    </button>
-                  );
-                })}
+            <PageTitle title={isEN ? 'Your profile' : 'Il tuo profilo'} />
+            <div data-rv="" className="os-pitch os-floodsweep p-5 mb-6 flex items-center gap-4">
+              <PitchArc size={170} />
+              <div className="relative flex-shrink-0 w-[72px] h-[84px] rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(180deg, #1A4D3B, #0E3024)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12)' }}>
+                <span style={{ fontFamily: BEBAS, color: playerPosition ? colors.premiumGold : 'rgba(255,255,255,0.85)' }} className="text-[46px] leading-none">{playerPosition ? (POSITION_NUMBERS[playerPosition] || '') : <User size={30} color="rgba(255,255,255,0.8)" />}</span>
+              </div>
+              <div className="relative min-w-0">
+                <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[30px] leading-[0.95]">{posLabel || (isEN ? 'Player' : 'Giocatore')}</p>
+                <p style={{ color: 'rgba(255,255,255,0.75)' }} className="text-[13px] mt-1">{levelLabel || (isEN ? 'Level not set' : 'Livello non impostato')}</p>
+                {(userProfile.age || userProfile.height || userProfile.weight) && (
+                  <p style={{ fontFamily: BEBAS, color: LED_GREEN, letterSpacing: '0.06em' }} className="text-[16px] mt-1.5">
+                    {[userProfile.age && `${userProfile.age} ${isEN ? 'Y' : 'ANNI'}`, userProfile.height && `${userProfile.height} CM`, userProfile.weight && `${userProfile.weight} KG`].filter(Boolean).join(' · ')}
+                  </p>
+                )}
               </div>
             </div>
-            <p style={{ color: colors.mutedInk }} className="text-sm mb-6 leading-relaxed">
+
+            <div className="flex items-center justify-between gap-3 mb-5" data-rv="">
+              <p className="os-label" style={{ color: colors.mutedInk }}>{isEN ? 'Language' : 'Lingua'}</p>
+              <Segmented items={[{ key: 'it', label: 'Italiano', lang: 'it' }, { key: 'en', label: 'English', lang: 'en' }]} value={isEN ? 'en' : 'it'} onChange={pickLanguage} role="radiogroup" ariaLabel={isEN ? 'Language' : 'Lingua'} size="sm" className="w-[190px]" />
+            </div>
+            <p style={{ color: colors.mutedInk }} className="text-[13px] mb-5 leading-relaxed" data-rv="">
               {isEN ? 'Optional — helps make the app feel a bit more yours, and gets added to your printable summary for a professional. Stays only on this device.' : 'Facoltativo — aiuta a rendere l\'app un po\' più tua, e viene aggiunto al riepilogo stampabile per un professionista. Resta solo su questo dispositivo.'}
             </p>
 
-            <div className="grid grid-cols-3 gap-2.5 mb-5">
+            <div className="grid grid-cols-3 gap-2.5 mb-6" data-rv="">
               <div>
-                <label htmlFor="pf-age" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Age' : 'Età'}</label>
-                <input id="pf-age" type="number" inputMode="numeric" min="5" max="99" value={userProfile.age} onChange={(e) => { const next = { ...userProfile, age: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-2.5 py-2.5 text-base text-center" placeholder="—" />
+                <label htmlFor="pf-age" style={{ color: colors.mutedInk }} className="os-label block mb-1.5">{isEN ? 'Age' : 'Età'}</label>
+                <input id="pf-age" type="number" inputMode="numeric" min="5" max="99" value={userProfile.age} onChange={(e) => { const next = { ...userProfile, age: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={inputStyle} className="os-focus w-full rounded-xl px-2.5 py-3 text-base text-center" placeholder="—" />
               </div>
               <div>
-                <label htmlFor="pf-weight" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Weight (kg)' : 'Peso (kg)'}</label>
-                <input id="pf-weight" type="number" inputMode="numeric" min="20" max="200" value={userProfile.weight} onChange={(e) => { const next = { ...userProfile, weight: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-2.5 py-2.5 text-base text-center" placeholder="—" />
+                <label htmlFor="pf-weight" style={{ color: colors.mutedInk }} className="os-label block mb-1.5">{isEN ? 'Weight (kg)' : 'Peso (kg)'}</label>
+                <input id="pf-weight" type="number" inputMode="numeric" min="20" max="200" value={userProfile.weight} onChange={(e) => { const next = { ...userProfile, weight: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={inputStyle} className="os-focus w-full rounded-xl px-2.5 py-3 text-base text-center" placeholder="—" />
               </div>
               <div>
-                <label htmlFor="pf-height" style={{ ...displayFont, color: colors.mutedInk }} className="text-[10px] font-semibold uppercase block mb-1.5">{isEN ? 'Height (cm)' : 'Altezza (cm)'}</label>
-                <input id="pf-height" type="number" inputMode="numeric" min="100" max="220" value={userProfile.height} onChange={(e) => { const next = { ...userProfile, height: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-2.5 py-2.5 text-base text-center" placeholder="—" />
+                <label htmlFor="pf-height" style={{ color: colors.mutedInk }} className="os-label block mb-1.5">{isEN ? 'Height (cm)' : 'Altezza (cm)'}</label>
+                <input id="pf-height" type="number" inputMode="numeric" min="100" max="220" value={userProfile.height} onChange={(e) => { const next = { ...userProfile, height: e.target.value }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={inputStyle} className="os-focus w-full rounded-xl px-2.5 py-3 text-base text-center" placeholder="—" />
               </div>
             </div>
 
-            <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Sex' : 'Sesso'}</p>
-            <div className="flex flex-wrap gap-2 mb-5">
+            <p className="os-label mb-2.5" style={{ color: colors.mutedInk }}>{isEN ? 'Sex' : 'Sesso'}</p>
+            <div className="flex flex-wrap gap-2 mb-6" data-rv="">
               {[{ key: 'm', label: isEN ? 'Male' : 'Maschio' }, { key: 'f', label: isEN ? 'Female' : 'Femmina' }, { key: 'na', label: isEN ? 'Prefer not to say' : 'Preferisco non dire' }].map((opt) => (
-                <button aria-pressed={userProfile.sex === opt.key} key={opt.key} onClick={() => { const next = { ...userProfile, sex: opt.key }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: userProfile.sex === opt.key ? colors.accent : colors.card, color: userProfile.sex === opt.key ? colors.onAccent : colors.ink, border: `1px solid ${userProfile.sex === opt.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                <button aria-pressed={userProfile.sex === opt.key} key={opt.key} onClick={() => { haptic(8); const next = { ...userProfile, sex: opt.key }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={chip(userProfile.sex === opt.key)} className="os-focus os-press px-3.5 py-2 rounded-full text-xs font-semibold">
                   {opt.label}
                 </button>
               ))}
             </div>
 
-            <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2.5">{isEN ? 'Playing level' : 'Livello di gioco'}</p>
-            <div className="flex flex-wrap gap-2 mb-5">
+            <p className="os-label mb-2.5" style={{ color: colors.mutedInk }}>{isEN ? 'Playing level' : 'Livello di gioco'}</p>
+            <div className="flex flex-wrap gap-2 mb-6" data-rv="">
               {playerLevels.map((lvl) => (
-                <button aria-pressed={userProfile.level === lvl.key} key={lvl.key} onClick={() => { const next = { ...userProfile, level: lvl.key }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={{ backgroundColor: userProfile.level === lvl.key ? colors.accent : colors.card, color: userProfile.level === lvl.key ? colors.onAccent : colors.ink, border: `1px solid ${userProfile.level === lvl.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
+                <button aria-pressed={userProfile.level === lvl.key} key={lvl.key} onClick={() => { haptic(8); const next = { ...userProfile, level: lvl.key }; setUserProfile(next); persist(snapshot({ userProfile: next })); }} style={chip(userProfile.level === lvl.key)} className="os-focus os-press px-3.5 py-2 rounded-full text-xs font-semibold">
                   {lvl.label}
                 </button>
               ))}
             </div>
 
             <div className="flex items-center gap-2 mb-2.5">
-              {!premiumUnlocked && <Lock size={12} color={colors.premiumGold} />}
-              <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Position' : 'Ruolo'}{!premiumUnlocked ? ' (Premium)' : ''}</p>
+              {!premiumUnlocked && <Lock size={12} color={colors.premiumGold} weight="fill" />}
+              <p className="os-label" style={{ color: colors.mutedInk }}>{isEN ? 'Position' : 'Ruolo'}{!premiumUnlocked ? ' (Premium)' : ''}</p>
             </div>
             {!premiumUnlocked ? (
-              <button onClick={() => setScreen('premium')} className="os-focus w-full text-left">
+              <button onClick={() => setScreen('premium')} className="os-focus w-full text-left rounded-xl" data-rv="">
                 <div className="relative mb-2">
                   <div style={{ filter: 'blur(4px)', pointerEvents: 'none' }} className="flex flex-wrap gap-2" aria-hidden="true">
                     {playerPositions.map((pos) => (
-                      <div key={pos.key} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="px-3 py-1.5 rounded-full text-xs font-medium">{pos.label}</div>
+                      <div key={pos.key} style={chip(false)} className="px-3.5 py-2 rounded-full text-xs font-semibold">{pos.label}</div>
                     ))}
                   </div>
-                  <div className="absolute inset-0 flex items-center justify-center rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}>
-                    <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full shadow-sm">{isEN ? 'Unlock' : 'Sblocca'}</span>
+                  <div className="absolute inset-0 flex items-center justify-center rounded-lg" style={{ backgroundColor: 'rgba(4,10,7,0.4)' }}>
+                    <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-full shadow-lg">{isEN ? 'Unlock' : 'Sblocca'}</span>
                   </div>
                 </div>
               </button>
             ) : (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {playerPositions.map((pos) => (
-                  <button aria-pressed={playerPosition === pos.key} key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.card, color: playerPosition === pos.key ? colors.onAccent : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
-                    {pos.label}
-                  </button>
-                ))}
+              <div className="mb-2" data-rv="">
+                <PositionPicker positions={playerPositions} value={playerPosition} onPick={(k) => { setPlayerPosition(k); persist(snapshot({ playerPosition: k })); }} />
               </div>
             )}
-            <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">{isEN ? 'Used for role-specific training in Premium, and for return-to-play tips in your recovery.' : 'Usato per l\'allenamento per ruolo in Premium, e per i consigli sul rientro nel tuo percorso.'}</p>
+            <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed">{isEN ? 'Used for role-specific training in Premium, and for return-to-play tips in your recovery.' : 'Usato per l\'allenamento per ruolo in Premium, e per i consigli sul rientro nel tuo percorso.'}</p>
 
-            <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="pt-5 mt-6">
-              <div className="flex items-center gap-2 mb-2.5">
-                <Users size={14} color={colors.ink} />
-                <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide">{isEN ? 'Team' : 'Squadra'}</p>
-              </div>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} className="pt-6 mt-7">
+              <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-2 text-[17px] font-bold mb-3"><Users size={17} color={LED_TEAL} />{isEN ? 'Team' : 'Squadra'}</p>
 
               {myTeamMembership ? (
-                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-3.5">
-                  <p style={{ color: colors.ink }} className="text-sm font-medium mb-1">{isEN ? 'Connected to' : 'Collegato a'}: {myTeamMembership.teamName}</p>
+                <div data-rv="" className="os-panel p-4">
+                  <p style={{ color: colors.ink }} className="text-sm font-semibold mb-1">{isEN ? 'Connected to' : 'Collegato a'}: {myTeamMembership.teamName}</p>
                   <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed mb-3">{isEN ? `Sharing as "${myTeamMembership.playerName}": your injury name, phase, estimated recovery time and — only if you fill in the daily check-in above — a summary wellness level (green/amber/red). Your daily journal, feelings and check-in answers are never shared.` : `Stai condividendo come "${myTeamMembership.playerName}": nome dell'infortunio, fase, stima di recupero e — solo se compili il check-in giornaliero qui sopra — un livello di benessere riassuntivo (verde/giallo/rosso). Il tuo diario giornaliero, le tue sensazioni e le risposte del check-in non vengono mai condivisi.`}</p>
                   <button
                     onClick={() => { if (confirmingTeamRevoke) { revokeTeamConsent(); setConfirmingTeamRevoke(false); } else { setConfirmingTeamRevoke(true); } }}
                     onBlur={() => setConfirmingTeamRevoke(false)}
                     style={{ color: confirmingTeamRevoke ? colors.red : colors.mutedInk }}
-                    className="os-focus text-xs font-medium underline hover:opacity-70"
+                    className="os-focus text-xs font-semibold underline hover:opacity-70"
                   >
                     {confirmingTeamRevoke ? (isEN ? 'Tap to confirm' : 'Tocca per confermare') : (isEN ? 'Revoke consent' : 'Revoca consenso')}
                   </button>
                 </div>
               ) : !showJoinTeamBox ? (
-                <button onClick={() => setShowJoinTeamBox(true)} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70">
-                  {isEN ? 'Followed by a team physio or trainer? Enter the code' : 'Fai parte di una squadra seguita da un fisio o preparatore? Inserisci il codice'}
+                <button onClick={() => setShowJoinTeamBox(true)} className="os-focus os-btn os-btn-ghost w-full py-3 text-[12.5px]" data-rv="">
+                  <UserPlus size={15} color={LED_TEAL} />{isEN ? 'Followed by a team physio or trainer? Enter the code' : 'Fai parte di una squadra seguita da un fisio o preparatore? Inserisci il codice'}
                 </button>
               ) : (
-                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-3.5">
-                  <input type="text" aria-label={isEN ? 'Team code' : 'Codice squadra'} value={joinTeamCode} onChange={(e) => { setJoinTeamCode(e.target.value.toUpperCase()); setJoinTeamStatus('idle'); }} placeholder={isEN ? 'Team code' : 'Codice squadra'} style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink, letterSpacing: '0.08em' }} className="os-focus w-full rounded-lg px-3 py-2.5 text-base mb-2 uppercase" />
-                  <input type="text" autoComplete="nickname" aria-label={isEN ? 'Your name or nickname' : 'Il tuo nome o soprannome'} value={joinTeamPlayerName} onChange={(e) => { setJoinTeamPlayerName(e.target.value); setJoinTeamStatus('idle'); }} placeholder={isEN ? 'Your name or nickname' : 'Il tuo nome o soprannome'} maxLength={40} style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="os-focus w-full rounded-lg px-3 py-2.5 text-base mb-3" />
+                <div data-rv="" className="os-panel p-4">
+                  <input type="text" aria-label={isEN ? 'Team code' : 'Codice squadra'} value={joinTeamCode} onChange={(e) => { setJoinTeamCode(e.target.value.toUpperCase()); setJoinTeamStatus('idle'); }} placeholder={isEN ? 'Team code' : 'Codice squadra'} style={{ ...inputStyle, letterSpacing: '0.08em' }} className="os-focus w-full rounded-xl px-3.5 py-3 text-base mb-2 uppercase" />
+                  <input type="text" autoComplete="nickname" aria-label={isEN ? 'Your name or nickname' : 'Il tuo nome o soprannome'} value={joinTeamPlayerName} onChange={(e) => { setJoinTeamPlayerName(e.target.value); setJoinTeamStatus('idle'); }} placeholder={isEN ? 'Your name or nickname' : 'Il tuo nome o soprannome'} maxLength={40} style={inputStyle} className="os-focus w-full rounded-xl px-3.5 py-3 text-base mb-3" />
 
-                  <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-3 mb-3">
+                  <div className="os-well p-3 mb-3">
                     <p style={{ color: colors.ink }} className="text-xs font-semibold mb-1.5">{isEN ? 'What gets shared with your team:' : 'Cosa viene condiviso con la squadra:'}</p>
                     <ul className="mb-2">
                       {[isEN ? 'Injury name' : 'Nome dell\'infortunio', isEN ? 'Recovery phase' : 'Fase di recupero', isEN ? 'Indicative recovery estimate' : 'Stima indicativa di recupero', isEN ? 'A summary wellness level (green/amber/red), only if you use the daily check-in' : 'Un livello di benessere riassuntivo (verde/giallo/rosso), solo se usi il check-in giornaliero'].map((t, i) => (
-                        <li key={i} style={{ color: colors.mutedInk }} className="text-xs flex items-start gap-1.5 mb-1"><CheckCircle2 size={12} color={colors.accentDark} className="flex-shrink-0 mt-0.5" />{t}</li>
+                        <li key={i} style={{ color: colors.mutedInk }} className="text-xs flex items-start gap-1.5 mb-1"><CheckCircle2 size={12} color={LED_GREEN} className="flex-shrink-0 mt-0.5" />{t}</li>
                       ))}
                     </ul>
                     <p style={{ color: colors.ink }} className="text-xs font-semibold mb-1.5">{isEN ? 'Never shared:' : 'Mai condiviso:'}</p>
@@ -7599,168 +8269,182 @@ export default function Offside() {
                         <li key={i} style={{ color: colors.mutedInk }} className="text-xs flex items-start gap-1.5 mb-1"><X size={12} color={colors.red} className="flex-shrink-0 mt-0.5" />{t}</li>
                       ))}
                     </ul>
-                    <p style={{ color: colors.mutedInk, borderTop: `1px solid ${colors.hairline}` }} className="text-[11px] leading-relaxed mt-2 pt-2">{isEN ? 'This also feeds anonymous, team-wide statistics (e.g. "3 ankle injuries this season") — never attributed to your name.' : 'Questi dati alimentano anche statistiche aggregate e anonime della squadra (es. "3 infortuni alla caviglia in stagione") — mai attribuite al tuo nome.'}</p>
+                    <p style={{ color: colors.mutedInk, borderTop: '1px solid rgba(255,255,255,0.08)' }} className="text-[11px] leading-relaxed mt-2 pt-2">{isEN ? 'This also feeds anonymous, team-wide statistics (e.g. "3 ankle injuries this season") — never attributed to your name.' : 'Questi dati alimentano anche statistiche aggregate e anonime della squadra (es. "3 infortuni alla caviglia in stagione") — mai attribuite al tuo nome.'}</p>
                   </div>
 
-                  <button onClick={() => setJoinTeamConsent(!joinTeamConsent)} role="checkbox" aria-checked={joinTeamConsent} className="os-focus w-full flex items-start gap-2.5 mb-3 text-left">
-                    <div style={{ backgroundColor: joinTeamConsent ? colors.accent : colors.card, border: `1.5px solid ${joinTeamConsent ? colors.accent : colors.hairline}` }} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5">
-                      {joinTeamConsent && <Check size={13} color="#FFFFFF" strokeWidth={3} />}
-                    </div>
-                    <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'I agree to share this summary with my team\'s physio/trainer. I can revoke this at any time.' : 'Accetto di condividere questo riepilogo con il fisio/preparatore della squadra. Posso revocarlo in qualsiasi momento.'}</p>
+                  <button onClick={() => setJoinTeamConsent(!joinTeamConsent)} role="checkbox" aria-checked={joinTeamConsent} className="os-focus w-full flex items-start gap-3 mb-3 text-left rounded-lg">
+                    <span style={{ background: joinTeamConsent ? LED_GREEN : 'rgba(255,255,255,0.05)', border: `1.5px solid ${joinTeamConsent ? LED_GREEN : 'rgba(255,255,255,0.25)'}` }} className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center mt-0.5">
+                      {joinTeamConsent && <Check size={14} color="#03130A" weight="bold" className="os-check-pop" />}
+                    </span>
+                    <span style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'I agree to share this summary with my team\'s physio/trainer. I can revoke this at any time.' : 'Accetto di condividere questo riepilogo con il fisio/preparatore della squadra. Posso revocarlo in qualsiasi momento.'}</span>
                   </button>
 
                   <div className="flex gap-2">
-                    <button onClick={joinTeam} disabled={joinTeamStatus === 'submitting'} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus flex-1 rounded-lg py-2.5 text-xs font-semibold">
+                    <button onClick={joinTeam} disabled={joinTeamStatus === 'submitting'} className="os-focus os-btn os-btn-primary flex-1 py-3 text-xs">
                       {joinTeamStatus === 'submitting' ? '...' : (isEN ? 'Confirm' : 'Conferma')}
                     </button>
                     <button onClick={() => { setShowJoinTeamBox(false); setJoinTeamStatus('idle'); }} style={{ color: colors.mutedInk }} className="os-focus px-3 text-xs">{isEN ? 'Cancel' : 'Annulla'}</button>
                   </div>
-                  {joinTeamStatus === 'notfound' && <p style={{ color: colors.red }} className="text-xs mt-2">{isEN ? 'Invalid code. Check it with your physio/trainer.' : 'Codice non valido. Controlla con il tuo fisio/preparatore.'}</p>}
-                  {joinTeamStatus === 'error' && <p style={{ color: colors.red }} className="text-xs mt-2">{isEN ? 'Enter the code, your name, and confirm consent.' : 'Inserisci il codice, il tuo nome e conferma il consenso.'}</p>}
+                  {joinTeamStatus === 'notfound' && <p style={{ color: colors.red }} className="text-xs mt-2 os-fadein">{isEN ? 'Invalid code. Check it with your physio/trainer.' : 'Codice non valido. Controlla con il tuo fisio/preparatore.'}</p>}
+                  {joinTeamStatus === 'error' && <p style={{ color: colors.red }} className="text-xs mt-2 os-fadein">{isEN ? 'Enter the code, your name, and confirm consent.' : 'Inserisci il codice, il tuo nome e conferma il consenso.'}</p>}
                 </div>
               )}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {screen === 'firstaid' && (
           <div>
-            <p style={{ color: colors.mutedInk }} className="text-sm mb-5 leading-relaxed">
-              {isEN ? 'In the first few minutes after an injury, this advice applies almost always, whatever the affected area.' : 'Nei primi minuti dopo un infortunio, queste indicazioni valgono quasi sempre, qualunque sia la zona colpita.'}
-            </p>
-            <div className="space-y-3 mb-6">
-              {riceSteps.map((step, i) => (
-                <div key={i} style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 flex gap-3 shadow-sm">
-                  <div style={{ backgroundColor: colors.accentTint }} className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center relative">
-                    <step.icon size={20} color={colors.accentDark} strokeWidth={2} />
-                    <span style={{ ...displayFont, backgroundColor: colors.accent, color: colors.onAccent }} className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shadow-sm">{step.letter}</span>
-                  </div>
-                  <div className="flex-1">
-                    <p style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold mb-0.5">{step.title}</p>
-                    <p style={{ color: colors.mutedInk }} className="text-sm leading-snug">{step.text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <PageTitle title={isEN ? 'First aid' : 'Primi soccorsi'} sub={isEN ? 'In the first few minutes after an injury, this advice applies almost always, whatever the affected area.' : 'Nei primi minuti dopo un infortunio, queste indicazioni valgono quasi sempre, qualunque sia la zona colpita.'} />
+            <div className="mb-6">{renderRedFlagsBar()}</div>
 
-            <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-xl p-4 mb-6 shadow-sm">
-              <p style={{ ...displayFont, color: colors.ink }} className="text-xs font-semibold uppercase tracking-wide mb-2">{isEN ? 'Avoid in the first hours' : 'Da evitare nelle prime ore'}</p>
-              <ul className="space-y-1">
+            <ol className="relative mb-7">
+              <span aria-hidden="true" className="absolute left-[27px] top-6 bottom-6 w-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
+              <span aria-hidden="true" className="os-fill-in absolute left-[27px] top-6 bottom-6 w-0.5 rounded-full" style={{ background: `linear-gradient(180deg, ${LED_GREEN}, ${colors.accent})`, boxShadow: `0 0 10px ${LED_GREEN}`, transformOrigin: 'top center', transform: 'scaleY(1)', animationName: 'os-draw-y', '--d': '200ms' }} />
+              {riceSteps.map((step, i) => (
+                <li key={i} data-rv="" className="relative flex gap-4 pb-4 last:pb-0">
+                  <span className="relative z-10 flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(180deg, #123A2C, #08180F)', border: `1.5px solid ${LED_GREEN}66`, boxShadow: `0 0 22px -6px ${LED_GREEN}` }}>
+                    <span style={{ fontFamily: BEBAS, color: LED_GREEN, textShadow: `0 0 14px ${LED_GREEN}AA` }} className="text-[34px] leading-none">{step.letter}</span>
+                  </span>
+                  <div className="os-panel flex-1 min-w-0 p-4">
+                    <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-2 text-[16px] font-bold mb-1"><step.icon size={17} color={LED_GREEN} />{step.title}</p>
+                    <p style={{ color: colors.mutedInk }} className="text-[13.5px] leading-snug">{step.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+
+            <div data-rv="" className="os-pitch-red p-5 mb-7">
+              <p style={{ fontFamily: BRICOLAGE, color: '#FFD0CB' }} className="relative flex items-center gap-2 text-[16px] font-bold mb-3"><X size={17} color={colors.red} weight="bold" />{isEN ? 'Avoid in the first hours' : 'Da evitare nelle prime ore'}</p>
+              <ul className="relative space-y-2.5">
                 {riceAvoid.map((item, i) => (
-                  <li key={i} style={{ color: colors.mutedInk }} className="text-sm flex gap-2"><span className="text-red-500">—</span><span>{item}</span></li>
+                  <li key={i} style={{ color: colors.ink }} className="text-[13.5px] leading-snug flex gap-2.5"><span style={{ backgroundColor: colors.red, boxShadow: `0 0 8px ${colors.red}` }} className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-[7px]" /><span>{item}</span></li>
                 ))}
               </ul>
             </div>
 
-            <button onClick={() => { setRegionsTab('injury'); setScreen('regions'); setTimeout(() => scrollToId('sez-trova', { instant: true }), 60); }} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus os-press w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium shadow-sm hover:opacity-90">
-              <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'Now choose where it hurts' : 'Ora scegli dove hai male'}</span><ArrowRight size={16} />
+            <button onClick={() => { setRegionsTab('injury'); setScreen('regions'); setTimeout(() => scrollToId('sez-trova', { instant: true }), 80); }} className="os-focus os-btn os-btn-primary w-full py-4 text-[14px] uppercase tracking-wide">
+              {isEN ? 'Now choose where it hurts' : 'Ora scegli dove hai male'}<ArrowRight size={17} />
+              <span className="os-sheen" aria-hidden="true" />
             </button>
-
           </div>
         )}
 
-        {screen === 'triage' && (
+        {screen === 'triage' && (() => {
+          const questions = [
+            { field: 'mechanism', title: isEN ? 'How did it happen?' : 'Com\'è successo?', options: mechanismOptions, layout: 'stack' },
+            { field: 'pop', title: isEN ? 'Did you hear a snap or "pop"?' : 'Hai sentito uno schiocco o un "pop"?', options: popOptions, layout: 'row' },
+            { field: 'weight', title: isEN ? 'Can you move/use the area normally?' : 'Riesci a muovere/usare la zona normalmente?', options: weightOptions, layout: 'stack' },
+            { field: 'swelling', title: isEN ? 'Is there visible swelling?' : 'C\'è gonfiore visibile?', options: swellingOptions, layout: 'stack' },
+          ];
+          const q = triageQ < 4 ? questions[triageQ] : null;
+          const optionLabel = (qq, key) => (qq.options.find((o) => o.key === key) || {}).label;
+          return (
           <div>
+            <PageTitle title={isEN ? 'Not sure what it is?' : 'Non sai cosa hai?'} />
+            <div className="mb-5">{renderRedFlagsBar()}</div>
             <FlowSteps current={triageRegion ? 1 : 0} isEN={isEN} />
             {!triageRegion ? (
               <>
-                <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-6">{isEN ? 'First, tap where you feel the problem — then a few fixed questions to narrow it down.' : 'Prima tocca dove senti il problema — poi qualche domanda fissa per restringere il campo.'}</p>
-                <BodyDiagram onSelectRegion={(key) => setTriageRegion(key)} labels={regionLabels} isEN={isEN} title={isEN ? 'Where do you feel it?' : 'Dove senti il problema?'} />
+                <p data-rv="" style={{ color: colors.mutedInk }} className="text-[13.5px] leading-relaxed mb-5">{isEN ? 'First, tap where you feel the problem — then a few fixed questions to narrow it down.' : 'Prima tocca dove senti il problema — poi qualche domanda fissa per restringere il campo.'}</p>
+                <div data-rv="">
+                  <BodyDiagram onSelectRegion={(key) => { setTriageRegion(key); setTriageQ(0); }} labels={regionLabels} isEN={isEN} title={isEN ? 'Where do you feel it?' : 'Dove senti il problema?'} />
+                </div>
               </>
             ) : (
               <>
-                <button onClick={() => { setTriageRegion(null); setTriageAnswers({ mechanism: null, pop: null, weight: null, swelling: null }); }} style={{ color: colors.mutedInk }} className="os-focus flex items-center gap-1.5 text-xs mb-4 hover:opacity-70">
-                  <RotateCcw size={12} />{isEN ? `Change area (${regionLabels[triageRegion]})` : `Cambia zona (${regionLabels[triageRegion]})`}
-                </button>
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <button onClick={() => { setTriageRegion(null); setTriageAnswers({ mechanism: null, pop: null, weight: null, swelling: null }); setTriageQ(0); }} className="os-focus os-chip os-press py-1.5 pl-2.5 pr-3 text-[12px]">
+                    <RotateCcw size={12} color={LED_GREEN} />{isEN ? `Change area (${regionLabels[triageRegion]})` : `Cambia zona (${regionLabels[triageRegion]})`}
+                  </button>
+                  <span style={{ fontFamily: BEBAS, color: colors.mutedInk, letterSpacing: '0.05em' }} className="text-[16px] leading-none os-tabular flex-shrink-0">{isEN ? 'Question' : 'Domanda'} <span style={{ color: '#FFFFFF' }}>{Math.min(triageQ + 1, 4)}</span>/4</span>
+                </div>
 
-                <div className="flex gap-1.5 mb-6">
-                  {[triageAnswers.mechanism, triageAnswers.pop, triageAnswers.weight, triageAnswers.swelling].map((answered, i) => (
-                    <div key={i} style={{ backgroundColor: answered ? colors.accent : colors.hairline }} className="flex-1 h-1 rounded-full transition-colors" />
+                <div className="flex gap-1.5 mb-6" aria-hidden="true">
+                  {questions.map((qq, i) => (
+                    <button key={qq.field} type="button" tabIndex={-1} onClick={() => setTriageQ(i)} className="flex-1 py-1.5">
+                      <span className="os-seg-led block" data-state={triageAnswers[qq.field] ? 'done' : i === triageQ ? 'now' : 'todo'} />
+                    </button>
                   ))}
                 </div>
 
-                <div className="space-y-6">
-                  <div>
-                    <p className="flex items-center gap-2.5 mb-3">
-                      <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">1</span>
-                      <span style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{isEN ? 'How did it happen?' : 'Com\'è successo?'}</span>
-                    </p>
-                    <div className="space-y-2">
-                      {mechanismOptions.map((opt) => (
-                        <button key={opt.key} onClick={() => answerTriage('mechanism', opt.key)}
-                          style={{ backgroundColor: triageAnswers.mechanism === opt.key ? colors.accent : colors.card, color: triageAnswers.mechanism === opt.key ? colors.onAccent : colors.ink, border: `1px solid ${triageAnswers.mechanism === opt.key ? colors.accent : colors.hairline}` }}
-                          className="os-focus w-full flex items-center gap-2.5 text-left px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">
-                          <opt.icon size={16} color={triageAnswers.mechanism === opt.key ? colors.onAccent : colors.accent} className="flex-shrink-0" />
-                          {opt.label}
+                <div key={triageQ} className={paneClass('triage')}>
+                  {q ? (
+                    <div>
+                      <h2 style={{ fontFamily: BRICOLAGE, color: colors.ink, letterSpacing: '-0.02em' }} className="text-[25px] font-bold leading-[1.12] mb-5">{q.title}</h2>
+                      <div className={q.layout === 'row' ? 'grid grid-cols-2 gap-2.5' : 'space-y-2.5'} role="radiogroup" aria-label={q.title}>
+                        {q.options.map((opt, oi) => {
+                          const on = triageAnswers[q.field] === opt.key;
+                          const OptIcon = opt.icon;
+                          return (
+                            <button
+                              key={opt.key}
+                              role="radio"
+                              aria-checked={on}
+                              onClick={() => answerTriage(q.field, opt.key)}
+                              className={`os-focus os-press [--press:0.98] os-rise w-full flex items-center gap-3 rounded-[20px] text-left ${q.layout === 'row' ? 'justify-center px-4 py-6' : 'px-4 py-4'}`}
+                              style={{ '--d': `${oi * 60}ms`, background: on ? 'linear-gradient(180deg, rgba(125,255,168,0.2), rgba(125,255,168,0.07))' : 'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))', border: `1.5px solid ${on ? LED_GREEN + 'AA' : 'rgba(255,255,255,0.1)'}`, boxShadow: on ? `0 0 0 4px ${colors.accent}22, 0 14px 30px -16px ${LED_GREEN}AA` : 'none', transition: 'background 220ms ease, border-color 220ms ease, box-shadow 260ms ease' }}
+                            >
+                              {OptIcon && <span className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: on ? LED_GREEN : 'rgba(125,255,168,0.1)' }}><OptIcon size={19} color={on ? '#03130A' : LED_GREEN} /></span>}
+                              <span style={{ fontFamily: BRICOLAGE, color: on ? '#FFFFFF' : colors.ink }} className={`font-semibold leading-snug ${q.layout === 'row' ? 'text-[18px]' : 'text-[15px]'} ${OptIcon ? 'flex-1' : ''}`}>{opt.label}</span>
+                              {on && q.layout !== 'row' && <CheckCircle2 size={20} color={LED_GREEN} weight="fill" className="flex-shrink-0 os-check-pop" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <h2 style={{ fontFamily: BRICOLAGE, color: colors.ink, letterSpacing: '-0.02em' }} className="text-[25px] font-bold leading-[1.12] mb-4">{isEN ? 'Your answers' : 'Le tue risposte'}</h2>
+                      <div className="os-panel overflow-hidden mb-5">
+                        {questions.map((qq, i) => (
+                          <button key={qq.field} onClick={() => setTriageQ(i)} className="os-focus w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors" style={{ borderTop: i ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+                            <span style={{ fontFamily: BEBAS, color: LED_GREEN }} className="text-[18px] leading-none w-5">{i + 1}</span>
+                            <span className="flex-1 min-w-0">
+                              <span style={{ color: colors.mutedInk }} className="block text-[11.5px] leading-snug">{qq.title}</span>
+                              <span style={{ color: colors.ink }} className="block text-[14px] font-semibold leading-snug">{optionLabel(qq, triageAnswers[qq.field]) || '—'}</span>
+                            </span>
+                            <Pencil size={13} color={colors.mutedInk} />
+                          </button>
+                        ))}
+                      </div>
+                      {triageComplete && triageRedirect && (
+                        <div className="os-pitch-red p-4 flex gap-3 os-card-in">
+                          <AlertTriangle size={20} color={colors.red} weight="fill" className="relative flex-shrink-0 mt-0.5" />
+                          <div className="relative">
+                            <p style={{ color: '#FFD0CB' }} className="text-[15px] font-bold mb-1">{isEN ? 'Better to get it checked by a professional' : 'Meglio farlo vedere da un professionista'}</p>
+                            <p style={{ color: colors.ink }} className="text-[13px] leading-relaxed mb-3">{isEN ? 'Based on what you indicated, we recommend a professional assessment before starting a recovery plan on your own.' : 'In base a quello che hai indicato, ti consigliamo una valutazione professionale prima di iniziare da soli un percorso di recupero.'}</p>
+                            <button onClick={finishTriage} style={{ color: '#FFD0CB' }} className="os-focus text-xs underline font-semibold">{isEN ? 'Understood, I still want to see the general information' : 'Ho capito, voglio comunque vedere le informazioni generali'}</button>
+                          </div>
+                        </div>
+                      )}
+                      {triageComplete && !triageRedirect && (
+                        <button onClick={finishTriage} className="os-focus os-btn os-btn-primary w-full py-4 text-[14px] uppercase tracking-wide os-card-in">
+                          {isEN ? 'See the results' : 'Vedi i risultati'}<ArrowRight size={17} />
+                          <span className="os-sheen" aria-hidden="true" />
                         </button>
-                      ))}
+                      )}
                     </div>
-                  </div>
-                  <div>
-                    <p className="flex items-center gap-2.5 mb-3">
-                      <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">2</span>
-                      <span style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Did you hear a snap or "pop"?' : 'Hai sentito uno schiocco o un "pop"?'}</span>
-                    </p>
-                    <div className="flex gap-2">
-                      {popOptions.map((opt) => (
-                        <button key={opt.key} onClick={() => answerTriage('pop', opt.key)}
-                          style={{ backgroundColor: triageAnswers.pop === opt.key ? colors.accent : colors.card, color: triageAnswers.pop === opt.key ? colors.onAccent : colors.ink, border: `1px solid ${triageAnswers.pop === opt.key ? colors.accent : colors.hairline}` }}
-                          className="os-focus flex-1 text-center px-4 py-3 rounded-lg text-sm font-medium transition-colors shadow-sm">{opt.label}</button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="flex items-center gap-2.5 mb-3">
-                      <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">3</span>
-                      <span style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Can you move/use the area normally?' : 'Riesci a muovere/usare la zona normalmente?'}</span>
-                    </p>
-                    <div className="space-y-2">
-                      {weightOptions.map((opt) => (
-                        <button key={opt.key} onClick={() => answerTriage('weight', opt.key)}
-                          style={{ backgroundColor: triageAnswers.weight === opt.key ? colors.accent : colors.card, color: triageAnswers.weight === opt.key ? colors.onAccent : colors.ink, border: `1px solid ${triageAnswers.weight === opt.key ? colors.accent : colors.hairline}` }}
-                          className="os-focus w-full text-left px-4 py-3 rounded-lg text-sm transition-colors shadow-sm">{opt.label}</button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="flex items-center gap-2.5 mb-3">
-                      <span style={{ ...displayFont, backgroundColor: colors.accentTint, color: colors.accentDark }} className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">4</span>
-                      <span style={{ ...displayFont, color: colors.ink }} className="text-sm font-semibold">{isEN ? 'Is there visible swelling?' : 'C\'è gonfiore visibile?'}</span>
-                    </p>
-                    <div className="flex gap-2">
-                      {swellingOptions.map((opt) => (
-                        <button key={opt.key} onClick={() => answerTriage('swelling', opt.key)}
-                          style={{ backgroundColor: triageAnswers.swelling === opt.key ? colors.accent : colors.card, color: triageAnswers.swelling === opt.key ? colors.onAccent : colors.ink, border: `1px solid ${triageAnswers.swelling === opt.key ? colors.accent : colors.hairline}` }}
-                          className="os-focus flex-1 text-center px-3 py-3 rounded-lg text-xs font-medium transition-colors shadow-sm">{opt.label}</button>
-                      ))}
-                    </div>
-                  </div>
+                  )}
                 </div>
 
-                {triageComplete && triageRedirect && (
-                  <div style={{ backgroundColor: colors.redTint }} className="rounded-xl p-4 flex gap-2.5 mt-6">
-                    <AlertTriangle size={18} color={colors.red} className="flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p style={{ color: colors.red, fontWeight: 600 }} className="text-sm mb-1">{isEN ? 'Better to get it checked by a professional' : 'Meglio farlo vedere da un professionista'}</p>
-                      <p style={{ color: colors.red }} className="text-xs leading-relaxed mb-3">{isEN ? 'Based on what you indicated, we recommend a professional assessment before starting a recovery plan on your own.' : 'In base a quello che hai indicato, ti consigliamo una valutazione professionale prima di iniziare da soli un percorso di recupero.'}</p>
-                      <button onClick={finishTriage} style={{ color: colors.red }} className="os-focus text-xs underline">{isEN ? 'Understood, I still want to see the general information' : 'Ho capito, voglio comunque vedere le informazioni generali'}</button>
-                    </div>
-                  </div>
-                )}
-                {triageComplete && !triageRedirect && (
-                  <button onClick={finishTriage} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-3.5 shadow-sm mt-6">
-                    <span style={displayFont} className="uppercase tracking-wide text-sm font-semibold">{isEN ? 'See the results' : 'Vedi i risultati'}</span><ArrowRight size={16} />
+                {triageQ > 0 && (
+                  <button onClick={() => setTriageQ(triageQ - 1)} style={{ color: colors.mutedInk }} className="os-focus mt-6 flex items-center gap-1.5 text-[13px] font-semibold hover:text-white transition-colors">
+                    <ArrowLeft size={15} />{isEN ? 'Previous question' : 'Domanda precedente'}
                   </button>
                 )}
               </>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {screen === 'triageResults' && triageRegion && (
           <div>
+            <PageTitle title={isEN ? 'Possible matches' : 'Possibili corrispondenze'} sub={isEN ? 'Based on your answers, ordered from most to least likely. Not a diagnosis — just a starting point.' : 'In base alle tue risposte, dal più al meno probabile. Non è una diagnosi — solo un punto di partenza.'} />
+            <div className="mb-5">{renderRedFlagsBar()}</div>
             <FlowSteps current={1} isEN={isEN} onStep={() => setScreen('regions')} />
-            <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed mb-5">{isEN ? 'Based on your answers, ordered from most to least likely. Not a diagnosis — just a starting point.' : 'In base alle tue risposte, dal più al meno probabile. Non è una diagnosi — solo un punto di partenza.'}</p>
 
             {(() => {
               const key = triageResults[triageCandidateIndex];
@@ -7768,46 +8452,52 @@ export default function Offside() {
               if (!data) return null;
               const score = computeTriageScore(key);
               const confidence = score >= 4 ? (isEN ? 'Strong match' : 'Corrispondenza alta') : score >= 2 ? (isEN ? 'Possible match' : 'Corrispondenza media') : (isEN ? 'Weak match' : 'Corrispondenza bassa');
-              const confidenceColor = score >= 4 ? colors.accent : score >= 2 ? colors.orange : colors.mutedInk;
+              const confidenceColor = score >= 4 ? LED_GREEN : score >= 2 ? colors.orange : colors.mutedInk;
               const Icon = data.icon;
+              const remaining = triageResults.length - triageCandidateIndex - 1;
               return (
-                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-2xl p-5 shadow-sm mb-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span style={{ backgroundColor: confidenceColor + '22', color: confidenceColor }} className="text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full">{confidence}</span>
-                    <span style={{ color: colors.mutedInk }} className="text-xs">{triageCandidateIndex + 1}/{triageResults.length}</span>
-                  </div>
-                  <div className="flex items-center gap-3.5 mb-2">
-                    <div style={{ background: PITCH_BG }} className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm">
-                      <Icon size={26} color={LED_GREEN} />
+                <div className="relative mb-5 pb-3">
+                  {remaining > 1 && <div aria-hidden="true" className="absolute left-6 right-6 bottom-0 h-10 rounded-[24px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }} />}
+                  {remaining > 0 && <div aria-hidden="true" className="absolute left-3 right-3 bottom-1.5 h-10 rounded-[26px]" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} />}
+                  <div key={key} className="os-card-in relative os-pitch os-floodsweep p-5">
+                    <PitchArc size={200} />
+                    <div className="relative flex items-center justify-between mb-4">
+                      <span style={{ backgroundColor: confidenceColor + '22', color: confidenceColor, border: `1px solid ${confidenceColor}55` }} className="text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full">{confidence}</span>
+                      <span style={{ fontFamily: BEBAS, color: 'rgba(255,255,255,0.75)' }} className="text-[18px] leading-none os-tabular">{triageCandidateIndex + 1}/{triageResults.length}</span>
                     </div>
-                    <div className="min-w-0">
-                      <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[17px] font-bold leading-tight">{data.label}</p>
-                      <p style={{ color: colors.mutedInk }} className="text-xs mt-0.5">{data.subtitle}</p>
+                    <div className="relative flex items-center gap-4 mb-2">
+                      <div style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${LED_GREEN}44`, boxShadow: `0 0 24px -8px ${LED_GREEN}` }} className="flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center">
+                        <Icon size={30} color={LED_GREEN} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="os-cond text-[24px] font-extrabold leading-[1.05]" style={{ color: '#FFFFFF' }}>{data.label}</p>
+                        <p style={{ color: 'rgba(255,255,255,0.72)' }} className="text-[13px] mt-1">{data.subtitle}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5 mt-3">
-                    {data.mechanismTags.map((t) => {
-                      const MechIcon = mechanismIcons[t] || Zap;
-                      return (
-                        <span key={t} style={{ backgroundColor: colors.paper, color: colors.ink, border: `1px solid ${colors.hairline}` }} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full">
-                          <MechIcon size={11} color={colors.accentDark} />{mechanismLabels[t]}
-                        </span>
-                      );
-                    })}
-                    <span style={{ backgroundColor: colors.heroBg, color: LED_GREEN, fontFamily: BEBAS, letterSpacing: '0.05em' }} className="inline-flex items-center gap-1 text-[13px] leading-none px-2 py-1 rounded-full" title={isEN ? 'Indicative return time, mild to severe' : 'Rientro indicativo, da lieve a severo'}>
-                      <Timer size={11} />{recoveryRangeLabel(data.severityData, isEN)}
-                    </span>
-                  </div>
+                    <div className="relative flex flex-wrap items-center gap-1.5 mt-4">
+                      {data.mechanismTags.map((t) => {
+                        const MechIcon = mechanismIcons[t] || Zap;
+                        return (
+                          <span key={t} className="os-chip" style={{ background: 'rgba(0,0,0,0.28)' }}>
+                            <MechIcon size={11} color={LED_GREEN} />{mechanismLabels[t]}
+                          </span>
+                        );
+                      })}
+                      <span className="os-led-chip" title={isEN ? 'Indicative return time, mild to severe' : 'Rientro indicativo, da lieve a severo'}>
+                        <Timer size={12} />{recoveryRangeLabel(data.severityData, isEN)}
+                      </span>
+                    </div>
 
-                  <div className="flex gap-2 mt-4">
-                    <button onClick={() => { setSelectedInjury(key); setScreen('tracker'); setEditingSetup(true); setSetupSection('gravita'); }} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus flex-1 flex items-center justify-center gap-1.5 rounded-lg py-3 text-sm font-semibold hover:opacity-90 transition-opacity">
-                      {isEN ? 'Yes, this is it' : 'Sì, è questo'}<ArrowRight size={15} />
-                    </button>
-                    {triageCandidateIndex < triageResults.length - 1 && (
-                      <button onClick={() => setTriageCandidateIndex(triageCandidateIndex + 1)} style={{ backgroundColor: colors.paper, color: colors.ink, border: `1px solid ${colors.hairline}` }} className="os-focus flex-1 rounded-lg py-3 text-sm font-medium hover:opacity-80 transition-opacity">
-                        {isEN ? 'Not this one' : 'Non è questo'}
+                    <div className="relative flex gap-2.5 mt-5">
+                      <button onClick={() => { setSelectedInjury(key); setScreen('tracker'); setEditingSetup(true); setSetupSection('gravita'); setTrackerChapter('oggi'); }} className="os-focus os-btn os-btn-primary flex-1 py-3.5 text-[14px]">
+                        {isEN ? 'Yes, this is it' : 'Sì, è questo'}<ArrowRight size={16} />
                       </button>
-                    )}
+                      {triageCandidateIndex < triageResults.length - 1 && (
+                        <button onClick={() => { haptic(8); setTriageCandidateIndex(triageCandidateIndex + 1); }} className="os-focus os-btn os-btn-dark flex-1 py-3.5 text-[14px]">
+                          {isEN ? 'Not this one' : 'Non è questo'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -7822,23 +8512,23 @@ export default function Offside() {
           return (
           <div>
             <FlowSteps current={1} isEN={isEN} onStep={() => setScreen('regions')} />
-            <div style={{ background: PITCH_BG }} className="relative overflow-hidden rounded-3xl p-4 mb-3 shadow-lg flex items-center gap-4">
-              <PitchArc size={180} />
-              <div style={{ backgroundColor: 'rgba(0,0,0,0.22)', border: '1px solid rgba(255,255,255,0.08)' }} className="relative flex-shrink-0 rounded-2xl px-3.5 py-2.5">
-                <RegionFigure region={selectedRegion} height={116} />
+            <div data-rv="" className="os-pitch os-floodsweep p-4 mb-3 flex items-center gap-4">
+              <PitchArc size={190} />
+              <div className="os-well relative flex-shrink-0 px-3.5 py-2.5">
+                <span className="os-vt-region block"><RegionFigure region={selectedRegion} height={124} /></span>
               </div>
               <div className="relative min-w-0">
-                <p style={{ fontFamily: BRICOLAGE, color: LED_GREEN, letterSpacing: '0.14em' }} className="text-[10px] font-bold uppercase mb-1.5">{isEN ? 'Area' : 'Zona'}</p>
-                <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[38px] leading-[0.9]">{regionLabels[selectedRegion]}</p>
-                <p style={{ color: 'rgba(255,255,255,0.72)' }} className="text-xs leading-snug mt-2">
+                <h1 style={{ fontFamily: BEBAS, color: '#FFFFFF', textShadow: '0 0 30px rgba(125,255,168,0.2)' }} className="text-[44px] leading-[0.88]">{regionLabels[selectedRegion]}</h1>
+                <p style={{ color: 'rgba(255,255,255,0.75)' }} className="text-[12.5px] leading-snug mt-2">
                   {regionInjuries.length === 1
                     ? (isEN ? '1 injury with its recovery plan' : '1 infortunio con il suo percorso')
                     : (isEN ? `${regionInjuries.length} injuries, each with its own recovery plan` : `${regionInjuries.length} infortuni, ognuno con il suo percorso`)}
                 </p>
               </div>
             </div>
-            <p style={{ color: colors.mutedInk }} className="flex items-center gap-1.5 text-[11px] mb-4 px-1">
-              <Timer size={12} className="flex-shrink-0" />{isEN ? 'Return times are indicative, from mild to severe' : 'Tempi di rientro indicativi, da lieve a severo'}
+            <div className="mb-3">{renderRedFlagsBar()}</div>
+            <p style={{ color: colors.mutedInk }} className="flex items-center gap-1.5 text-[12px] mb-4 px-1">
+              <Timer size={13} className="flex-shrink-0" />{isEN ? 'Return times are indicative, from mild to severe' : 'Tempi di rientro indicativi, da lieve a severo'}
             </p>
 
             <div className="space-y-3">
@@ -7853,32 +8543,32 @@ export default function Offside() {
                 const matches = triageTag && data.mechanismTags.includes(triageTag);
                 const symptomsOpen = expandedSymptoms === key;
                 return (
-                  <div key={key} style={{ backgroundColor: colors.card, border: `1.5px solid ${matches ? colors.accent : colors.hairline}`, boxShadow: matches ? `0 0 0 4px ${colors.accent}1F` : undefined }} className="rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                    <button onClick={() => chooseInjury(key)} className="os-focus w-full flex items-start gap-3.5 p-4 text-left">
-                      <div style={{ background: PITCH_BG }} className="relative flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm">
+                  <div key={key} data-rv="" className="os-panel overflow-hidden" style={matches ? { borderColor: `${LED_GREEN}AA`, boxShadow: `0 0 0 4px ${colors.accent}22, 0 18px 36px -18px ${LED_GREEN}88` } : undefined}>
+                    <button onClick={() => chooseInjury(key)} className="os-focus os-press [--press:0.985] w-full flex items-start gap-3.5 p-4 text-left">
+                      <div className="os-pitch relative flex-shrink-0 w-14 h-14 flex items-center justify-center" style={{ borderRadius: 16 }}>
                         <Icon size={26} color={LED_GREEN} />
-                        {live && <span style={{ backgroundColor: LED_GREEN, border: `2px solid ${colors.card}` }} className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full os-ping" />}
+                        {live && <span style={{ backgroundColor: LED_GREEN, border: '2px solid #0C1A14' }} className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full os-ping" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         {(matches || live) && (
                           <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                            {matches && <span style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">{isEN ? 'Most likely this' : 'Probabilmente questo'}</span>}
-                            {live && <span style={{ backgroundColor: colors.heroBg, color: LED_GREEN, fontFamily: BEBAS, letterSpacing: '0.05em' }} className="text-[13px] leading-none px-2 py-1 rounded-md">{isEN ? 'In progress' : 'In corso'} · {liveMinute}'</span>}
+                            {matches && <span style={{ background: LED_GREEN, color: '#03130A' }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">{isEN ? 'Most likely this' : 'Probabilmente questo'}</span>}
+                            {live && <span className="os-led-chip" style={{ fontSize: 13 }}><span className="os-live" />{isEN ? 'In progress' : 'In corso'} · {liveMinute}'</span>}
                           </div>
                         )}
-                        <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-base font-bold leading-tight">{data.label}</p>
+                        <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[16.5px] font-bold leading-tight">{data.label}</p>
                         <p style={{ color: colors.mutedInk }} className="text-[13px] leading-snug mt-0.5">{data.subtitle}</p>
                         <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
                           {data.mechanismTags.map((t) => {
                             const MechIcon = mechanismIcons[t] || Zap;
                             return (
-                              <span key={t} style={{ backgroundColor: colors.paper, color: colors.ink, border: `1px solid ${colors.hairline}` }} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full">
-                                <MechIcon size={11} color={colors.accentDark} />{mechanismLabels[t]}
+                              <span key={t} className="os-chip">
+                                <MechIcon size={11} color={LED_GREEN} />{mechanismLabels[t]}
                               </span>
                             );
                           })}
-                          <span style={{ backgroundColor: colors.heroBg, color: LED_GREEN, fontFamily: BEBAS, letterSpacing: '0.05em' }} className="inline-flex items-center gap-1 text-[13px] leading-none px-2 py-1 rounded-full" title={isEN ? 'Indicative return time, mild to severe' : 'Rientro indicativo, da lieve a severo'}>
-                            <Timer size={11} />{recoveryRangeLabel(data.severityData, isEN)}
+                          <span className="os-led-chip" title={isEN ? 'Indicative return time, mild to severe' : 'Rientro indicativo, da lieve a severo'}>
+                            <Timer size={12} />{recoveryRangeLabel(data.severityData, isEN)}
                           </span>
                         </div>
                       </div>
@@ -7886,65 +8576,67 @@ export default function Offside() {
                     </button>
                     {data.symptoms && (
                       <>
-                        <button onClick={() => setExpandedSymptoms(symptomsOpen ? null : key)} style={{ color: colors.accentDark, borderTop: `1px dashed ${colors.hairline}` }} className="os-focus w-full flex items-center justify-between gap-1.5 px-4 py-2.5 text-xs font-semibold">
-                          <span className="flex items-center gap-1.5"><Info size={13} />{isEN ? 'Typical symptoms' : 'Sintomi tipici'}</span>
-                          <ChevronDown size={13} style={{ transform: symptomsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 200ms var(--ease-in-out)' }} />
+                        <button onClick={() => setExpandedSymptoms(symptomsOpen ? null : key)} aria-expanded={symptomsOpen} style={{ color: LED_GREEN, borderTop: '1px dashed rgba(255,255,255,0.1)' }} className="os-focus w-full flex items-center justify-between gap-1.5 px-4 py-3 text-[12.5px] font-semibold hover:bg-white/5 transition-colors">
+                          <span className="flex items-center gap-1.5"><Info size={14} />{isEN ? 'Typical symptoms' : 'Sintomi tipici'}</span>
+                          <ChevronDown size={14} style={{ transform: symptomsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 320ms var(--ease-out-expo)' }} />
                         </button>
-                        {symptomsOpen && (
-                          <div style={{ backgroundColor: colors.paper }} className="px-4 py-3 os-fadein">
-                            <ul className="space-y-1.5 mb-2">
+                        <Accordion open={symptomsOpen}>
+                          <div style={{ background: 'rgba(0,0,0,0.22)' }} className="px-4 py-3.5">
+                            <ul className="space-y-2 mb-2.5">
                               {data.symptoms.map((s, i) => (
-                                <li key={i} style={{ color: colors.ink }} className="text-sm flex gap-2"><span style={{ backgroundColor: colors.accent }} className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-[7px]" /><span>{s}</span></li>
+                                <li key={i} style={{ color: colors.ink }} className="text-[13.5px] flex gap-2.5 leading-snug"><span style={{ backgroundColor: LED_GREEN, boxShadow: `0 0 6px ${LED_GREEN}` }} className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-[7px]" /><span>{s}</span></li>
                               ))}
                             </ul>
-                            <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">{isEN ? 'For informational purposes only, not a diagnosis. If you think this might be it, talk to a physiotherapist or doctor for a real assessment.' : 'A titolo informativo, non una diagnosi. Se pensi possa essere questo, parlane con un fisioterapista o un medico per una valutazione vera.'}</p>
+                            <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed">{isEN ? 'For informational purposes only, not a diagnosis. If you think this might be it, talk to a physiotherapist or doctor for a real assessment.' : 'A titolo informativo, non una diagnosi. Se pensi possa essere questo, parlane con un fisioterapista o un medico per una valutazione vera.'}</p>
                           </div>
-                        )}
+                        </Accordion>
                       </>
                     )}
                   </div>
                 );
               })}
             </div>
-            <div className="mt-5">
+            <div className="mt-6">
               {!premiumUnlocked && <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: training designed for each injury, matched to your role' : 'Premium: allenamento pensato per ogni infortunio, in base al tuo ruolo'} />}
             </div>
           </div>
           );
         })()}
 
-
         {screen === 'tracker' && !injury && (
-          <div style={{ background: PITCH_BG }} className="rounded-3xl p-6 mb-5 shadow-lg relative overflow-hidden">
-            <PitchArc size={190} />
-            <p style={{ fontFamily: "'Bebas Neue', sans-serif", color: '#FFFFFF' }} className="relative text-[44px] leading-[0.9]">{isEN ? 'No recovery in progress' : 'Nessun percorso in corso'}</p>
-            <p style={{ color: 'rgba(255,255,255,0.8)' }} className="relative text-sm leading-relaxed mt-2">{isEN ? 'Pick your injury and your recovery clock starts here: phase, today\'s session and estimated return.' : 'Scegli il tuo infortunio e qui parte il cronometro del recupero: fase, sessione di oggi e rientro stimato.'}</p>
-            <button onClick={() => { navKindRef.current = 'tab'; setRegionsTab('injury'); setScreen('regions'); setTimeout(() => scrollToId('sez-trova', { instant: true }), 60); }} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus os-press relative w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 mt-5 shadow-md">
-              <Search size={17} strokeWidth={2.2} /><span style={displayFont} className="text-sm font-bold uppercase tracking-wide">{isEN ? 'Find your injury' : 'Trova il tuo infortunio'}</span>
-            </button>
-            <button onClick={startTriage} style={{ color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.24)' }} className="os-focus os-press relative w-full flex items-center justify-center gap-2 rounded-2xl py-3 mt-2.5 hover:bg-white/5">
-              <HelpCircle size={17} /><span style={displayFont} className="text-sm font-semibold">{isEN ? 'Not sure what it is?' : 'Non sai cosa hai?'}</span>
-            </button>
+          <div>
+            <PageTitle title={isEN ? 'Your recovery' : 'Il tuo percorso'} />
+            <div data-rv="" className="os-pitch os-floodsweep p-6 mb-5">
+              <PitchArc size={190} />
+              <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="relative text-[48px] leading-[0.9]">{isEN ? 'No recovery in progress' : 'Nessun percorso in corso'}</p>
+              <p style={{ color: 'rgba(255,255,255,0.8)' }} className="relative text-sm leading-relaxed mt-2">{isEN ? 'Pick your injury and your recovery clock starts here: phase, today\'s session and estimated return.' : 'Scegli il tuo infortunio e qui parte il cronometro del recupero: fase, sessione di oggi e rientro stimato.'}</p>
+              <button onClick={() => { navKindRef.current = 'tab'; setRegionsTab('injury'); setScreen('regions'); setTimeout(() => scrollToId('sez-trova', { instant: true }), 80); }} className="os-focus os-btn os-btn-primary relative w-full py-4 mt-5 text-[14px] uppercase tracking-wide">
+                <Search size={17} weight="bold" />{isEN ? 'Find your injury' : 'Trova il tuo infortunio'}
+              </button>
+              <button onClick={startTriage} className="os-focus os-btn os-btn-dark relative w-full py-3.5 mt-2.5 text-[13.5px]">
+                <HelpCircle size={17} />{isEN ? 'Not sure what it is?' : 'Non sai cosa hai?'}
+              </button>
+            </div>
           </div>
         )}
 
         {screen === 'tracker' && injury && phase && (
           <>
-            <div className="flex items-center gap-3 mb-4">
-              <div style={{ background: PITCH_BG }} className="flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm">
-                <injury.icon size={22} color={LED_GREEN} />
+            <div data-rv="" className="flex items-center gap-3.5 mb-5">
+              <div className="os-pitch flex-shrink-0 w-14 h-14 flex items-center justify-center" style={{ borderRadius: 18 }}>
+                <injury.icon size={25} color={LED_GREEN} />
               </div>
               <div className="flex-1 min-w-0">
-                <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[17px] font-bold leading-tight">{injury.label}</p>
-                <p style={{ color: colors.mutedInk }} className="text-[12.5px] leading-snug mt-0.5">{injury.subtitle}</p>
+                <h1 style={{ fontFamily: BRICOLAGE, color: colors.ink, letterSpacing: '-0.02em' }} className="text-[23px] font-bold leading-[1.08]">{injury.label}</h1>
+                <p style={{ color: colors.mutedInk }} className="text-[13px] leading-snug mt-0.5">{injury.subtitle}</p>
               </div>
               <button
                 onClick={() => {
                   if (confirmingReset) { resetInjury(); setConfirmingReset(false); }
-                  else { setConfirmingReset(true); setTimeout(() => setConfirmingReset(false), 3000); }
+                  else { setConfirmingReset(true); haptic(12); setTimeout(() => setConfirmingReset(false), 3000); }
                 }}
-                style={{ color: confirmingReset ? colors.red : colors.mutedInk }}
-                className="os-focus os-press flex items-center gap-1.5 text-xs hover:opacity-70 flex-shrink-0 min-h-[40px] px-1"
+                style={{ color: confirmingReset ? colors.red : colors.mutedInk, borderColor: confirmingReset ? `${colors.red}66` : undefined }}
+                className="os-focus os-chip os-press flex-shrink-0 min-h-[38px] px-3 text-[12px]"
               >
                 <RotateCcw size={13} />{confirmingReset ? (isEN ? 'Tap to confirm' : 'Tocca per confermare') : (isEN ? 'Start over' : 'Ricomincia')}
               </button>
@@ -7952,39 +8644,39 @@ export default function Offside() {
 
             {editingSetup ? (
               <div className="mb-5">
-                <FlowSteps current={2} isEN={isEN} onStep={(i) => { if (i === 0) setScreen('regions'); else { const r = regionOfInjury(selectedInjury, injuriesData); if (r) openRegion(r); } }} />
+                <FlowSteps current={2} isEN={isEN} onStep={(i) => { if (i === 0) { navKindRef.current = 'back'; setScreen('regions'); } else { const r = regionOfInjury(selectedInjury, injuriesData); if (r) { navKindRef.current = 'back'; openRegion(r); } } }} />
 
-                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-2xl p-4 mb-3 shadow-sm">
+                <div data-rv="" className="os-panel p-4 mb-3">
                   <StepHeading n={1} title={isEN ? 'How bad is it?' : 'Quanto è grave?'} hint={isEN ? 'It sets the phases and the indicative return time.' : 'Serve a regolare le fasi e il rientro indicativo.'} />
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={isEN ? 'Severity' : 'Gravità'}>
                     {Object.keys(severityLabels).map((sev, si) => {
                       const on = severity === sev;
                       return (
-                        <button key={sev} onClick={() => setSeverity(sev)} aria-pressed={on} style={{ backgroundColor: on ? colors.heroBg : colors.paper, border: `1.5px solid ${on ? colors.heroBg : colors.hairline}` }} className="os-focus rounded-xl px-2 py-3 text-center transition-colors">
-                          <span className="flex items-end justify-center gap-0.5 h-4 mb-1.5" aria-hidden="true">
-                            {[0, 1, 2].map((b) => <span key={b} style={{ height: 6 + b * 4, backgroundColor: b <= si ? (on ? LED_GREEN : colors.accent) : (on ? 'rgba(255,255,255,0.2)' : colors.hairline) }} className="w-1.5 rounded-full" />)}
+                        <button key={sev} role="radio" aria-checked={on} onClick={() => { haptic(8); setSeverity(sev); }} style={{ background: on ? 'linear-gradient(180deg, rgba(125,255,168,0.18), rgba(125,255,168,0.05))' : 'rgba(255,255,255,0.04)', border: `1.5px solid ${on ? LED_GREEN + 'AA' : 'rgba(255,255,255,0.1)'}`, boxShadow: on ? `0 0 0 3px ${colors.accent}22` : 'none', transition: 'all 220ms ease' }} className="os-focus os-press rounded-2xl px-2 py-3.5 text-center">
+                          <span className="flex items-end justify-center gap-0.5 h-5 mb-2" aria-hidden="true">
+                            {[0, 1, 2].map((b) => <span key={b} style={{ height: 7 + b * 5, backgroundColor: b <= si ? (on ? LED_GREEN : colors.accent) : 'rgba(255,255,255,0.14)', boxShadow: b <= si && on ? `0 0 8px ${LED_GREEN}` : 'none' }} className="w-1.5 rounded-full" />)}
                           </span>
                           <span style={{ fontFamily: BRICOLAGE, color: on ? '#FFFFFF' : colors.ink }} className="block text-sm font-bold">{severityLabels[sev]}</span>
-                          <span style={{ fontFamily: BEBAS, color: on ? LED_GREEN : colors.mutedInk, letterSpacing: '0.04em' }} className="block text-[13px] leading-none mt-1">~{durationLabel(injury.severityData[sev].totalEstimateDays, isEN)}</span>
+                          <span style={{ fontFamily: BEBAS, color: on ? LED_GREEN : colors.mutedInk, letterSpacing: '0.04em' }} className="block text-[14px] leading-none mt-1">~{durationLabel(injury.severityData[sev].totalEstimateDays, isEN)}</span>
                         </button>
                       );
                     })}
                   </div>
-                  <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed mt-3">{severityInfo[severity]}</p>
+                  <p style={{ color: colors.mutedInk }} className="text-[12.5px] leading-relaxed mt-3">{severityInfo[severity]}</p>
                   {severity === 'severo' && (
-                    <div style={{ backgroundColor: colors.redTint }} className="rounded-lg p-3 flex gap-2 mt-3">
-                      <AlertTriangle size={15} color={colors.red} className="flex-shrink-0 mt-0.5" />
-                      <p style={{ color: colors.red }} className="text-xs leading-relaxed">{isEN ? 'With severe severity, we recommend seeing a professional before starting this plan on your own.' : 'Con gravità severa ti consigliamo di sentire un professionista prima di iniziare da solo questo percorso.'}</p>
+                    <div style={{ background: 'rgba(255,107,94,0.12)', border: '1px solid rgba(255,107,94,0.3)' }} className="rounded-xl p-3 flex gap-2 mt-3 os-fadein">
+                      <AlertTriangle size={15} color={colors.red} weight="fill" className="flex-shrink-0 mt-0.5" />
+                      <p style={{ color: '#FFD0CB' }} className="text-xs leading-relaxed">{isEN ? 'With severe severity, we recommend seeing a professional before starting this plan on your own.' : 'Con gravità severa ti consigliamo di sentire un professionista prima di iniziare da solo questo percorso.'}</p>
                     </div>
                   )}
                 </div>
 
-                <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.hairline}` }} className="rounded-2xl p-4 mb-4 shadow-sm">
+                <div data-rv="" className="os-panel p-4 mb-4">
                   <StepHeading n={2} done={!!currentDate} title={isEN ? 'When did it start?' : 'Quando è iniziato?'} hint={isEN ? 'It starts the clock and puts you in the right phase.' : 'Fa partire il cronometro e ti mette nella fase giusta.'} />
                   {currentDate && (
-                    <div style={{ backgroundColor: colors.accentTint }} className="flex items-center gap-2 rounded-lg px-3 py-2 mb-3">
-                      <CheckCircle2 size={15} color={colors.accentDark} className="flex-shrink-0" />
-                      <p style={{ color: colors.accentDark }} className="text-xs font-medium">{isEN ? 'Set to' : 'Impostata al'} {currentDate}</p>
+                    <div style={{ background: 'rgba(125,255,168,0.1)', border: `1px solid ${LED_GREEN}33` }} className="flex items-center gap-2 rounded-xl px-3 py-2 mb-3 os-fadein">
+                      <CheckCircle2 size={15} color={LED_GREEN} weight="fill" className="flex-shrink-0" />
+                      <p style={{ color: LED_GREEN }} className="text-xs font-semibold">{isEN ? 'Set to' : 'Impostata al'} {currentDate}</p>
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-2 mb-3">
@@ -7992,47 +8684,51 @@ export default function Offside() {
                       const chipDate = (() => { const d = new Date(); d.setDate(d.getDate() - chip.days); return toISODate(d); })();
                       const isChosen = currentDate === chipDate;
                       return (
-                        <button key={chip.label} aria-pressed={isChosen} onClick={() => commitDate(chipDate)} style={{ backgroundColor: isChosen ? colors.accent : colors.accentTint, color: isChosen ? colors.onAccent : colors.accentDark, border: `1.5px solid ${isChosen ? colors.accent : 'transparent'}` }} className="os-focus px-3 py-2 rounded-lg text-sm text-center font-medium hover:opacity-80 transition-colors flex items-center justify-center gap-1">
-                          {isChosen && <Check size={13} strokeWidth={3} />}{chip.label}
+                        <button key={chip.label} aria-pressed={isChosen} onClick={() => { haptic(8); commitDate(chipDate); }} style={{ background: isChosen ? 'linear-gradient(180deg, #5BE699, #34C97A)' : 'rgba(255,255,255,0.05)', color: isChosen ? '#03130A' : colors.ink, border: `1px solid ${isChosen ? colors.accent : 'rgba(255,255,255,0.1)'}` }} className="os-focus os-press px-3 py-2.5 rounded-xl text-sm text-center font-semibold flex items-center justify-center gap-1">
+                          {isChosen && <Check size={13} weight="bold" />}{chip.label}
                         </button>
                       );
                     })}
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <input type="date" aria-label={isEN ? 'Date of the injury' : 'Data dell\'infortunio'} value={pendingDate} className="os-date os-focus text-base px-3 py-1.5 rounded-lg flex-1" style={{ border: `1px solid ${colors.hairline}`, color: colors.ink }} max={toISODate(new Date())} onChange={(e) => setPendingDate(e.target.value)} />
-                    <button onClick={() => pendingDate && commitDate(pendingDate)} disabled={!pendingDate} style={{ backgroundColor: pendingDate ? colors.accent : colors.hairline, color: pendingDate ? colors.onAccent : colors.mutedInk }} className="os-focus px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">{isEN ? 'Confirm' : 'Conferma'}</button>
+                    <input type="date" aria-label={isEN ? 'Date of the injury' : 'Data dell\'infortunio'} value={pendingDate} className="os-date os-focus text-base px-3 py-2 rounded-xl flex-1" style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', color: colors.ink }} max={toISODate(new Date())} onChange={(e) => setPendingDate(e.target.value)} />
+                    <button onClick={() => pendingDate && commitDate(pendingDate)} disabled={!pendingDate} className={`os-focus os-btn px-4 py-2.5 text-sm ${pendingDate ? 'os-btn-primary' : 'os-btn-off'}`}>{isEN ? 'Confirm' : 'Conferma'}</button>
                   </div>
-                  <button onClick={skipDate} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-2 block">{isEN ? 'I\'d rather not say' : 'Preferisco non specificarla'}</button>
+                  <button onClick={skipDate} style={{ color: colors.mutedInk }} className="os-focus text-xs underline hover:opacity-70 mt-2.5 block">{isEN ? 'I\'d rather not say' : 'Preferisco non specificarla'}</button>
                 </div>
 
-                <button onClick={skipDate} style={{ backgroundColor: colors.accent, color: colors.onAccent, boxShadow: `0 8px 22px ${colors.accent}40` }} className="os-focus w-full flex items-center justify-center gap-2 rounded-xl py-4 font-medium hover:opacity-90 active:scale-[0.99] transition">
-                  <span style={{ fontFamily: BRICOLAGE }} className="uppercase tracking-wide text-sm font-bold">{isEN ? 'Go to my recovery' : 'Vai al mio percorso'}</span><ArrowRight size={16} />
+                <button onClick={skipDate} className="os-focus os-btn os-btn-primary w-full py-4 text-[14px] uppercase tracking-wide">
+                  {isEN ? 'Go to my recovery' : 'Vai al mio percorso'}<ArrowRight size={17} />
+                  <span className="os-sheen" aria-hidden="true" />
                 </button>
-                {!currentDate && <p style={{ color: colors.mutedInk }} className="text-[11px] text-center mt-2">{isEN ? 'You can add the date later too, with the pencil on your plan.' : 'Puoi aggiungere la data anche dopo, con la matita nel percorso.'}</p>}
+                {!currentDate && <p style={{ color: colors.mutedInk }} className="text-[11.5px] text-center mt-2.5">{isEN ? 'You can add the date later too, with the pencil on your plan.' : 'Puoi aggiungere la data anche dopo, con la matita nel percorso.'}</p>}
 
-                <SectionTitle className="mt-8" kicker={isEN ? 'Optional' : 'Facoltativo'} title={isEN ? 'For a more precise plan' : 'Per un percorso più preciso'} hint={isEN ? 'Not needed to start: open only what you need.' : 'Non servono per iniziare: apri solo quello che ti serve.'} />
-                <SetupSection id="recidiva" currentSection={setupSection} onToggle={setSetupSection} icon={RotateCcw} label={isEN ? 'First time?' : 'Prima volta?'} badge={injuryRecurrence[selectedInjury] && <CheckCircle2 size={15} color={colors.accent} className="mr-1" />}>
+                <SectionTitle className="mt-9" title={isEN ? 'For a more precise plan' : 'Per un percorso più preciso'} hint={isEN ? 'Optional. Not needed to start: open only what you need.' : 'Facoltativo. Non servono per iniziare: apri solo quello che ti serve.'} />
+                <SetupSection id="recidiva" currentSection={setupSection} onToggle={setSetupSection} icon={RotateCcw} label={isEN ? 'First time?' : 'Prima volta?'} badge={injuryRecurrence[selectedInjury] && <CheckCircle2 size={16} color={LED_GREEN} weight="fill" className="mr-1" />}>
                   <div className="flex gap-2 mb-2.5">
-                    {[{ key: 'prima', label: isEN ? 'First time' : 'Prima volta' }, { key: 'recidiva', label: isEN ? 'Happened before' : 'Già successo prima' }].map((opt) => (
-                      <button aria-pressed={injuryRecurrence[selectedInjury] === opt.key} key={opt.key} onClick={() => { const next = { ...injuryRecurrence, [selectedInjury]: opt.key }; setInjuryRecurrence(next); persist(snapshot({ injuryRecurrence: next })); }} style={{ backgroundColor: injuryRecurrence[selectedInjury] === opt.key ? colors.accent : colors.paper, color: injuryRecurrence[selectedInjury] === opt.key ? colors.onAccent : colors.ink, border: `1px solid ${injuryRecurrence[selectedInjury] === opt.key ? colors.accent : colors.hairline}` }} className="os-focus flex-1 rounded-lg py-2 text-sm font-medium transition-colors">{opt.label}</button>
-                    ))}
+                    {[{ key: 'prima', label: isEN ? 'First time' : 'Prima volta' }, { key: 'recidiva', label: isEN ? 'Happened before' : 'Già successo prima' }].map((opt) => {
+                      const on = injuryRecurrence[selectedInjury] === opt.key;
+                      return (
+                        <button aria-pressed={on} key={opt.key} onClick={() => { const next = { ...injuryRecurrence, [selectedInjury]: opt.key }; setInjuryRecurrence(next); persist(snapshot({ injuryRecurrence: next })); }} style={{ background: on ? 'rgba(125,255,168,0.16)' : 'rgba(255,255,255,0.04)', color: on ? LED_GREEN : colors.ink, border: `1px solid ${on ? LED_GREEN + '88' : 'rgba(255,255,255,0.1)'}` }} className="os-focus os-press flex-1 rounded-xl py-2.5 text-sm font-semibold">{opt.label}</button>
+                      );
+                    })}
                   </div>
                   {injuryRecurrence[selectedInjury] === 'recidiva' && (
-                    <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'A repeat injury is worth extra caution on the return-to-play criteria, and a chat with a professional if it keeps happening.' : 'Un infortunio che si ripete merita più attenzione sui criteri di rientro, e magari una parola con un professionista se continua a succedere.'}</p>
+                    <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed os-fadein">{isEN ? 'A repeat injury is worth extra caution on the return-to-play criteria, and a chat with a professional if it keeps happening.' : 'Un infortunio che si ripete merita più attenzione sui criteri di rientro, e magari una parola con un professionista se continua a succedere.'}</p>
                   )}
                 </SetupSection>
 
                 <SetupSection id="fasi" currentSection={setupSection} onToggle={setSetupSection} icon={Activity} label={isEN ? 'Phases and progression' : 'Fasi e decorso'}>
-                  <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mb-2.5">{isEN ? 'Tap the phase that matches where you actually are — useful if you\'re starting the app partway through recovery.' : 'Tocca la fase che corrisponde a dove sei davvero — utile se inizi a usare l\'app a metà del recupero.'}</p>
+                  <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed mb-2.5">{isEN ? 'Tap the phase that matches where you actually are — useful if you\'re starting the app partway through recovery.' : 'Tocca la fase che corrisponde a dove sei davvero — utile se inizi a usare l\'app a metà del recupero.'}</p>
                   <div className="space-y-2">
                     {injury.phases.map((p, i) => {
                       const isChosen = i === activePhase;
                       return (
-                        <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isChosen ? colors.accentTint : colors.paper, border: `1.5px solid ${isChosen ? colors.accent : 'transparent'}` }} className="os-focus w-full flex items-center gap-3 rounded-lg p-2.5 text-left transition-colors">
-                          <div style={{ backgroundColor: isChosen ? colors.accent : colors.card, color: isChosen ? colors.onAccent : colors.accentDark }} className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold">{isChosen ? <Check size={13} strokeWidth={3} /> : i + 1}</div>
+                        <button key={i} onClick={() => changePhase(i)} style={{ background: isChosen ? 'rgba(125,255,168,0.1)' : 'rgba(255,255,255,0.03)', border: `1.5px solid ${isChosen ? LED_GREEN + '77' : 'transparent'}` }} className="os-focus os-press w-full flex items-center gap-3 rounded-xl p-2.5 text-left">
+                          <div style={{ background: isChosen ? LED_GREEN : 'rgba(255,255,255,0.06)', color: isChosen ? '#03130A' : LED_GREEN, fontFamily: BEBAS }} className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[16px]">{isChosen ? <Check size={14} weight="bold" /> : i + 1}</div>
                           <div className="flex-1 min-w-0">
-                            <p style={{ color: colors.ink }} className="text-sm font-medium">{p.name}</p>
-                            <p style={{ color: colors.mutedInk }} className="text-[11px] os-tabular">{phaseRangeLabel(i, injury.severityData[severity].dayThresholds, isEN)}</p>
+                            <p style={{ color: colors.ink }} className="text-sm font-semibold">{p.name}</p>
+                            <p style={{ color: colors.mutedInk }} className="text-[11.5px] os-tabular">{phaseRangeLabel(i, injury.severityData[severity].dayThresholds, isEN)}</p>
                           </div>
                         </button>
                       );
@@ -8043,7 +8739,7 @@ export default function Offside() {
                 <SetupSection id="come" currentSection={setupSection} onToggle={setSetupSection} icon={Zap} label={isEN ? 'How it usually happens' : 'Come succede di solito'}>
                   <div className="flex flex-wrap gap-2 mb-3">
                     {injury.mechanismTags.map((tag) => (
-                      <span key={tag} style={{ backgroundColor: colors.accentTint, color: colors.accentDark }} className="text-xs font-medium px-3 py-1.5 rounded-full">{mechanismLabels[tag]}</span>
+                      <span key={tag} className="os-chip" style={{ color: LED_GREEN }}>{mechanismLabels[tag]}</span>
                     ))}
                   </div>
                   <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed mb-3">{isEN ? 'This reflects how this injury typically occurs, not necessarily your specific case.' : 'Riflette come questo infortunio si presenta tipicamente, non necessariamente il tuo caso specifico.'}</p>
@@ -8052,38 +8748,32 @@ export default function Offside() {
                       const region = regionOfInjury(selectedInjury, injuriesData);
                       setRegionsTab('prevention');
                       setScreen('regions');
-                      if (region) { setExpandedPrevention(region); setTimeout(() => scrollToId(`prevention-${region}`), 200); }
+                      if (region) setTimeout(() => setExpandedPrevention(region), 420);
                     }}
-                    style={{ backgroundColor: colors.preventionTint, color: colors.preventionDark }}
-                    className="os-focus w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold hover:opacity-80 transition-opacity"
+                    className="os-focus os-btn w-full py-2.5 text-xs"
+                    style={{ background: 'rgba(114,230,242,0.12)', color: LED_TEAL, border: `1px solid ${LED_TEAL}44` }}
                   >
                     <ShieldCheck size={14} />{isEN ? 'See how to prevent it next time' : 'Vedi come prevenirlo la prossima volta'}
                   </button>
                 </SetupSection>
 
-                <SectionTitle className="mt-7" tone="gold" kicker="Premium" title={isEN ? 'With Premium' : 'Con Premium'} />
-                <SetupSection id="ruolo" currentSection={setupSection} onToggle={setSetupSection} icon={User} label={isEN ? 'Your role' : 'Il tuo ruolo'} gold={!premiumUnlocked} badge={premiumUnlocked && playerPosition && <span style={{ color: colors.accentDark, fontWeight: 600 }} className="text-xs mr-1">{playerPositions.find((p) => p.key === playerPosition)?.label}</span>}>
+                <SectionTitle className="mt-8" title={isEN ? 'With Premium' : 'Con Premium'} aside={<span style={{ fontFamily: BEBAS, letterSpacing: '0.12em' }} className="os-gold-text text-[15px]">Premium</span>} />
+                <SetupSection id="ruolo" currentSection={setupSection} onToggle={setSetupSection} icon={User} label={isEN ? 'Your role' : 'Il tuo ruolo'} gold={!premiumUnlocked} badge={premiumUnlocked && playerPosition && <span style={{ color: LED_GREEN, fontWeight: 700 }} className="text-xs mr-1">{playerPositions.find((p) => p.key === playerPosition)?.label}</span>}>
                   {premiumUnlocked ? (
-                    <div className="flex flex-wrap gap-2">
-                      {playerPositions.map((pos) => (
-                        <button aria-pressed={playerPosition === pos.key} key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.paper, color: playerPosition === pos.key ? colors.onAccent : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
-                          {pos.label}
-                        </button>
-                      ))}
-                    </div>
+                    <PositionPicker positions={playerPositions} value={playerPosition} onPick={(k) => { setPlayerPosition(k); persist(snapshot({ playerPosition: k })); }} />
                   ) : (
                     <div className="relative">
                       <div style={{ filter: 'blur(4px)', pointerEvents: 'none' }} className="flex flex-wrap gap-2" aria-hidden="true">
                         {playerPositions.map((pos) => (
-                          <div key={pos.key} style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="px-3 py-1.5 rounded-full text-xs font-medium">{pos.label}</div>
+                          <div key={pos.key} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: colors.ink }} className="px-3 py-1.5 rounded-full text-xs font-medium">{pos.label}</div>
                         ))}
                       </div>
-                      <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.55)' }}>
-                        <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-full shadow-sm">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
+                      <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(4,10,7,0.35)' }}>
+                        <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-full shadow-lg">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
                       </button>
                     </div>
                   )}
-                  <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mt-2.5">{isEN ? 'Training built specifically for your position on the pitch.' : 'Allenamento pensato apposta per il tuo ruolo in campo.'}</p>
+                  <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed mt-2.5">{isEN ? 'Training built specifically for your position on the pitch.' : 'Allenamento pensato apposta per il tuo ruolo in campo.'}</p>
                 </SetupSection>
 
                 <SetupSection id="grafico" currentSection={setupSection} onToggle={setSetupSection} icon={TrendingUp} label={isEN ? 'Recovery chart' : 'Grafico del percorso'} gold={!premiumUnlocked}>
@@ -8093,32 +8783,32 @@ export default function Offside() {
                       <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'Log a few daily sessions first, then your chart appears here.' : 'Registra qualche sessione giornaliera, poi il grafico compare qui.'}</p>
                     ) : (
                       <ResponsiveContainer width="100%" height={140}>
-                        <LineChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke={colors.hairline} />
-                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: colors.mutedInk }} />
-                          <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tick={{ fontSize: 10, fill: colors.mutedInk }} width={60} />
-                          <Tooltip isAnimationActive={false} />
-                          <Line type="monotone" dataKey="feeling" stroke={colors.accent} strokeWidth={2.5} dot={{ r: 3, fill: colors.accent }} connectNulls animationDuration={500} animationEasing="ease-out" />
+                        <LineChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: colors.mutedInk }} stroke="rgba(255,255,255,0.15)" />
+                          <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tick={{ fontSize: 10, fill: colors.mutedInk }} width={30} stroke="rgba(255,255,255,0.15)" />
+                          <Tooltip isAnimationActive={false} contentStyle={{ background: '#0C1A14', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, color: '#ECF5EF' }} />
+                          <Line type="monotone" dataKey="feeling" stroke={LED_GREEN} strokeWidth={2.5} dot={{ r: 3, fill: LED_GREEN }} connectNulls animationDuration={700} animationEasing="ease-out" />
                         </LineChart>
                       </ResponsiveContainer>
                     );
                   })() : (
                     <div className="relative">
                       <div style={{ filter: 'blur(4px)', pointerEvents: 'none' }} aria-hidden="true">
-                        <div style={{ backgroundColor: colors.paper }} className="rounded-lg p-3">
+                        <div className="os-well p-3">
                           <p style={{ color: colors.ink }} className="text-xs font-medium mb-2">{isEN ? 'Feeling and stiffness, over time' : 'Feeling e rigidità, nel tempo'}</p>
                           <svg width="100%" height="60" viewBox="0 0 200 44" preserveAspectRatio="none">
-                            <path d="M0 34 L30 26 L60 30 L90 14 L120 20 L150 8 L180 12 L200 4" stroke={colors.accent} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                            <circle cx="30" cy="26" r="2.5" fill={colors.accent} /><circle cx="90" cy="14" r="2.5" fill={colors.accent} /><circle cx="150" cy="8" r="2.5" fill={colors.accent} /><circle cx="200" cy="4" r="2.5" fill={colors.accent} />
+                            <path d="M0 34 L30 26 L60 30 L90 14 L120 20 L150 8 L180 12 L200 4" stroke={LED_GREEN} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                            <circle cx="30" cy="26" r="2.5" fill={LED_GREEN} /><circle cx="90" cy="14" r="2.5" fill={LED_GREEN} /><circle cx="150" cy="8" r="2.5" fill={LED_GREEN} /><circle cx="200" cy="4" r="2.5" fill={LED_GREEN} />
                           </svg>
                         </div>
                       </div>
-                      <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.55)' }}>
-                        <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-full shadow-sm">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
+                      <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(4,10,7,0.35)' }}>
+                        <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-full shadow-lg">{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
                       </button>
                     </div>
                   )}
-                  <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed mt-2.5">{isEN ? 'Your real progress over time — useful to track and to share with a professional.' : 'Il tuo vero andamento nel tempo — utile da tracciare e da mostrare a un professionista.'}</p>
+                  <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed mt-2.5">{isEN ? 'Your real progress over time — useful to track and to share with a professional.' : 'Il tuo vero andamento nel tempo — utile da tracciare e da mostrare a un professionista.'}</p>
                 </SetupSection>
 
                 <SetupSection id="resoconto" currentSection={setupSection} onToggle={setSetupSection} icon={Lock} label={isEN ? 'Full report' : 'Resoconto completo'} gold>
@@ -8129,8 +8819,8 @@ export default function Offside() {
                         <p style={{ color: colors.ink }} className="text-xs">{isEN ? 'Severity' : 'Gravità'}: {severityLabels[severity]}</p>
                         <p style={{ color: colors.ink }} className="text-xs">{isEN ? 'Full phase breakdown, printable' : 'Scomposizione completa delle fasi, stampabile'}</p>
                       </div>
-                      <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.55)' }}>
-                        <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-full shadow-sm">{isEN ? 'Unlock' : 'Sblocca'}</span>
+                      <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(4,10,7,0.35)' }}>
+                        <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-full shadow-lg">{isEN ? 'Unlock' : 'Sblocca'}</span>
                       </button>
                     </div>
                   ) : (
@@ -8140,12 +8830,15 @@ export default function Offside() {
               </div>
             ) : (
               <>
-                <div style={{ background: PITCH_BG }} className="rounded-3xl p-5 mb-3 shadow-lg relative overflow-hidden">
-                  <PitchArc size={190} />
-                  <button onClick={() => setEditingSetup(true)} style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} className="os-focus os-press [--press:0.95] absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/20 z-10" aria-label={isEN ? 'Edit severity, date and more' : 'Modifica gravità, data e altro'}>
-                    <Pencil size={14} color={colors.accent} />
+                <div data-rv="" className="os-pitch os-floodsweep os-vt-matchday os-depth p-5 mb-3">
+                  <PitchArc size={200} />
+                  <button onClick={() => setEditingSetup(true)} className="os-focus os-icon-btn absolute top-4 right-4 rounded-full z-10" style={{ background: 'rgba(0,0,0,0.3)' }} aria-label={isEN ? 'Edit severity, date and more' : 'Modifica gravità, data e altro'}>
+                    <Pencil size={15} color={LED_GREEN} />
                   </button>
-                  <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.14em' }} className="text-[11px] font-bold uppercase mb-2 relative">{isEN ? `Phase ${activePhase + 1} of ${injury.phases.length}` : `Fase ${activePhase + 1} di ${injury.phases.length}`}</p>
+                  <div className="relative flex items-center gap-2 mb-3 pr-12">
+                    {currentDate && <span className="os-led-chip"><span className="os-live" />{isEN ? 'Live' : 'In corso'}</span>}
+                    <span style={{ fontFamily: BRICOLAGE, color: 'rgba(255,255,255,0.72)', letterSpacing: '0.1em' }} className="text-[10.5px] font-bold uppercase">{isEN ? `Phase ${activePhase + 1} of ${injury.phases.length}` : `Fase ${activePhase + 1} di ${injury.phases.length}`}</span>
+                  </div>
 
                   <div className="relative">
                     {currentDate ? (() => {
@@ -8154,244 +8847,145 @@ export default function Offside() {
                       const minuteNumber = Math.min(rawMinute, 90);
                       const overtime = rawMinute > 90;
                       return (
-                        <div className="mb-4">
+                        <div className="mb-5">
                           <MatchClock minute={minuteNumber} overtime={overtime} segments={segments} daysLeft={totalEstimateDays - dayNum} isEN={isEN} />
                         </div>
                       );
                     })() : (
-                      <div className="flex items-center gap-3 py-2 mb-2">
-                        <Trophy size={26} color={colors.accent} />
-                        <span style={{ color: '#9FB3A8' }} className="text-sm">{isEN ? 'Add a date to start the clock' : 'Aggiungi una data per far partire il cronometro'}</span>
-                      </div>
+                      <button onClick={() => setEditingSetup(true)} className="os-focus os-well w-full flex items-center gap-3 px-3 py-3 mb-4 text-left">
+                        <Timer size={24} color={LED_GREEN} />
+                        <span style={{ color: '#B8CDBF' }} className="text-sm">{isEN ? 'Add a date to start the clock' : 'Aggiungi una data per far partire il cronometro'}</span>
+                      </button>
                     )}
-                    <p style={{ ...displayFont, color: '#FFFFFF', letterSpacing: '-0.01em' }} className="text-xl font-bold uppercase leading-[1.15] mb-1">{phase.name}</p>
-                    <p style={{ color: '#9FB3A8' }} className="text-[13px] leading-snug">{phaseRangeLabel(activePhase, dayThresholds, isEN)} · {isEN ? `${severityLabels[severity].toLowerCase()} severity` : `gravità ${severityFemIT[severity] || severityLabels[severity].toLowerCase()}`}</p>
-                    {premiumUnlocked && playerPosition && <p style={{ ...displayFont, color: colors.premiumGold }} className="text-[11px] font-bold mt-1.5">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>}
+                    <p className="os-cond text-[22px] font-extrabold uppercase leading-[1.08] mb-1" style={{ color: '#FFFFFF' }}>{phase.name}</p>
+                    <p style={{ color: '#A9C2B4' }} className="text-[13px] leading-snug">{phaseRangeLabel(activePhase, dayThresholds, isEN)} · {isEN ? `${severityLabels[severity].toLowerCase()} severity` : `gravità ${severityFemIT[severity] || severityLabels[severity].toLowerCase()}`}</p>
+                    {premiumUnlocked && playerPosition && <p style={{ fontFamily: BRICOLAGE, color: colors.premiumGold }} className="text-[11.5px] font-bold mt-1.5">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>}
                   </div>
                 </div>
 
-                <SectionNav
-                  isEN={isEN}
-                  items={[
-                    { id: 'oggi', icon: Flame, label: isEN ? 'Today' : 'Oggi', onClick: () => scrollToId('sez-oggi') },
-                    { id: 'fase', icon: Activity, label: isEN ? 'Phase' : 'Fase', badge: `${activePhase + 1}/${injury.phases.length}`, onClick: () => scrollToId('sez-fase') },
-                    { id: 'esercizi', icon: Dumbbell, label: isEN ? 'Exercises' : 'Esercizi', badge: `${completedCount}/${phase.exercises.length}`, onClick: () => { setTrackerSection('esercizi'); setTimeout(() => scrollToId('sez-esercizi'), 60); } },
-                    ...(injury.relatedInjuries && injury.relatedInjuries.length > 0 ? [{ id: 'collegati', icon: ArrowLeftRight, label: isEN ? 'Related' : 'Collegati', onClick: () => scrollToId('sez-collegati') }] : []),
-                  ]}
-                />
-                <SectionTitle id="sez-oggi" className="mt-6" kicker={isEN ? 'Today' : 'Oggi'} title={isEN ? "Today's session" : 'La sessione di oggi'} hint={currentDate ? (isEN ? 'Log how you feel, then tick the session to keep your streak alive.' : 'Segna come ti senti, poi spunta la sessione: tiene viva la serie.') : null} />
-                <div style={{ backgroundColor: todayEntry.done ? colors.accentDark : colors.card, border: `1px solid ${todayEntry.done ? colors.accentDark : colors.hairline}` }} className="rounded-xl p-3.5 mb-5 shadow-sm transition-colors">
-                  {!currentDate ? (
-                    <button onClick={() => setEditingSetup(true)} className="os-focus w-full flex items-center justify-between gap-2">
-                      <span style={{ color: colors.accentDark, fontWeight: 500 }} className="text-sm">{isEN ? 'Add a date to start tracking daily sessions' : 'Aggiungi una data per iniziare a tracciare le sessioni'}</span>
-                      <ChevronRight size={16} color={colors.accentDark} />
-                    </button>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between mb-1">
-                        <span style={{ ...displayFont, color: todayEntry.done ? '#FFFFFF' : colors.ink }} className="text-sm font-semibold capitalize">{isEN ? 'Day' : 'Giorno'} {dayCount} · {formatTodayLabel(isEN)}</span>
-                        {streak.count > 0 && (
-                          <span style={{ ...displayFont, color: todayEntry.done ? '#FFF3E0' : colors.orange }} className="flex items-center gap-1 text-sm font-bold os-tabular">
-                            <Flame size={14} strokeWidth={2.5} />{streak.count}
-                          </span>
-                        )}
-                      </div>
-                      {streak.graceUsed && (
-                        <p style={{ color: todayEntry.done ? '#EEF3F8' : colors.mutedInk }} className="flex items-start gap-1.5 text-[11px] mb-2 -mt-1"><Snowflake size={12} className="mt-0.5 flex-shrink-0" />{isEN ? 'One missed day doesn\'t break your streak: you picked up where you left off.' : 'Un giorno saltato non rompe la serie: hai ripreso da dove avevi lasciato.'}</p>
-                      )}
-                      <div className="flex items-center gap-2.5 mb-1.5">
-                        <span style={{ color: todayEntry.done ? '#EEF3F8' : colors.mutedInk }} className="text-[11px] font-medium flex-shrink-0 w-14">{isEN ? 'Feeling' : 'Come va'}</span>
-                        <div className="flex gap-1 flex-1">
-                          {feelingOptions.map((opt) => (
-                            <button aria-pressed={todayEntry.feeling === opt.key} key={opt.key} onClick={() => setTodayFeeling(opt.key)} style={{ backgroundColor: todayEntry.feeling === opt.key ? colors.accent : (todayEntry.done ? 'rgba(6,20,14,0.28)' : colors.paper), color: todayEntry.feeling === opt.key ? colors.onAccent : (todayEntry.done ? '#FFFFFF' : colors.ink) }} className="os-focus os-press flex-1 py-2 min-h-[36px] rounded-lg text-[11.5px] font-medium">
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2.5 mb-2.5">
-                        <span style={{ color: todayEntry.done ? '#EEF3F8' : colors.mutedInk }} className="text-[11px] font-medium flex-shrink-0 w-14">{isEN ? 'Stiffness' : 'Rigidità'}</span>
-                        <div className="flex gap-1 flex-1">
-                          {stiffnessOptions.map((opt) => (
-                            <button aria-pressed={todayEntry.stiffness === opt.key} key={opt.key} onClick={() => setTodayStiffness(opt.key)} style={{ backgroundColor: todayEntry.stiffness === opt.key ? colors.orange : (todayEntry.done ? 'rgba(6,20,14,0.28)' : colors.paper), color: todayEntry.stiffness === opt.key ? '#FFFFFF' : (todayEntry.done ? '#FFFFFF' : colors.ink) }} className="os-focus os-press flex-1 py-2 min-h-[36px] rounded-lg text-[11.5px] font-medium">
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                <div className="mb-4">{renderRedFlagsBar()}</div>
 
-                      {todayEntry.feeling === 'male' && (
-                        <p style={{ color: todayEntry.done ? '#FFD0CC' : colors.red }} className="text-[11px] mb-2.5 leading-relaxed">
-                          {isEN ? 'Take it easy today — review the warning signs above if the pain feels different than usual.' : 'Vacci piano oggi — rivedi i segnali d\'allarme in alto se il dolore ti sembra diverso dal solito.'}
-                        </p>
-                      )}
-
-                      <button
-                        onClick={toggleToday}
-                        aria-pressed={!!todayEntry.done}
-                        style={{ backgroundColor: todayEntry.done ? 'rgba(6,20,14,0.25)' : colors.accentTint, color: todayEntry.done ? '#FFFFFF' : colors.accentDark, border: `1px solid ${todayEntry.done ? 'rgba(255,255,255,0.3)' : 'transparent'}` }}
-                        className="os-focus os-press w-full flex items-center justify-center gap-2 rounded-lg py-2.5 min-h-[44px] hover:opacity-90"
-                      >
-                        {todayEntry.done ? <CheckCircle2 size={16} strokeWidth={2.25} /> : <Circle size={16} strokeWidth={1.75} />}
-                        <span style={displayFont} className="text-xs font-semibold uppercase tracking-wide">
-                          {todayEntry.done ? (isEN ? 'Today\'s session completed' : 'Sessione di oggi completata') : (isEN ? 'Mark today\'s session as done' : 'Segna sessione di oggi come fatta')}
-                        </span>
-                      </button>
-
-                      <button
-                        onClick={() => { trackEvent('calendar_reminders_downloaded'); downloadRecoveryReminders(isEN); }}
-                        style={{ color: todayEntry.done ? '#EEF3F8' : colors.mutedInk }}
-                        className="os-focus w-full flex items-center justify-center gap-1.5 pt-2.5 text-[11px] font-medium hover:opacity-70 transition-opacity"
-                      >
-                        <CalendarPlus size={12} />{isEN ? 'Add daily reminders to your calendar' : 'Aggiungi promemoria giornalieri al calendario'}
-                      </button>
-                    </>
-                  )}
+                <div className="os-seg-sticky -mx-5 sm:-mx-8 px-5 sm:px-8 pt-2 pb-3 mb-3" style={{ background: 'linear-gradient(180deg, rgba(4,10,7,0.92) 0%, rgba(4,10,7,0.92) 72%, rgba(4,10,7,0) 100%)' }}>
+                  <Segmented
+                    ariaLabel={isEN ? 'Recovery chapters' : 'Capitoli del percorso'}
+                    value={trackerChapter}
+                    onChange={(k) => setTrackerChapter(k)}
+                    items={[
+                      { key: 'oggi', icon: Flame, label: isEN ? 'Today' : 'Oggi', badge: todayEntry.done ? <Check size={12} weight="bold" /> : null },
+                      { key: 'fase', icon: Activity, label: isEN ? 'Phase' : 'Fase', badge: `${activePhase + 1}/${injury.phases.length}` },
+                      { key: 'progressi', icon: ChartLineUp, label: isEN ? 'Progress' : 'Progressi' },
+                    ]}
+                  />
                 </div>
 
-                <SectionTitle id="sez-fase" className="mt-8" kicker={isEN ? 'Your phase' : 'La tua fase'} title={isEN ? 'Where you are in recovery' : 'Dove sei nel recupero'} hint={isEN ? 'Each phase has its goal: move on when you meet the criteria.' : 'Ogni fase ha il suo obiettivo: passa alla successiva quando superi i criteri.'} />
-                <div className="flex items-stretch gap-1.5 mb-3">
-                  {injury.phases.map((p, i) => {
-                    const isActive = i === activePhase;
-                    const pKey = `${selectedInjury}-${i}`;
-                    const pProgress = progress[pKey] || {};
-                    const pDone = p.exercises.length > 0 && p.exercises.filter((_, ei) => pProgress[ei]).length === p.exercises.length;
-                    return (
-                      <button key={i} onClick={() => changePhase(i)} style={{ backgroundColor: isActive ? colors.accent : colors.card, border: `1px solid ${isActive ? colors.accent : colors.hairline}`, color: isActive ? colors.onAccent : colors.mutedInk }} className="os-focus flex-1 flex flex-col items-center justify-center gap-0.5 rounded-lg py-2 transition-colors shadow-sm">
-                        <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wide">{isEN ? `Phase ${i + 1}` : `Fase ${i + 1}`}{pDone && <CheckCircle2 size={12} strokeWidth={2.5} />}</span>
-                        <span style={{ color: isActive ? colors.onAccent : colors.mutedInk }} className="text-[10px] font-medium normal-case os-tabular">{phaseRangeLabel(i, dayThresholds, isEN)}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <SetupSection id="perche" currentSection={trackerSection} onToggle={setTrackerSection} icon={Info} label={isEN ? 'Why this phase' : 'Perché questa fase'}>
-                  <p style={{ color: colors.ink }} className="text-sm leading-relaxed">{phase.why}</p>
-                </SetupSection>
-
-                {phase.criteriaToAdvance && (() => {
-                  const pKey = `${selectedInjury}-${activePhase}`;
-                  const checkedForPhase = criteriaChecked[pKey] || {};
-                  const checkedCount = phase.criteriaToAdvance.filter((_, i) => checkedForPhase[i]).length;
-                  const allChecked = checkedCount === phase.criteriaToAdvance.length;
-                  const isLastPhase = activePhase === injury.phases.length - 1;
-                  return (
-                    <SetupSection id="criteri" currentSection={trackerSection} onToggle={setTrackerSection} icon={ClipboardCheck} label={isEN ? 'Ready to advance?' : 'Pronto ad avanzare?'} badge={<span style={{ color: allChecked ? colors.accent : colors.mutedInk, fontWeight: 600 }} className="text-xs mr-1 os-tabular">{checkedCount}/{phase.criteriaToAdvance.length}</span>}>
-                      <div className="space-y-2 mb-1">
-                        {phase.criteriaToAdvance.map((c, i) => {
-                          const checked = !!checkedForPhase[i];
-                          return (
-                            <button key={i} onClick={() => toggleCriterion(i)} className="os-focus w-full flex items-start gap-2.5 text-left">
-                              <div style={{ backgroundColor: checked ? colors.accent : colors.paper, border: `1.5px solid ${checked ? colors.accent : colors.hairline}` }} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5 transition-colors">
-                                {checked && <Check size={12} strokeWidth={3} color="#FFFFFF" />}
-                              </div>
-                              <span style={{ color: colors.ink, textDecoration: checked ? 'line-through' : 'none' }} className="text-sm leading-snug">{c}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {allChecked ? (
-                        <div style={{ backgroundColor: colors.accentTint, borderTop: `1px solid ${colors.hairline}` }} className="rounded-lg p-3 mt-3">
-                          <p style={{ color: colors.accentDark, fontWeight: 600 }} className="text-sm mb-2.5">{isEN ? 'Looks like you\'re ready.' : 'Sembra che tu sia pronto.'}</p>
-                          {!isLastPhase && (
-                            <button onClick={() => changePhase(activePhase + 1)} style={{ backgroundColor: colors.accent, color: colors.onAccent }} className="os-focus w-full flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wide hover:opacity-90 transition-opacity">
-                              {isEN ? 'Move to the next phase' : 'Passa alla fase successiva'}<ArrowRight size={13} />
-                            </button>
-                          )}
+                <div key={trackerChapter} className={paneClass('tracker')}>
+                {trackerChapter === 'oggi' && (
+                  <>
+                    <div data-rv="" className="os-panel p-4 mb-4" style={{ borderColor: completedCount === phase.exercises.length && phase.exercises.length > 0 ? `${LED_GREEN}66` : undefined }}>
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="min-w-0">
+                          <h2 style={{ fontFamily: BRICOLAGE, color: colors.ink, letterSpacing: '-0.015em' }} className="text-[20px] font-bold leading-tight">{isEN ? "Today's session" : 'Allenamento di oggi'}</h2>
+                          <p style={{ color: colors.mutedInk }} className="text-[12.5px] mt-0.5">{isEN ? `Phase ${activePhase + 1} · ${phase.exercises.length} exercises` : `Fase ${activePhase + 1} · ${phase.exercises.length} esercizi`}</p>
                         </div>
+                        <span style={{ fontFamily: BEBAS, color: completedCount ? LED_GREEN : colors.mutedInk, textShadow: completedCount ? `0 0 12px ${LED_GREEN}77` : 'none' }} className="text-[34px] leading-none os-tabular flex-shrink-0"><CountUp value={completedCount} />/{phase.exercises.length}</span>
+                      </div>
+                      <DrillProgress doneFlags={phase.exercises.map((_, i) => !!phaseProgress[i])} isEN={isEN} showCount={false} />
+                      <button
+                        onClick={() => { const firstOpen = phase.exercises.findIndex((_, i) => !phaseProgress[i]); openSession('recovery', { start: firstOpen >= 0 ? firstOpen : 0 }); }}
+                        className="os-focus os-btn os-btn-primary relative w-full py-4 mt-4 text-[14px] uppercase tracking-wide"
+                      >
+                        <Play size={17} weight="fill" />
+                        {completedCount === phase.exercises.length && phase.exercises.length > 0 ? (isEN ? 'Review the session' : 'Rivedi la sessione') : completedCount > 0 ? (isEN ? 'Resume guided session' : 'Riprendi la sessione guidata') : (isEN ? 'Start guided session' : 'Inizia la sessione guidata')}
+                        <span className="os-sheen" aria-hidden="true" />
+                      </button>
+                      <p style={{ color: colors.mutedInk }} className="text-[11.5px] text-center mt-2.5">{isEN ? 'Adjust them to how your body responds, don\'t push through sharp pain.' : 'Adattali a come risponde il tuo corpo, non forzare sul dolore acuto.'}</p>
+                    </div>
+
+                    <div data-rv="" id="sez-oggi" className="os-panel p-4 mb-7 scroll-mt-4" style={todayEntry.done ? { background: 'linear-gradient(180deg, rgba(52,201,122,0.2), rgba(52,201,122,0.05))', borderColor: `${LED_GREEN}66` } : undefined}>
+                      {!currentDate ? (
+                        <button onClick={() => setEditingSetup(true)} className="os-focus w-full flex items-center justify-between gap-2 rounded-lg">
+                          <span style={{ color: LED_GREEN }} className="text-sm font-semibold text-left">{isEN ? 'Add a date to start tracking daily sessions' : 'Aggiungi una data per iniziare a tracciare le sessioni'}</span>
+                          <ChevronRight size={16} color={LED_GREEN} />
+                        </button>
                       ) : (
-                        <p style={{ color: colors.mutedInk, fontWeight: 500 }} className="text-xs mt-2">{isEN ? 'A self-check, not a clinical test.' : 'Un autocontrollo, non un test clinico.'}</p>
-                      )}
-                      {userProfile.level && (() => {
-                        const levelNotes = {
-                          giovanili: isEN ? 'At youth level, it\'s worth involving a coach or parent in this decision too, not just yourself.' : 'A livello giovanile, vale la pena coinvolgere anche un allenatore o un genitore in questa decisione, non solo te stesso.',
-                          amatoriale: isEN ? 'Amateur football usually means less outside pressure to rush back — use that time, don\'t force it.' : 'Il calcio amatoriale di solito vuol dire meno pressione esterna per rientrare — usa questo tempo, non forzarlo.',
-                          dilettanti: isEN ? 'Even at a competitive level, healing follows its own timeline — the criteria above matter more than the calendar.' : 'Anche a livello dilettantistico serio, la guarigione segue i suoi tempi — i criteri qui sopra contano più del calendario.',
-                          semipro: isEN ? 'At this level the pressure to return quickly is real — but your body heals on the same timeline regardless of category.' : 'A questo livello la pressione a rientrare presto è reale — ma il corpo guarisce secondo gli stessi tempi, a prescindere dalla categoria.',
-                        };
-                        return (
-                          <p style={{ color: colors.mutedInk, borderTop: `1px solid ${colors.hairline}` }} className="text-xs leading-relaxed mt-3 pt-3 flex gap-2">
-                            <span style={{ color: colors.accentDark }} className="flex-shrink-0">—</span>
-                            <span>{levelNotes[userProfile.level]}</span>
-                          </p>
-                        );
-                      })()}
-                    </SetupSection>
-                  );
-                })()}
-
-                <SectionTitle id="sez-esercizi" className="mt-8" kicker={isEN ? 'Training' : 'Allenamento'} title={isEN ? 'Exercises for this phase' : 'Gli esercizi di questa fase'} />
-
-                {activePhase === injury.phases.length - 1 && (
-                  <SetupSection id="ruolo-percorso" currentSection={trackerSection} onToggle={setTrackerSection} icon={User} label={isEN ? 'What position do you play?' : 'Che ruolo giochi?'} gold={!premiumUnlocked} badge={premiumUnlocked && playerPosition && <span style={{ color: colors.accentDark, fontWeight: 600 }} className="text-xs mr-1">{playerPositions.find((p) => p.key === playerPosition)?.label}</span>}>
-                    {!premiumUnlocked ? (
-                      <>
-                        <div className="relative mb-1">
-                          <div style={{ filter: 'blur(4px)', pointerEvents: 'none' }} className="flex flex-wrap gap-2" aria-hidden="true">
-                            {playerPositions.map((pos) => (
-                              <div key={pos.key} style={{ backgroundColor: colors.paper, border: `1px solid ${colors.hairline}`, color: colors.ink }} className="px-3 py-1.5 rounded-full text-xs font-medium">{pos.label}</div>
-                            ))}
+                        <>
+                          <div className="flex items-center justify-between mb-1">
+                            <span style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold">{isEN ? 'Day' : 'Giorno'} {dayCount} · {todayLabelCap}</span>
+                            {streak.count > 0 && (
+                              <span style={{ fontFamily: BEBAS, color: '#FFD9A0', textShadow: '0 0 10px rgba(255,217,160,0.5)' }} className="flex items-center gap-1 text-[20px] leading-none os-tabular">
+                                <Flame size={16} weight="fill" />{streak.count}
+                              </span>
+                            )}
                           </div>
-                          <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}>
-                            <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full shadow-sm">{isEN ? 'Unlock' : 'Sblocca'}</span>
-                          </button>
-                        </div>
-                        <p style={{ color: colors.mutedInk }} className="text-[11px] leading-relaxed">{isEN ? 'Get a return-to-play tip built for your exact position.' : 'Ricevi un consiglio sul rientro pensato per il tuo ruolo esatto.'}</p>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {playerPositions.map((pos) => (
-                            <button aria-pressed={playerPosition === pos.key} key={pos.key} onClick={() => { setPlayerPosition(pos.key); persist(snapshot({ playerPosition: pos.key })); }} style={{ backgroundColor: playerPosition === pos.key ? colors.accent : colors.paper, color: playerPosition === pos.key ? colors.onAccent : colors.ink, border: `1px solid ${playerPosition === pos.key ? colors.accent : colors.hairline}` }} className="os-focus px-3 py-1.5 rounded-full text-xs font-medium transition-colors">
-                              {pos.label}
-                            </button>
-                          ))}
-                        </div>
-                        {playerPosition && (
-                          <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{playerPositions.find((p) => p.key === playerPosition)?.tip}</p>
-                        )}
-                      </>
-                    )}
-                  </SetupSection>
-                )}
+                          <p style={{ color: colors.mutedInk }} className="text-[12px] mb-3">{isEN ? 'Log how you feel, then tick the session to keep your streak alive.' : 'Segna come ti senti, poi spunta la sessione: tiene viva la serie.'}</p>
+                          {streak.graceUsed && (
+                            <p style={{ color: colors.mutedInk }} className="flex items-start gap-1.5 text-[11.5px] mb-3 -mt-1"><Snowflake size={12} className="mt-0.5 flex-shrink-0" color={LED_TEAL} />{isEN ? 'One missed day doesn\'t break your streak: you picked up where you left off.' : 'Un giorno saltato non rompe la serie: hai ripreso da dove avevi lasciato.'}</p>
+                          )}
+                          <p className="os-label mb-1.5" style={{ color: colors.mutedInk }}>{isEN ? 'Feeling' : 'Come va'}</p>
+                          <Segmented items={feelingOptions.map((o) => ({ key: o.key, label: o.label }))} value={todayEntry.feeling || null} onChange={setTodayFeeling} role="radiogroup" ariaLabel={isEN ? 'Feeling' : 'Come va'} size="sm" className={`mb-3 ${todayEntry.feeling ? '' : '[&_.os-seg-ind]:opacity-0'}`} led={todayEntry.feeling === 'male' ? colors.red : todayEntry.feeling === 'cosi' ? colors.orange : LED_GREEN} />
+                          <p className="os-label mb-1.5" style={{ color: colors.mutedInk }}>{isEN ? 'Stiffness' : 'Rigidità'}</p>
+                          <Segmented items={stiffnessOptions.map((o) => ({ key: o.key, label: o.label }))} value={todayEntry.stiffness || null} onChange={setTodayStiffness} role="radiogroup" ariaLabel={isEN ? 'Stiffness' : 'Rigidità'} size="sm" className={`mb-3 ${todayEntry.stiffness ? '' : '[&_.os-seg-ind]:opacity-0'}`} led={colors.orange} />
 
-                <SetupSection id="esercizi" currentSection={trackerSection} onToggle={setTrackerSection} icon={Dumbbell} label={isEN ? 'Exercises' : 'Esercizi'} badge={<span style={{ ...displayFont, color: colors.accentDark }} className="os-tabular text-sm font-bold mr-1">{completedCount}<span style={{ color: colors.mutedInk }} className="text-xs font-normal"> /{phase.exercises.length}</span></span>}>
-                  <div className="mb-3">
-                    <DrillProgress doneFlags={phase.exercises.map((_, i) => !!phaseProgress[i])} isEN={isEN} showCount={false} />
-                  </div>
-                  <p style={{ color: colors.mutedInk }} className="text-[11px] mb-3">{isEN ? 'Adjust them to how your body responds, don\'t push through sharp pain.' : 'Adattali a come risponde il tuo corpo, non forzare sul dolore acuto.'}</p>
-                  <div className="space-y-2.5">
-                    {phase.exercises.map((ex, i) => {
-                      const exKey = `${activePhase}-${i}`;
-                      const isVideoOpen = activeVideo === exKey;
-                      return (
-                        <DrillCard
-                          key={exKey}
-                          index={i}
-                          ex={ex}
-                          catLabel={catLabels[ex.cat]}
-                          done={!!phaseProgress[i]}
-                          onToggle={() => toggleExercise(i)}
-                          helpOpen={isVideoOpen}
-                          onToggleHelp={() => setActiveVideo(isVideoOpen ? null : exKey)}
-                          isEN={isEN}
-                        />
-                      );
-                    })}
-                  </div>
+                          {todayEntry.feeling === 'male' && (
+                            <p style={{ color: '#FFD0CB' }} className="text-[12px] mb-3 leading-relaxed os-fadein">
+                              {isEN ? 'Take it easy today — review the warning signs above if the pain feels different than usual.' : 'Vacci piano oggi — rivedi i segnali d\'allarme in alto se il dolore ti sembra diverso dal solito.'}
+                            </p>
+                          )}
+
+                          <button
+                            onClick={toggleToday}
+                            aria-pressed={!!todayEntry.done}
+                            className={`os-focus os-btn w-full py-3.5 text-[13px] uppercase tracking-wide ${todayEntry.done ? 'os-btn-dark' : 'os-btn-ghost'}`}
+                            style={todayEntry.done ? { color: LED_GREEN, borderColor: `${LED_GREEN}66` } : { borderColor: `${LED_GREEN}55`, color: LED_GREEN }}
+                          >
+                            {todayEntry.done ? <CheckCircle2 size={18} weight="fill" className="os-check-pop" /> : <Circle size={18} />}
+                            {todayEntry.done ? (isEN ? 'Today\'s session completed' : 'Sessione di oggi completata') : (isEN ? 'Mark today\'s session as done' : 'Segna sessione di oggi come fatta')}
+                          </button>
+
+                          <button
+                            onClick={() => { trackEvent('calendar_reminders_downloaded'); downloadRecoveryReminders(isEN); }}
+                            style={{ color: colors.mutedInk }}
+                            className="os-focus w-full flex items-center justify-center gap-1.5 pt-3 text-[11.5px] font-medium hover:text-white transition-colors"
+                          >
+                            <CalendarPlus size={13} />{isEN ? 'Add daily reminders to your calendar' : 'Aggiungi promemoria giornalieri al calendario'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    <SectionTitle id="sez-esercizi" title={isEN ? 'Exercises for this phase' : 'Gli esercizi di questa fase'} aside={<span style={{ fontFamily: BEBAS, color: LED_GREEN }} className="text-[18px] leading-none os-tabular">{completedCount}/{phase.exercises.length}</span>} />
+                    <div className="space-y-2.5">
+                      {phase.exercises.map((ex, i) => {
+                        const exKey = `${activePhase}-${i}`;
+                        const isVideoOpen = activeVideo === exKey;
+                        return (
+                          <div key={exKey} data-rv="">
+                            <DrillCard
+                              index={i}
+                              ex={ex}
+                              catLabel={catLabels[ex.cat]}
+                              done={!!phaseProgress[i]}
+                              onToggle={() => toggleExercise(i)}
+                              helpOpen={isVideoOpen}
+                              onToggleHelp={() => setActiveVideo(isVideoOpen ? null : exKey)}
+                              onPlay={() => openSession('recovery', { start: i })}
+                              isEN={isEN}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
                     {completedCount === phase.exercises.length && phase.exercises.length > 0 && (
                       activePhase === injury.phases.length - 1 ? (
-                        <div style={{ background: 'linear-gradient(160deg, #16283A 0%, #0A1118 100%)', border: `1px solid ${colors.accent}55` }} className="rounded-xl p-5 mt-4 relative overflow-hidden os-fadein shadow-lg">
-                          <svg className="absolute inset-0 w-full h-full opacity-[0.08]" viewBox="0 0 300 150" fill="none" preserveAspectRatio="xMidYMid slice">
-                            <circle cx="150" cy="20" r="120" stroke={colors.accent} strokeWidth="1.5" />
-                          </svg>
-                          <div className="relative text-center">
-                            <div style={{ backgroundColor: 'rgba(255,255,255,0.1)', border: `1.5px solid ${colors.accent}` }} className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3">
-                              <Trophy size={26} color={colors.accent} strokeWidth={2} />
+                        <div className="os-pitch p-6 mt-5 os-card-in text-center">
+                          <PitchArc size={220} />
+                          <div className="relative">
+                            <div style={{ background: 'rgba(0,0,0,0.3)', border: `1.5px solid ${LED_GREEN}`, boxShadow: `0 0 30px -6px ${LED_GREEN}` }} className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                              <Trophy size={30} color={LED_GREEN} weight="fill" />
                             </div>
-                            <p style={{ ...displayFont, color: colors.accent, letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase mb-1">{isEN ? 'Recovery completed' : 'Percorso completato'}</p>
-                            <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-lg font-bold mb-2">{injury.label}</p>
-                            <p style={{ color: '#A9B7C4' }} className="text-xs leading-relaxed mb-4 max-w-xs mx-auto">{isEN ? 'You\'ve completed every phase of the guided plan. If you feel ready for a full return, one last check with a professional never hurts.' : 'Hai portato a termine tutte le fasi del percorso guidato. Se ti senti pronto per il rientro pieno, un ultimo controllo con un professionista non fa mai male.'}</p>
+                            <p style={{ fontFamily: BEBAS, color: LED_GREEN, letterSpacing: '0.08em', textShadow: `0 0 14px ${LED_GREEN}88` }} className="text-[18px] leading-none mb-1.5">{isEN ? 'Recovery completed' : 'Percorso completato'}</p>
+                            <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[20px] font-bold mb-2">{injury.label}</p>
+                            <p style={{ color: '#B8CDBF' }} className="text-[13px] leading-relaxed mb-4 max-w-xs mx-auto">{isEN ? 'You\'ve completed every phase of the guided plan. If you feel ready for a full return, one last check with a professional never hurts.' : 'Hai portato a termine tutte le fasi del percorso guidato. Se ti senti pronto per il rientro pieno, un ultimo controllo con un professionista non fa mai male.'}</p>
                             <button
                               onClick={async () => {
                                 const text = isEN
@@ -8402,84 +8996,419 @@ export default function Offside() {
                                   else if (navigator.clipboard) { await navigator.clipboard.writeText(text); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); }
                                 } catch (err) {}
                               }}
-                              style={{ backgroundColor: colors.accent, color: '#101B26' }}
-                              className="os-focus flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold mx-auto"
+                              className="os-focus os-btn os-btn-primary mx-auto px-5 py-3 text-xs"
                             >
-                              <Share2 size={13} />{shareCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Share the milestone' : 'Condividi il traguardo')}
+                              <Share2 size={14} />{shareCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Share the milestone' : 'Condividi il traguardo')}
                             </button>
                             <button
                               onClick={() => {
                                 const region = regionOfInjury(selectedInjury, injuriesData);
                                 setRegionsTab('prevention');
                                 setScreen('regions');
-                                if (region) { setExpandedPrevention(region); setTimeout(() => scrollToId(`prevention-${region}`), 200); }
+                                if (region) setTimeout(() => setExpandedPrevention(region), 420);
                               }}
-                              style={{ color: colors.accent }}
-                              className="os-focus block mx-auto mt-3 text-xs font-medium underline hover:opacity-70"
+                              style={{ color: LED_GREEN }}
+                              className="os-focus block mx-auto mt-3 text-xs font-semibold underline hover:opacity-70"
                             >
                               {isEN ? 'Don\'t let it happen again — see prevention exercises for this area' : 'Non farlo ripetere — vedi gli esercizi di prevenzione per questa zona'}
                             </button>
                           </div>
                         </div>
                       ) : (
-                        <div style={{ background: 'linear-gradient(135deg, #1D3348, #101B26)' }} className="rounded-xl p-4 mt-4 flex items-center gap-3 os-fadein shadow-md">
-                          <div style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
-                            <Trophy size={19} color={colors.accent} strokeWidth={2} />
+                        <div className="os-panel p-4 mt-5 flex items-center gap-3 os-card-in" style={{ borderColor: `${LED_GREEN}55` }}>
+                          <div style={{ background: 'rgba(125,255,168,0.12)' }} className="flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center">
+                            <Trophy size={20} color={LED_GREEN} weight="fill" />
                           </div>
-                          <div>
-                            <p style={{ ...displayFont, color: '#FFFFFF' }} className="text-sm font-semibold">{isEN ? 'Phase completed' : 'Fase completata'}</p>
-                            <p style={{ color: '#B9C4CF' }} className="text-xs leading-snug">{isEN ? 'When you feel ready, move to the next phase above.' : 'Quando ti senti pronto, passa alla fase successiva in alto.'}</p>
+                          <div className="flex-1 min-w-0">
+                            <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[15px] font-bold">{isEN ? 'Phase completed' : 'Fase completata'}</p>
+                            <p style={{ color: colors.mutedInk }} className="text-xs leading-snug">{isEN ? 'When you feel ready, move to the next phase above.' : 'Quando ti senti pronto, passa alla fase successiva in alto.'}</p>
                           </div>
+                          <button onClick={() => setTrackerChapter('fase')} className="os-focus os-icon-btn rounded-full flex-shrink-0" aria-label={isEN ? 'Go to the phase' : 'Vai alla fase'}><ArrowRight size={16} color={LED_GREEN} /></button>
                         </div>
                       )
                     )}
-                </SetupSection>
+                  </>
+                )}
 
-                {!premiumUnlocked && <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: your progress over time + a document for your physio' : 'Premium: il tuo andamento nel tempo + un documento per il fisio'} />}
+                {trackerChapter === 'fase' && (
+                  <>
+                    <SectionTitle id="sez-fase" title={isEN ? 'Where you are in recovery' : 'Dove sei nel recupero'} hint={isEN ? 'Each phase has its goal: move on when you meet the criteria.' : 'Ogni fase ha il suo obiettivo: passa alla successiva quando superi i criteri.'} />
+                    <div data-rv="" className="grid gap-2 mb-5" style={{ gridTemplateColumns: `repeat(${injury.phases.length}, minmax(0, 1fr))` }}>
+                      {injury.phases.map((p, i) => {
+                        const isActive = i === activePhase;
+                        const pKey = `${selectedInjury}-${i}`;
+                        const pProgress = progress[pKey] || {};
+                        const pDone = p.exercises.length > 0 && p.exercises.filter((_, ei) => pProgress[ei]).length === p.exercises.length;
+                        return (
+                          <button key={i} onClick={() => { haptic(8); changePhase(i); }} aria-pressed={isActive} className="os-focus os-press relative overflow-hidden flex flex-col items-start gap-1 rounded-[18px] p-3 text-left min-h-[108px]" style={{ background: isActive ? 'linear-gradient(180deg, rgba(125,255,168,0.2), rgba(125,255,168,0.05))' : 'rgba(255,255,255,0.04)', border: `1.5px solid ${isActive ? LED_GREEN + 'AA' : 'rgba(255,255,255,0.09)'}`, boxShadow: isActive ? `0 0 0 3px ${colors.accent}22, 0 14px 28px -16px ${LED_GREEN}` : 'none', transition: 'all 260ms ease' }}>
+                            <span className="flex items-center gap-1.5">
+                              <span style={{ fontFamily: BEBAS, color: isActive ? LED_GREEN : 'rgba(255,255,255,0.4)', textShadow: isActive ? `0 0 12px ${LED_GREEN}88` : 'none' }} className="text-[30px] leading-none">{i + 1}</span>
+                              {pDone && <CheckCircle2 size={15} color={LED_GREEN} weight="fill" />}
+                            </span>
+                            <span style={{ fontFamily: BRICOLAGE, color: isActive ? '#FFFFFF' : colors.ink }} className="text-[12.5px] font-bold leading-tight">{p.name}</span>
+                            <span style={{ color: isActive ? 'rgba(255,255,255,0.75)' : colors.mutedInk }} className="text-[10.5px] font-medium os-tabular mt-auto">{phaseRangeLabel(i, dayThresholds, isEN)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
 
-                    {injury.relatedInjuries && injury.relatedInjuries.length > 0 && (
-                      <div style={{ borderTop: `1px solid ${colors.hairline}` }} className="mt-6 pt-5">
-                        <SectionTitle id="sez-collegati" kicker={isEN ? 'Connected to' : 'Collegato a'} title={isEN ? 'Related injuries' : 'Infortuni collegati'} hint={injury.relatedReason} />
-                        <div className="flex flex-wrap gap-2">
-                          {injury.relatedInjuries.map((relKey) => {
-                            const rel = injuriesData[relKey];
-                            if (!rel) return null;
-                            const RelIcon = rel.icon;
+                    <div data-rv="" className="os-panel p-4 mb-4">
+                      <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-2 text-[16px] font-bold mb-2"><Info size={16} color={LED_GREEN} />{isEN ? 'Why this phase' : 'Perché questa fase'}</p>
+                      <p style={{ color: colors.ink }} className="text-[14px] leading-relaxed">{phase.why}</p>
+                    </div>
+
+                    {phase.criteriaToAdvance && (() => {
+                      const pKey = `${selectedInjury}-${activePhase}`;
+                      const checkedForPhase = criteriaChecked[pKey] || {};
+                      const checkedCount = phase.criteriaToAdvance.filter((_, i) => checkedForPhase[i]).length;
+                      const allChecked = checkedCount === phase.criteriaToAdvance.length;
+                      const isLastPhase = activePhase === injury.phases.length - 1;
+                      return (
+                        <div data-rv="" className="os-panel p-4 mb-4" style={allChecked ? { borderColor: `${LED_GREEN}66` } : undefined}>
+                          <div className="flex items-center justify-between gap-3 mb-3">
+                            <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-2 text-[16px] font-bold"><ClipboardCheck size={16} color={LED_GREEN} />{isEN ? 'Ready to advance?' : 'Pronto ad avanzare?'}</p>
+                            <span style={{ fontFamily: BEBAS, color: allChecked ? LED_GREEN : colors.mutedInk }} className="text-[20px] leading-none os-tabular">{checkedCount}/{phase.criteriaToAdvance.length}</span>
+                          </div>
+                          <div className="space-y-1.5 mb-1">
+                            {phase.criteriaToAdvance.map((c, i) => {
+                              const checked = !!checkedForPhase[i];
+                              return (
+                                <button key={i} onClick={() => { if (!checked) haptic(10); toggleCriterion(i); }} role="checkbox" aria-checked={checked} className="os-focus w-full flex items-start gap-3 text-left rounded-xl px-2 py-2 hover:bg-white/5 transition-colors">
+                                  <span style={{ background: checked ? `radial-gradient(circle at 35% 30%, ${LED_GREEN}, ${colors.accent})` : 'rgba(255,255,255,0.04)', border: `1.5px solid ${checked ? colors.accent : 'rgba(255,255,255,0.22)'}`, boxShadow: checked ? `0 0 10px ${LED_GREEN}77` : 'none', transition: 'all 200ms ease' }} className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center mt-px">
+                                    {checked && <Check size={13} weight="bold" color="#03130A" className="os-check-pop" />}
+                                  </span>
+                                  <span style={{ color: checked ? colors.mutedInk : colors.ink, textDecoration: checked ? 'line-through' : 'none', textDecorationColor: 'rgba(255,255,255,0.35)' }} className="text-[14px] leading-snug">{c}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {allChecked ? (
+                            <div style={{ background: 'rgba(125,255,168,0.1)', border: `1px solid ${LED_GREEN}44` }} className="rounded-2xl p-3.5 mt-3 os-card-in">
+                              <p style={{ color: LED_GREEN }} className="text-sm font-bold mb-2.5">{isEN ? 'Looks like you\'re ready.' : 'Sembra che tu sia pronto.'}</p>
+                              {!isLastPhase && (
+                                <button onClick={() => { haptic([10, 30, 16]); changePhase(activePhase + 1); }} className="os-focus os-btn os-btn-primary w-full py-3 text-xs uppercase tracking-wide">
+                                  {isEN ? 'Move to the next phase' : 'Passa alla fase successiva'}<ArrowRight size={14} />
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <p style={{ color: colors.mutedInk }} className="text-xs font-medium mt-2 px-2">{isEN ? 'A self-check, not a clinical test.' : 'Un autocontrollo, non un test clinico.'}</p>
+                          )}
+                          {userProfile.level && (() => {
+                            const levelNotes = {
+                              giovanili: isEN ? 'At youth level, it\'s worth involving a coach or parent in this decision too, not just yourself.' : 'A livello giovanile, vale la pena coinvolgere anche un allenatore o un genitore in questa decisione, non solo te stesso.',
+                              amatoriale: isEN ? 'Amateur football usually means less outside pressure to rush back — use that time, don\'t force it.' : 'Il calcio amatoriale di solito vuol dire meno pressione esterna per rientrare — usa questo tempo, non forzarlo.',
+                              dilettanti: isEN ? 'Even at a competitive level, healing follows its own timeline — the criteria above matter more than the calendar.' : 'Anche a livello dilettantistico serio, la guarigione segue i suoi tempi — i criteri qui sopra contano più del calendario.',
+                              semipro: isEN ? 'At this level the pressure to return quickly is real — but your body heals on the same timeline regardless of category.' : 'A questo livello la pressione a rientrare presto è reale — ma il corpo guarisce secondo gli stessi tempi, a prescindere dalla categoria.',
+                            };
                             return (
-                              <button key={relKey} onClick={() => chooseInjury(relKey)} style={{ backgroundColor: colors.accentTint, color: colors.accentDark }} className="os-focus flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium hover:opacity-80 transition-opacity">
-                                <RelIcon size={13} />{rel.label}
-                              </button>
+                              <p style={{ color: colors.mutedInk, borderTop: '1px solid rgba(255,255,255,0.08)' }} className="text-xs leading-relaxed mt-3 pt-3 flex gap-2">
+                                <Info size={13} color={LED_GREEN} className="flex-shrink-0 mt-0.5" />
+                                <span>{levelNotes[userProfile.level]}</span>
+                              </p>
                             );
-                          })}
+                          })()}
                         </div>
+                      );
+                    })()}
+
+                    {activePhase === injury.phases.length - 1 && (
+                      <div data-rv="" className="os-panel p-4 mb-4" style={!premiumUnlocked ? { borderColor: 'rgba(245,196,81,0.35)' } : undefined}>
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                          <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-2 text-[16px] font-bold"><User size={16} color={premiumUnlocked ? LED_GREEN : colors.premiumGold} />{isEN ? 'What position do you play?' : 'Che ruolo giochi?'}</p>
+                          {premiumUnlocked && playerPosition && <span style={{ color: LED_GREEN }} className="text-xs font-bold">{playerPositions.find((p) => p.key === playerPosition)?.label}</span>}
+                        </div>
+                        {!premiumUnlocked ? (
+                          <>
+                            <div className="relative mb-2">
+                              <div style={{ filter: 'blur(4px)', pointerEvents: 'none' }} className="flex flex-wrap gap-2" aria-hidden="true">
+                                {playerPositions.map((pos) => (
+                                  <div key={pos.key} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: colors.ink }} className="px-3 py-1.5 rounded-full text-xs font-medium">{pos.label}</div>
+                                ))}
+                              </div>
+                              <button onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus absolute inset-0 flex items-center justify-center rounded-lg" style={{ backgroundColor: 'rgba(4,10,7,0.35)' }}>
+                                <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-full shadow-lg">{isEN ? 'Unlock' : 'Sblocca'}</span>
+                              </button>
+                            </div>
+                            <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed">{isEN ? 'Get a return-to-play tip built for your exact position.' : 'Ricevi un consiglio sul rientro pensato per il tuo ruolo esatto.'}</p>
+                          </>
+                        ) : (
+                          <>
+                            <div className="mb-3">
+                              <PositionPicker positions={playerPositions} value={playerPosition} onPick={(k) => { setPlayerPosition(k); persist(snapshot({ playerPosition: k })); }} />
+                            </div>
+                            {playerPosition && (
+                              <p style={{ color: colors.ink }} className="text-[13px] leading-relaxed os-fadein">{playerPositions.find((p) => p.key === playerPosition)?.tip}</p>
+                            )}
+                          </>
+                        )}
                       </div>
                     )}
                   </>
                 )}
+
+                {trackerChapter === 'progressi' && (() => {
+                  const doneDays = Object.values(injuryLog).filter((e) => e.done).length;
+                  const stats = [
+                    { label: isEN ? 'Current streak' : 'Presenze di fila', value: streak.count, icon: Flame, color: '#FFD9A0' },
+                    { label: isEN ? 'Sessions logged' : 'Sessioni segnate', value: doneDays, icon: CheckCircle2, color: LED_GREEN },
+                    ...(currentDate ? [{ label: isEN ? 'Recovery day' : 'Giorno di recupero', value: dayCount, icon: Timer, color: LED_GREEN }] : []),
+                    { label: isEN ? 'Phase exercises' : 'Esercizi della fase', value: completedCount, total: phase.exercises.length, icon: Dumbbell, color: LED_GREEN },
+                  ];
+                  const chartData = buildChartData(injuryLog, isEN);
+                  const feelingLabel = (v) => ({ 3: isEN ? 'Good' : 'Bene', 2: isEN ? 'So-so' : 'Così così', 1: isEN ? 'Bad' : 'Male' }[v] || '');
+                  return (
+                    <>
+                      <SectionTitle title={isEN ? 'Your match stats' : 'Le statistiche della tua partita'} />
+                      <div data-rv="" className="os-panel overflow-hidden mb-5">
+                        {stats.map((s, i) => (
+                          <div key={s.label} className="flex items-center gap-3 px-4 py-3.5" style={{ borderTop: i ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+                            <s.icon size={17} color={s.color} weight="fill" />
+                            <span style={{ color: colors.ink }} className="flex-1 text-[14px]">{s.label}</span>
+                            <span style={{ fontFamily: BEBAS, color: s.color, textShadow: `0 0 12px ${s.color}55` }} className="text-[26px] leading-none os-tabular"><CountUp value={s.value} />{s.total != null && <span style={{ color: colors.faint }}>/{s.total}</span>}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <SectionTitle title={isEN ? 'How you\'ve been feeling' : 'Come ti sei sentito'} aside={!premiumUnlocked ? <span style={{ fontFamily: BEBAS, letterSpacing: '0.12em' }} className="os-gold-text text-[15px]">Premium</span> : null} />
+                      {premiumUnlocked ? (
+                        chartData.length === 0 ? (
+                          <p data-rv="" style={{ color: colors.mutedInk }} className="os-panel-flat text-[13px] leading-relaxed p-4 mb-5">{isEN ? 'Log a few daily sessions first, then your chart appears here.' : 'Registra qualche sessione giornaliera, poi il grafico compare qui.'}</p>
+                        ) : (
+                          <div data-rv="" className="os-panel p-4 mb-5">
+                            <ResponsiveContainer width="100%" height={170}>
+                              <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                                <XAxis dataKey="date" tick={{ fontSize: 11, fill: colors.mutedInk }} stroke="rgba(255,255,255,0.15)" />
+                                <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tickFormatter={feelingLabel} tick={{ fontSize: 11, fill: colors.mutedInk }} width={70} stroke="rgba(255,255,255,0.15)" />
+                                <Tooltip formatter={feelingLabel} isAnimationActive={false} contentStyle={{ background: '#0C1A14', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, color: '#ECF5EF' }} />
+                                <Line type="monotone" dataKey="feeling" stroke={LED_GREEN} strokeWidth={2.5} dot={{ r: 4, fill: LED_GREEN }} connectNulls animationDuration={900} animationEasing="ease-out" />
+                              </LineChart>
+                            </ResponsiveContainer>
+                            <button onClick={() => setScreen('premium')} className="os-focus os-btn os-btn-ghost w-full py-3 text-[12.5px] mt-3">
+                              <ClipboardCheck size={15} />{isEN ? 'Charts and printable report' : 'Grafici e resoconto stampabile'}
+                            </button>
+                          </div>
+                        )
+                      ) : (
+                        <button data-rv="" onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} className="os-focus os-press [--press:0.98] relative w-full overflow-hidden rounded-[22px] mb-5 text-left" style={{ border: '1px solid rgba(245,196,81,0.3)' }}>
+                          <div style={{ filter: 'blur(3px)', opacity: 0.6 }} className="os-panel p-4" aria-hidden="true">
+                            <svg width="100%" height="110" viewBox="0 0 200 60" preserveAspectRatio="none">
+                              <path d="M0 48 L28 36 L56 42 L84 22 L112 30 L140 14 L168 18 L200 6" stroke={LED_GREEN} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </div>
+                          <span className="absolute inset-0 flex flex-col items-center justify-center gap-2" style={{ background: 'rgba(4,10,7,0.45)' }}>
+                            <span style={{ background: GOLD_GRADIENT, color: '#0B121A' }} className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide px-3.5 py-2 rounded-full shadow-lg"><Lock size={11} weight="fill" />{isEN ? 'Unlock Premium' : 'Sblocca Premium'}</span>
+                            <span style={{ color: '#E8EEE9' }} className="text-[12px] font-medium px-6 text-center">{isEN ? 'Your real progress over time — useful to track and to share with a professional.' : 'Il tuo vero andamento nel tempo — utile da tracciare e da mostrare a un professionista.'}</span>
+                          </span>
+                        </button>
+                      )}
+
+                      <button data-rv="" onClick={shareProgress} className="os-focus os-btn os-btn-ghost w-full py-3.5 text-[13px] mb-6">
+                        {shareCopied ? <Check size={15} color={LED_GREEN} weight="bold" /> : <Share2 size={15} />}{shareCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Share your progress' : 'Condividi il tuo percorso')}
+                      </button>
+
+                      {!premiumUnlocked && <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: your progress over time + a document for your physio' : 'Premium: il tuo andamento nel tempo + un documento per il fisio'} />}
+
+                      {injury.relatedInjuries && injury.relatedInjuries.length > 0 && (
+                        <div className="mt-2" id="sez-collegati">
+                          <SectionTitle title={isEN ? 'Related injuries' : 'Infortuni collegati'} hint={injury.relatedReason} />
+                          <div className="flex flex-wrap gap-2" data-rv="">
+                            {injury.relatedInjuries.map((relKey) => {
+                              const rel = injuriesData[relKey];
+                              if (!rel) return null;
+                              const RelIcon = rel.icon;
+                              return (
+                                <button key={relKey} onClick={() => chooseInjury(relKey)} className="os-focus os-chip os-press py-2 px-3.5 text-[12.5px]" style={{ color: LED_GREEN }}>
+                                  <RelIcon size={14} />{rel.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+                </div>
               </>
             )}
-      </main>
+          </>
+        )}
+        </main>
 
-      <footer style={{ borderTop: `1px solid ${colors.hairline}`, color: colors.mutedInk }} className="px-5 sm:px-8 py-4 pb-28 text-xs leading-relaxed text-center">
-        {isEN ? 'General informational content. Not a substitute for a medical assessment. If in doubt, see a professional.' : 'Contenuto informativo generale. Non sostituisce una valutazione medica. In caso di dubbi rivolgiti a un professionista.'}
-        {saveError && <div style={{ color: colors.red }} className="mt-2 flex items-center justify-center gap-1.5"><X size={13} /> {isEN ? 'Data could not be saved.' : 'Salvataggio dati non riuscito.'}</div>}
-        <a href="mailto:manuelegusella@icloud.com?subject=Feedback%20Offside" style={{ color: colors.accentDark }} className="os-focus flex items-center justify-center gap-1.5 mt-2 py-2 hover:underline">
-          <Mail size={12} />{isEN ? 'Found a problem or have a suggestion? Let me know' : 'Hai trovato un problema o hai un suggerimento? Scrivimelo'}
-        </a>
-        <a href="/privacy.html" style={{ color: colors.mutedInk }} className="os-focus block py-2 underline hover:opacity-70">
-          {isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}
-        </a>
-      </footer>
+        <footer style={{ color: colors.mutedInk }} className="px-5 sm:px-8 pt-6 pb-36 text-[11.5px] leading-relaxed text-center">
+          <div className="mx-auto mb-4 h-px max-w-[200px]" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.14), transparent)' }} />
+          <LogoMark size={18} color="rgba(255,255,255,0.35)" strokeWidth={3} />
+          <p className="mt-2">{isEN ? 'General informational content. Not a substitute for a medical assessment. If in doubt, see a professional.' : 'Contenuto informativo generale. Non sostituisce una valutazione medica. In caso di dubbi rivolgiti a un professionista.'}</p>
+          {saveError && <div style={{ color: colors.red }} className="mt-2 flex items-center justify-center gap-1.5"><X size={13} /> {isEN ? 'Data could not be saved.' : 'Salvataggio dati non riuscito.'}</div>}
+          <a href="mailto:manuelegusella@icloud.com?subject=Feedback%20Offside" style={{ color: LED_GREEN }} className="os-focus flex items-center justify-center gap-1.5 mt-2 py-2 hover:underline">
+            <Mail size={12} />{isEN ? 'Found a problem or have a suggestion? Let me know' : 'Hai trovato un problema o hai un suggerimento? Scrivimelo'}
+          </a>
+          <a href="/privacy.html" style={{ color: colors.mutedInk }} className="os-focus block py-2 underline hover:opacity-70">
+            {isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}
+          </a>
+        </footer>
+      </div>
 
       {undoInfo && (
-        <div role="status" className="os-sheet fixed left-0 right-0 mx-auto max-w-[560px] px-4 z-30" style={{ bottom: 'calc(70px + env(safe-area-inset-bottom, 0px))' }}>
-          <div style={{ backgroundColor: colors.ink, color: '#EEF3F8' }} className="rounded-xl shadow-lg flex items-center justify-between gap-3 pl-4 pr-1.5 py-1.5">
-            <span className="text-sm">{undoInfo.label}</span>
-            <button onClick={undoLast} style={{ color: LED_GREEN, ...displayFont }} className="os-focus os-press min-h-[40px] px-3 rounded-lg text-sm font-bold uppercase tracking-wide">{isEN ? 'Undo' : 'Annulla'}</button>
+        <div role="status" className="os-sheet fixed left-0 right-0 mx-auto max-w-[560px] px-4 z-30" style={{ bottom: 'calc(92px + env(safe-area-inset-bottom, 0px))' }}>
+          <div className="os-panel flex items-center justify-between gap-3 pl-4 pr-1.5 py-1.5" style={{ background: 'rgba(12,26,20,0.96)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}>
+            <span style={{ color: colors.ink }} className="text-sm">{undoInfo.label}</span>
+            <button onClick={undoLast} style={{ color: LED_GREEN, fontFamily: BRICOLAGE }} className="os-focus os-press min-h-[40px] px-3 rounded-xl text-sm font-bold uppercase tracking-wide hover:bg-white/5">{isEN ? 'Undo' : 'Annulla'}</button>
           </div>
         </div>
       )}
-      {!TEAM_SCREENS.includes(screen) && <BottomNav screen={screen} isEN={isEN} onNavigate={handleBottomNav} />}
+      {!isTeamScreen && <div inert={overlayOpen}><BottomNav screen={screen} isEN={isEN} onNavigate={handleBottomNav} /></div>}
+
+      <Sheet open={showRedFlags} onClose={() => setShowRedFlags(false)} title={isEN ? 'When to stop and call a professional' : 'Quando fermarti e chiamare un professionista'} icon={Siren} tone="red" isEN={isEN}>
+        {renderRedFlagsContent()}
+      </Sheet>
+
+      <Sheet
+        open={warmupOpen && screen === 'regions'}
+        onClose={() => setWarmupOpen(false)}
+        title={isEN ? 'Preventive warm-up' : 'Riscaldamento preventivo'}
+        subtitle={isEN ? `${warmupExerciseCount} exercises · ${warmupMinutes} minutes` : `${warmupExerciseCount} esercizi · ${warmupMinutes} minuti`}
+        icon={Flame}
+        tone="teal"
+        isEN={isEN}
+        footer={(
+          <button onClick={() => { setWarmupOpen(false); openSession('warmup'); }} className="os-focus os-btn os-btn-teal w-full py-3.5 text-[14px] uppercase tracking-wide">
+            <Play size={16} weight="fill" />{isEN ? 'Start the warm-up' : 'Inizia il riscaldamento'}
+          </button>
+        )}
+      >
+        {warmupRoutine.map((part, pi) => (
+          <div key={part.part} className="mb-5">
+            <div className="flex items-center justify-between gap-2 mb-2.5">
+              <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-2 text-[15px] font-bold">
+                <span style={{ background: '#06282D', color: LED_TEAL, fontFamily: BEBAS, border: `1px solid ${LED_TEAL}55` }} className="w-7 h-7 rounded-full flex items-center justify-center text-[15px] leading-none">{pi + 1}</span>{part.part}
+              </p>
+              <span style={{ color: colors.mutedInk }} className="text-[11.5px] font-semibold">~{part.minutes} min</span>
+            </div>
+            <div className="space-y-2">
+              {part.exercises.map((ex, i) => {
+                const wKey = `warmup-${pi}-${i}`;
+                const wOpen = expandedPreventionTip === wKey;
+                const flatIndex = warmupRoutine.slice(0, pi).reduce((n, p) => n + p.exercises.length, 0) + i;
+                return (
+                  <DrillCard key={wKey} index={flatIndex} ex={ex} tone="teal" catLabel={catLabels[ex.cat]} helpOpen={wOpen} onToggleHelp={() => setExpandedPreventionTip(wOpen ? null : wKey)} onPlay={() => { setWarmupOpen(false); openSession('warmup', { start: flatIndex }); }} isEN={isEN} />
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        <p style={{ color: colors.mutedInk }} className="text-[12px] leading-relaxed">
+          {isEN ? `${warmupExerciseCount} exercises inspired by the preventive warm-ups studied in football, such as FIFA 11+. They work when done regularly: at least twice a week, all season long.` : `${warmupExerciseCount} esercizi ispirati ai riscaldamenti preventivi studiati nel calcio, come il FIFA 11+. Funzionano se fatti con costanza: almeno 2 volte a settimana, per tutta la stagione.`}
+        </p>
+      </Sheet>
+
+      {(() => {
+        const data = zoneKey ? preventionData[zoneKey] : null;
+        if (!data) return null;
+        const key = zoneKey;
+        const regionProgress = preventionProgress[key] || {};
+        const doneFlags = data.exercises.map((_, i) => !!regionProgress[i]);
+        const doneCount = doneFlags.filter(Boolean).length;
+        return (
+          <Sheet
+            open={!!expandedPrevention && screen === 'regions'}
+            onClose={() => setExpandedPrevention(null)}
+            title={data.label}
+            subtitle={isEN ? `${doneCount}/${data.exercises.length} done · it stays saved` : `${doneCount}/${data.exercises.length} fatti · resta salvato`}
+            icon={ShieldCheck}
+            tone="teal"
+            isEN={isEN}
+            footer={(
+              <button onClick={() => { const firstOpen = doneFlags.findIndex((f) => !f); openSession('prevention', { key, start: firstOpen >= 0 ? firstOpen : 0 }); }} className="os-focus os-btn os-btn-teal w-full py-3.5 text-[14px] uppercase tracking-wide">
+                <Play size={16} weight="fill" />{isEN ? 'Guided session' : 'Sessione guidata'}
+              </button>
+            )}
+          >
+            <div className="os-pitch-teal p-4 mb-4 flex items-center gap-4">
+              <div className="relative flex-shrink-0"><RegionFigure region={key} tone="teal" height={96} /></div>
+              <p style={{ color: '#E6FBFD' }} className="relative text-[13px] leading-relaxed">{data.why}</p>
+            </div>
+            {regions[key] && (
+              <div className="mb-4">
+                <p className="os-label mb-2" style={{ color: LED_TEAL }}>{isEN ? 'Protects you from' : 'Ti protegge da'}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {regions[key].injuries.filter((k) => injuriesData[k]).map((k) => (
+                    <button key={k} onClick={() => { setExpandedPrevention(null); openRegion(key); }} className="os-focus os-chip os-press py-1.5 text-[12px]" style={{ borderColor: `${LED_TEAL}44` }}>
+                      <ShieldCheck size={12} color={LED_TEAL} />{injuriesData[k].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {preventionExtras[key] && (
+              <p style={{ color: colors.ink }} className="os-well flex items-start gap-2.5 text-[13px] leading-relaxed mb-4 p-3"><Timer size={15} color={LED_TEAL} className="flex-shrink-0 mt-px" />{preventionExtras[key].dose}</p>
+            )}
+            <div className="mb-3"><DrillProgress doneFlags={doneFlags} tone="teal" isEN={isEN} /></div>
+            <div className="space-y-2.5">
+              {data.exercises.map((ex, i) => {
+                const tipKey = `${key}-${i}`;
+                const tipOpen = expandedPreventionTip === tipKey;
+                return (
+                  <DrillCard
+                    key={tipKey}
+                    index={i}
+                    ex={ex}
+                    tone="teal"
+                    catLabel={catLabels[ex.cat]}
+                    done={!!regionProgress[i]}
+                    onToggle={() => togglePreventionExercise(key, i)}
+                    helpOpen={tipOpen}
+                    onToggleHelp={() => setExpandedPreventionTip(tipOpen ? null : tipKey)}
+                    onPlay={() => openSession('prevention', { key, start: i })}
+                    isEN={isEN}
+                  />
+                );
+              })}
+            </div>
+            {preventionExtras[key] && (
+              <>
+                <div className="os-pitch-teal p-4 mt-4">
+                  <p style={{ fontFamily: BRICOLAGE, color: LED_TEAL, letterSpacing: '0.14em' }} className="relative flex items-center gap-1.5 text-[10px] font-bold uppercase mb-1.5"><Gauge size={12} />{isEN ? 'Quick test' : 'Test rapido'}</p>
+                  <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[16px] font-bold leading-snug mb-1">{preventionExtras[key].test.title}</p>
+                  <p style={{ color: 'rgba(255,255,255,0.8)' }} className="relative text-[13px] leading-relaxed">{preventionExtras[key].test.how}</p>
+                  <p style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#E6FBFD' }} className="relative flex items-start gap-2 text-[12.5px] leading-relaxed mt-3 rounded-xl px-3 py-2.5"><Info size={14} color={LED_TEAL} className="flex-shrink-0 mt-px" />{preventionExtras[key].test.check}</p>
+                </div>
+                <div className="os-panel-flat p-4 mt-3">
+                  <p className="os-label mb-2.5" style={{ color: LED_TEAL }}>{isEN ? 'Practical tips' : 'Consigli pratici'}</p>
+                  <ul className="space-y-2.5">
+                    {preventionExtras[key].tips.map((tip, ti) => (
+                      <li key={ti} style={{ color: colors.ink }} className="flex gap-2.5 text-[13px] leading-snug"><span style={{ backgroundColor: LED_TEAL, boxShadow: `0 0 6px ${LED_TEAL}` }} className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-[6px]" /><span>{tip}</span></li>
+                    ))}
+                  </ul>
+                </div>
+              </>
+            )}
+          </Sheet>
+        );
+      })()}
+
+      {(() => {
+        const cfg = sessionCfg || lastSessionCfgRef.current;
+        if (!cfg) return null;
+        return (
+          <GuidedSession
+            open={!!sessionCfg}
+            title={cfg.title}
+            tone={cfg.tone}
+            exercises={cfg.exercises}
+            doneFlags={cfg.doneFlags}
+            onToggle={cfg.onToggle}
+            startIndex={(session && session.start) || 0}
+            onClose={() => setSession(null)}
+            isEN={isEN}
+            catLabels={catLabels}
+            finish={cfg.finish}
+          />
+        );
+      })()}
+
       {celebration && <GoalCelebration streak={celebration.streak} leaving={!!celebration.leaving} isEN={isEN} onClose={closeCelebration} />}
       {!cookieChoice && <CookieBanner isEN={isEN} onChoice={handleCookieChoice} />}
     </div>
