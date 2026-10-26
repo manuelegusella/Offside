@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { IS_NATIVE, apiUrl } from './platform.js';
 
 // SOSTITUISCI questo con il tuo vero Payment Link di Stripe una volta creato
 const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/dRmbJ1c2K3Zt1sB8mB7IY00';
@@ -5854,7 +5855,7 @@ export default function Offside() {
     if (!restoreEmail.trim() || !restoreEmail.includes('@')) { setRestoreStatus('error'); return; }
     setRestoreStatus('checking');
     try {
-      const res = await fetch('/api/verify-premium', {
+      const res = await fetch(apiUrl('/api/verify-premium'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: restoreEmail }),
@@ -5878,7 +5879,7 @@ export default function Offside() {
     if (!joinTeamCode.trim() || !joinTeamPlayerName.trim() || !joinTeamConsent) { setJoinTeamStatus('error'); return; }
     setJoinTeamStatus('submitting');
     try {
-      const res = await fetch('/api/team-join', {
+      const res = await fetch(apiUrl('/api/team-join'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inviteCode: joinTeamCode.trim(), playerName: joinTeamPlayerName.trim(), consent: true }),
@@ -5906,7 +5907,7 @@ export default function Offside() {
     persist(snapshot({ myTeamMembership: null }));
     trackEvent('team_consent_revoked');
     try {
-      await fetch('/api/team-player-revoke', {
+      await fetch(apiUrl('/api/team-player-revoke'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playerId }),
@@ -5944,7 +5945,7 @@ export default function Offside() {
       const wellnessPayload = computeWellnessRisk(wellnessCheckins);
 
       try {
-        await fetch('/api/team-player-sync', {
+        await fetch(apiUrl('/api/team-player-sync'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ playerId: myTeamMembership.playerId, status: statusPayload, wellness: wellnessPayload }),
@@ -5976,7 +5977,7 @@ export default function Offside() {
     }
     setTeamFormStatus('submitting');
     try {
-      const res = await fetch('/api/team-register', {
+      const res = await fetch(apiUrl('/api/team-register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6012,7 +6013,7 @@ export default function Offside() {
     }
     setTeamFormStatus('submitting');
     try {
-      const res = await fetch('/api/team-login', {
+      const res = await fetch(apiUrl('/api/team-login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: f.email.trim(), password: f.password }),
@@ -6060,7 +6061,7 @@ export default function Offside() {
     if (!teamAuth || !teamAuth.token) return;
     setTeamDashboardLoading(true);
     try {
-      const res = await fetch('/api/team-dashboard', {
+      const res = await fetch(apiUrl('/api/team-dashboard'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: teamAuth.token }),
@@ -7415,6 +7416,9 @@ export default function Offside() {
                     </div>
                   </div>
                 </div>
+                {IS_NATIVE ? (
+                  <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed text-center py-4">{isEN ? 'Premium subscriptions on iPhone are coming soon.' : 'Gli abbonamenti Premium su iPhone arrivano a breve.'}</p>
+                ) : (<>
                 <GoldButton full href={STRIPE_PAYMENT_LINK} onClick={() => trackEvent('premium_unlock_clicked')}>
                   <span>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{isEN ? `${PREMIUM_PRICE.en}/month` : `${PREMIUM_PRICE.it}/mese`}</span><ArrowRight size={16} />
                 </GoldButton>
@@ -7422,6 +7426,7 @@ export default function Offside() {
                   {isEN ? 'Secure payment with Stripe: after paying you come back here and Premium turns on by itself. ' : 'Pagamento sicuro con Stripe: dopo il pagamento torni qui e Premium si attiva da solo. '}
                   <a href="/privacy.html" style={{ color: colors.mutedInk }} className="underline hover:opacity-70">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>
                 </p>
+                </>)}
                 <div className="text-center mt-3">{renderRestoreBox()}</div>
               </>
             ) : (

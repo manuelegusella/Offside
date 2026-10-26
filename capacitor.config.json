@@ -1,0 +1,21 @@
+{
+  "appId": "com.myoffside.app",
+  "appName": "Offside",
+  "webDir": "dist",
+  "backgroundColor": "#040A07",
+  "ios": {
+    "backgroundColor": "#040A07",
+    "contentInset": "never",
+    "scheme": "Offside"
+  },
+  "plugins": {
+    "CapacitorHttp": { "enabled": true },
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "launchShowDuration": 1200,
+      "backgroundColor": "#040A07",
+      "showSpinner": false
+    },
+    "StatusBar": { "style": "DARK", "backgroundColor": "#040A07" }
+  }
+}
