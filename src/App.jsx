@@ -5533,6 +5533,11 @@ export default function Offside() {
   const [teamDashboardData, setTeamDashboardData] = useState(null);
   const [teamDashboardLoading, setTeamDashboardLoading] = useState(false);
   const [teamInviteCopied, setTeamInviteCopied] = useState(false);
+  // Eliminazione dell'account squadra: foglio di conferma + password.
+  const [deleteTeamOpen, setDeleteTeamOpen] = useState(false);
+  const [deleteTeamPassword, setDeleteTeamPassword] = useState('');
+  const [deleteTeamStatus, setDeleteTeamStatus] = useState('idle'); // idle | submitting | error | done
+  const [deleteTeamError, setDeleteTeamError] = useState('');
 
   // --- Offside Squadre: stato del giocatore che aderisce a una squadra ---
   const [myTeamMembership, setMyTeamMembership] = useState(null); // { playerId, teamId, teamName, playerName, consentedAt }
@@ -6134,6 +6139,70 @@ export default function Offside() {
   const logoutTeam = () => {
     persist(snapshot({ teamAuth: null }));
     setScreen('premium', () => { setTeamAuth(null); setTeamDashboardData(null); });
+  };
+
+  // Eliminazione definitiva dell'account squadra (Apple 5.1.1(v) e GDPR art. 17). Il server controlla
+  // la password, annulla l'abbonamento Squadre e cancella squadra, giocatori collegati e codice.
+  const openDeleteTeam = () => {
+    setDeleteTeamPassword('');
+    setDeleteTeamError('');
+    setDeleteTeamStatus('idle');
+    setDeleteTeamOpen(true);
+  };
+  const finishDeleteTeam = () => {
+    setDeleteTeamOpen(false);
+    setDeleteTeamPassword('');
+    setDeleteTeamError('');
+    setDeleteTeamStatus('idle');
+    persist(snapshot({ teamAuth: null }));
+    setScreen('premium', () => { setTeamAuth(null); setTeamDashboardData(null); });
+  };
+  const closeDeleteTeam = () => {
+    if (deleteTeamStatus === 'submitting') return;
+    if (deleteTeamStatus === 'done') { finishDeleteTeam(); return; }
+    setDeleteTeamOpen(false);
+    setDeleteTeamPassword('');
+    setDeleteTeamError('');
+    setDeleteTeamStatus('idle');
+  };
+  const deleteTeamAccount = async () => {
+    if (!teamAuth || !teamAuth.token || !deleteTeamPassword || deleteTeamStatus === 'submitting') return;
+    setDeleteTeamStatus('submitting');
+    setDeleteTeamError('');
+    try {
+      const res = await fetch(apiUrl('/api/team-delete'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: teamAuth.token, password: deleteTeamPassword }),
+      });
+      if (res.ok) {
+        trackEvent('team_account_deleted');
+        persist(snapshot({ teamAuth: null }));
+        setDeleteTeamPassword('');
+        setDeleteTeamStatus('done');
+        return;
+      }
+      if (res.status === 401) {
+        // Sessione scaduta: non è stato cancellato nulla, si rifà il login e si riprova.
+        setDeleteTeamOpen(false);
+        setDeleteTeamPassword('');
+        setDeleteTeamStatus('idle');
+        setTeamAuth(null);
+        persist(snapshot({ teamAuth: null }));
+        setScreen('teamLogin');
+        return;
+      }
+      setDeleteTeamStatus('error');
+      setDeleteTeamError(
+        res.status === 403 ? (isEN ? 'Wrong password.' : 'Password non corretta.')
+        : res.status === 429 ? (isEN ? 'Too many attempts. Try again in 15 minutes.' : 'Troppi tentativi. Riprova tra 15 minuti.')
+        : res.status === 502 ? (isEN ? "We couldn't cancel the subscription right now, so nothing was deleted. Try again in a moment or write to privacy@myoffside.com." : 'Non riesco ad annullare l\'abbonamento in questo momento, quindi non ho cancellato nulla. Riprova tra poco o scrivi a privacy@myoffside.com.')
+        : (isEN ? 'Something went wrong. Nothing was deleted — try again.' : 'Qualcosa è andato storto. Non è stato cancellato nulla: riprova.')
+      );
+    } catch (err) {
+      setDeleteTeamStatus('error');
+      setDeleteTeamError(isEN ? 'No connection. Check your internet and try again.' : 'Nessuna connessione. Controlla internet e riprova.');
+    }
   };
 
   const loadTeamDashboard = useCallback(async () => {
@@ -8096,6 +8165,15 @@ export default function Offside() {
                 </div>
               </div>
             )}
+            {teamAuth && (
+              <div data-rv="" className="mt-10 pt-5" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <p style={{ color: colors.mutedInk }} className="os-label mb-1.5">Account</p>
+                <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed mb-3 max-w-[460px]">{isEN ? 'Permanently delete this team account, the team code and the data of every linked player.' : 'Elimina in modo definitivo l\'account della squadra, il codice e i dati di tutti i giocatori collegati.'}</p>
+                <button onClick={openDeleteTeam} style={{ color: colors.red, border: `1px solid ${colors.red}59`, background: colors.redTint }} className="os-focus os-btn px-4 py-3 text-[13px]">
+                  <Trash size={15} color={colors.red} />{isEN ? 'Delete account' : 'Elimina account'}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -9368,6 +9446,69 @@ export default function Offside() {
         </div>
       )}
       {!isTeamScreen && <div inert={overlayOpen}><BottomNav screen={screen} isEN={isEN} onNavigate={handleBottomNav} /></div>}
+
+      <Sheet
+        open={deleteTeamOpen && screen === 'teamDashboard'}
+        onClose={closeDeleteTeam}
+        title={deleteTeamStatus === 'done' ? (isEN ? 'Account deleted' : 'Account eliminato') : (isEN ? 'Delete team account?' : 'Eliminare l\'account squadra?')}
+        subtitle={deleteTeamStatus === 'done' ? undefined : (isEN ? 'This cannot be undone.' : 'Non si può annullare.')}
+        icon={deleteTeamStatus === 'done' ? ShieldCheck : Trash}
+        tone={deleteTeamStatus === 'done' ? 'teal' : 'red'}
+        isEN={isEN}
+        footer={deleteTeamStatus === 'done' ? (
+          <button onClick={finishDeleteTeam} className="os-focus os-btn os-btn-teal w-full py-3.5 text-[14px] uppercase tracking-wide">{isEN ? 'Done' : 'Fatto'}</button>
+        ) : (
+          <div className="flex gap-2.5">
+            <button onClick={closeDeleteTeam} disabled={deleteTeamStatus === 'submitting'} className="os-focus os-btn os-btn-ghost flex-1 py-3.5 text-[13px] uppercase tracking-wide">{isEN ? 'Cancel' : 'Annulla'}</button>
+            <button
+              onClick={deleteTeamAccount}
+              disabled={!deleteTeamPassword || deleteTeamStatus === 'submitting'}
+              style={deleteTeamPassword && deleteTeamStatus !== 'submitting' ? { background: colors.red, color: '#2A0A07' } : undefined}
+              className={`os-focus os-btn flex-[1.4] py-3.5 text-[13px] uppercase tracking-wide ${!deleteTeamPassword || deleteTeamStatus === 'submitting' ? 'os-btn-off' : ''}`}
+            >
+              {deleteTeamStatus === 'submitting' ? '...' : (isEN ? 'Delete forever' : 'Elimina per sempre')}
+            </button>
+          </div>
+        )}
+      >
+        {deleteTeamStatus === 'done' ? (
+          <p style={{ color: colors.mutedInk }} className="text-[13.5px] leading-relaxed">{isEN ? 'Your team account, the team code and the linked players’ shared data have been permanently deleted. Any monthly Teams subscription has been cancelled.' : 'L\'account della squadra, il codice e i dati condivisi dai giocatori collegati sono stati cancellati in modo definitivo. L\'eventuale abbonamento mensile Squadre è stato annullato.'}</p>
+        ) : (
+          <div>
+            <div className="os-panel p-4 mb-4">
+              <p style={{ color: colors.ink }} className="text-[13px] font-semibold mb-2">{isEN ? 'Deleted immediately and for good:' : 'Verranno cancellati subito e per sempre:'}</p>
+              <ul style={{ color: colors.mutedInk }} className="text-[12.5px] leading-relaxed space-y-1.5">
+                <li className="flex gap-2"><span aria-hidden="true">•</span><span>{isEN ? 'The team account, your login and the team code' : 'L\'account della squadra, il tuo accesso e il codice squadra'}</span></li>
+                <li className="flex gap-2"><span aria-hidden="true">•</span><span>{isEN ? 'Every linked player and what they shared (name, injury, phase, status)' : 'Tutti i giocatori collegati e ciò che hanno condiviso (nome, infortunio, fase, stato)'}</span></li>
+                <li className="flex gap-2"><span aria-hidden="true">•</span><span>{isEN ? 'The monthly Teams subscription, if active — it is cancelled right now' : 'L\'abbonamento mensile Squadre, se attivo: viene annullato adesso'}</span></li>
+              </ul>
+              {teamDashboardData?.seasonPassActive && (
+                <p style={{ color: colors.mutedInk, borderTop: '1px solid rgba(255,255,255,0.08)' }} className="text-[12px] leading-relaxed pt-2.5 mt-3">{isEN ? 'The Season Pass you already paid for is not refundable.' : 'Il Pass Stagionale già pagato non è rimborsabile.'}</p>
+              )}
+              <p style={{ color: colors.mutedInk, borderTop: '1px solid rgba(255,255,255,0.08)' }} className="text-[12px] leading-relaxed pt-2.5 mt-3">{isEN ? 'Each player’s diary and personal data stay on their own phone.' : 'Il diario e i dati personali di ogni giocatore restano sul suo telefono.'}</p>
+            </div>
+
+            <label htmlFor="dt-password" style={{ color: colors.mutedInk }} className="os-label block mb-1.5">{isEN ? 'Enter your password to confirm' : 'Inserisci la password per confermare'}</label>
+            <div className="relative">
+              <input
+                id="dt-password"
+                autoComplete="current-password"
+                type={showTeamPassword ? 'text' : 'password'}
+                value={deleteTeamPassword}
+                disabled={deleteTeamStatus === 'submitting'}
+                onChange={(e) => { setDeleteTeamPassword(e.target.value); if (deleteTeamStatus === 'error') { setDeleteTeamStatus('idle'); setDeleteTeamError(''); } }}
+                onKeyDown={(e) => { if (e.key === 'Enter') deleteTeamAccount(); }}
+                style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', color: colors.ink }}
+                className="os-focus w-full rounded-xl pl-3.5 pr-11 py-3 text-base"
+              />
+              <button type="button" onClick={() => setShowTeamPassword(!showTeamPassword)} className="os-focus absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-lg" aria-label={showTeamPassword ? (isEN ? 'Hide password' : 'Nascondi password') : (isEN ? 'Show password' : 'Mostra password')}>
+                {showTeamPassword ? <EyeOff size={16} color={colors.mutedInk} /> : <Eye size={16} color={colors.mutedInk} />}
+              </button>
+            </div>
+            {deleteTeamStatus === 'error' && <p role="alert" style={{ color: colors.red }} className="text-[13px] font-medium mt-3 os-fadein">{deleteTeamError}</p>}
+          </div>
+        )}
+      </Sheet>
 
       <Sheet open={showRedFlags} onClose={() => setShowRedFlags(false)} title={isEN ? 'When to stop and call a professional' : 'Quando fermarti e chiamare un professionista'} icon={Siren} tone="red" isEN={isEN}>
         {renderRedFlagsContent()}
