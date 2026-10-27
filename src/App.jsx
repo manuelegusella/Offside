@@ -2,6 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useR
 import { flushSync } from 'react-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { IS_NATIVE, apiUrl } from './platform.js';
+import { loadPremiumOffer, hasPremiumEntitlement, buyPremium, restorePremiumPurchases } from './purchases.js';
 
 // SOSTITUISCI questo con il tuo vero Payment Link di Stripe una volta creato
 const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/dRmbJ1c2K3Zt1sB8mB7IY00';
@@ -5851,6 +5852,82 @@ export default function Offside() {
 
   const skipDate = () => { setEditingSetup(false); setPendingDate(''); };
 
+  // --- Acquisti in-app (solo app iPhone; sul sito questo blocco non fa nulla) ---
+  const [iapOffer, setIapOffer] = useState(null);
+  const [iapStatus, setIapStatus] = useState('idle'); // idle | buying | restoring | error | cancelled | notfound
+  const [iapChange, setIapChange] = useState(null); // { on, t }: esito del controllo/acquisto
+
+  // Dopo il caricamento dei dati: Premium è attivo su Apple? Se l'abbonamento è scaduto
+  // (e Premium era stato sbloccato da un acquisto) lo togliamo.
+  useEffect(() => {
+    if (!IS_NATIVE || loading) return undefined;
+    let stopped = false;
+    (async () => {
+      try {
+        const active = await hasPremiumEntitlement();
+        if (stopped) return;
+        let wasIap = false;
+        try { wasIap = localStorage.getItem('offside_iap') === '1'; } catch (err) {}
+        if (active) setIapChange({ on: true, t: Date.now() });
+        else if (wasIap) setIapChange({ on: false, t: Date.now() });
+      } catch (err) {}
+      try {
+        const offer = await loadPremiumOffer();
+        if (!stopped) setIapOffer(offer);
+      } catch (err) {}
+    })();
+    return () => { stopped = true; };
+  }, [loading]);
+
+  useEffect(() => {
+    if (!iapChange) return;
+    try {
+      if (iapChange.on) localStorage.setItem('offside_iap', '1');
+      else localStorage.removeItem('offside_iap');
+    } catch (err) {}
+    if (premiumUnlocked !== iapChange.on) {
+      setPremiumUnlocked(iapChange.on);
+      persist(snapshot({ premiumUnlocked: iapChange.on }));
+    }
+  }, [iapChange]);
+
+  const iapBuy = async () => {
+    if (iapStatus === 'buying' || iapStatus === 'restoring') return;
+    trackEvent('premium_unlock_clicked_native');
+    setIapStatus('buying');
+    try {
+      let offer = iapOffer;
+      if (!offer) { offer = await loadPremiumOffer(); setIapOffer(offer); }
+      if (!offer) { setIapStatus('error'); return; }
+      const res = await buyPremium(offer.pkg);
+      if (res.ok) {
+        trackEvent('premium_purchased_native');
+        setIapChange({ on: true, t: Date.now() });
+        setIapStatus('idle');
+      } else {
+        setIapStatus(res.cancelled ? 'cancelled' : 'error');
+      }
+    } catch (err) {
+      setIapStatus('error');
+    }
+  };
+
+  const iapRestore = async () => {
+    if (iapStatus === 'buying' || iapStatus === 'restoring') return;
+    setIapStatus('restoring');
+    try {
+      const ok = await restorePremiumPurchases();
+      if (ok) {
+        setIapChange({ on: true, t: Date.now() });
+        setIapStatus('idle');
+      } else {
+        setIapStatus('notfound');
+      }
+    } catch (err) {
+      setIapStatus('error');
+    }
+  };
+
   const restorePremium = async () => {
     if (!restoreEmail.trim() || !restoreEmail.includes('@')) { setRestoreStatus('error'); return; }
     setRestoreStatus('checking');
@@ -7417,7 +7494,29 @@ export default function Offside() {
                   </div>
                 </div>
                 {IS_NATIVE ? (
-                  <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed text-center py-4">{isEN ? 'Premium subscriptions on iPhone are coming soon.' : 'Gli abbonamenti Premium su iPhone arrivano a breve.'}</p>
+                  <>
+                    <GoldButton full onClick={iapBuy}>
+                      <span>
+                        {iapStatus === 'buying' ? '...' : (<>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{iapOffer?.priceString || (isEN ? PREMIUM_PRICE.en : PREMIUM_PRICE.it)}{isEN ? '/month' : '/mese'}</>)}
+                      </span><ArrowRight size={16} />
+                    </GoldButton>
+                    {iapStatus === 'error' && <p role="alert" style={{ color: colors.red }} className="text-xs text-center mt-2">{isEN ? 'Purchase not completed. Please try again in a moment.' : 'Acquisto non completato. Riprova tra poco.'}</p>}
+                    {iapStatus === 'cancelled' && <p style={{ color: colors.mutedInk }} className="text-xs text-center mt-2">{isEN ? 'Purchase cancelled.' : 'Acquisto annullato.'}</p>}
+                    {iapStatus === 'notfound' && <p style={{ color: colors.mutedInk }} className="text-xs text-center mt-2">{isEN ? 'No purchases to restore for this Apple Account.' : 'Nessun acquisto da ripristinare per questo Apple Account.'}</p>}
+                    <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed text-center mt-3">
+                      {isEN
+                        ? `Monthly subscription, ${iapOffer?.priceString || PREMIUM_PRICE.en} per month. Payment is charged to your Apple Account at purchase confirmation. The subscription renews automatically every month unless you cancel it at least 24 hours before the end of the period. You can manage or cancel it any time in Settings > your name > Subscriptions. `
+                        : `Abbonamento mensile, ${iapOffer?.priceString || PREMIUM_PRICE.it} al mese. Il pagamento viene addebitato sul tuo Apple Account alla conferma dell'acquisto. L'abbonamento si rinnova automaticamente ogni mese, salvo disdetta almeno 24 ore prima della fine del periodo. Puoi gestirlo o annullarlo in qualsiasi momento da Impostazioni > il tuo nome > Abbonamenti. `}
+                    </p>
+                    <p className="text-xs text-center mt-1.5">
+                      <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noopener noreferrer" style={{ color: colors.mutedInk }} className="underline hover:opacity-70">{isEN ? 'Terms of Use (Apple EULA)' : 'Termini d\'uso (EULA Apple)'}</a>
+                      <span style={{ color: colors.mutedInk }}>{' · '}</span>
+                      <a href="/privacy.html" style={{ color: colors.mutedInk }} className="underline hover:opacity-70">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>
+                    </p>
+                    <button type="button" onClick={iapRestore} disabled={iapStatus === 'restoring' || iapStatus === 'buying'} style={{ color: colors.ink }} className="os-focus w-full text-center text-xs font-semibold underline hover:opacity-70 mt-3 py-2">
+                      {iapStatus === 'restoring' ? '...' : (isEN ? 'Restore purchases' : 'Ripristina acquisti')}
+                    </button>
+                  </>
                 ) : (<>
                 <GoldButton full href={STRIPE_PAYMENT_LINK} onClick={() => trackEvent('premium_unlock_clicked')}>
                   <span>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{isEN ? `${PREMIUM_PRICE.en}/month` : `${PREMIUM_PRICE.it}/mese`}</span><ArrowRight size={16} />
@@ -7638,6 +7737,7 @@ export default function Offside() {
                         </div>
                       ))}
                     </div>
+                    {!IS_NATIVE && (
                     <div className="space-y-2.5 mb-6">
                       <div data-rv="" style={{ background: 'linear-gradient(180deg, rgba(114,230,242,0.14), rgba(114,230,242,0.04))', border: `1.5px solid ${LED_TEAL}88`, boxShadow: `0 0 30px -14px ${LED_TEAL}` }} className="rounded-[22px] p-4 pt-6 text-center relative">
                         <span style={{ background: LED_TEAL, color: '#021316' }} className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase px-3 py-1 rounded-full whitespace-nowrap shadow-lg">{isEN ? `Save €${TEAM_SEASON_FULL_PRICE - TEAM_SEASON_PASS_PRICE}` : `Risparmi ${TEAM_SEASON_FULL_PRICE - TEAM_SEASON_PASS_PRICE}€`}</span>
@@ -7653,6 +7753,7 @@ export default function Offside() {
                       </div>
                       <p style={{ color: LED_TEAL }} className="text-xs font-semibold text-center pt-1">{isEN ? 'First month free for new teams, either way' : 'Primo mese gratis per le nuove squadre, in entrambi i casi'}</p>
                     </div>
+                    )}
                     <button onClick={() => { trackEvent('team_register_clicked'); setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamRegister'); }} className="os-focus os-btn os-btn-teal w-full py-4 text-[14px] uppercase tracking-wide mb-3">
                       <Building2 size={17} />{isEN ? 'Register your team' : 'Registra la tua squadra'}
                     </button>
@@ -7725,7 +7826,7 @@ export default function Offside() {
 
             {teamFormStatus === 'error' && <p role="alert" style={{ color: colors.red }} className="text-[13px] font-medium mt-4 os-fadein">{teamFormError}</p>}
 
-            <p style={{ color: LED_TEAL }} className="text-xs font-semibold text-center mt-5 mb-3">{isEN ? 'First month free — no card required to start' : 'Primo mese gratis — nessuna carta richiesta per iniziare'}</p>
+            {!IS_NATIVE && (<p style={{ color: LED_TEAL }} className="text-xs font-semibold text-center mt-5 mb-3">{isEN ? 'First month free — no card required to start' : 'Primo mese gratis — nessuna carta richiesta per iniziare'}</p>)}
 
             <button onClick={submitTeamRegister} disabled={teamFormStatus === 'submitting'} className="os-focus os-btn os-btn-teal w-full py-4 text-[14px] uppercase tracking-wide mb-3">
               {teamFormStatus === 'submitting' ? '...' : (isEN ? 'Create account' : 'Crea account')}
@@ -7787,20 +7888,20 @@ export default function Offside() {
                 </div>
                 <div data-rv="" className="os-pitch-teal p-5 text-center mb-4">
                   <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[17px] font-bold mb-2">{isEN ? 'Your free trial has ended' : 'Il mese di prova è terminato'}</p>
-                  <p style={{ color: '#BFE9E3' }} className="relative text-xs leading-relaxed mb-4">{isEN ? `Activate to keep using the dashboard. Pay with the same email you registered with (${teamAuth?.email}) so it activates automatically.` : `Attiva per continuare a usare la dashboard. Paga con la stessa email della registrazione (${teamAuth?.email}) così si attiva in automatico.`}</p>
-                  <a href={STRIPE_TEAM_SEASON_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_season_pass_clicked')} style={{ background: GOLD_GRADIENT, color: '#101B26' }} className="os-focus os-press relative w-full flex flex-col items-center justify-center gap-0.5 rounded-2xl py-3 font-medium shadow-lg mb-2.5">
+                  <p style={{ color: '#BFE9E3' }} className="relative text-xs leading-relaxed mb-4">{IS_NATIVE ? (isEN ? 'This team has no active subscription.' : 'Questa squadra non ha un abbonamento attivo.') : isEN ? `Activate to keep using the dashboard. Pay with the same email you registered with (${teamAuth?.email}) so it activates automatically.` : `Attiva per continuare a usare la dashboard. Paga con la stessa email della registrazione (${teamAuth?.email}) così si attiva in automatico.`}</p>
+                  {!IS_NATIVE && (<a href={STRIPE_TEAM_SEASON_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_season_pass_clicked')} style={{ background: GOLD_GRADIENT, color: '#101B26' }} className="os-focus os-press relative w-full flex flex-col items-center justify-center gap-0.5 rounded-2xl py-3 font-medium shadow-lg mb-2.5">
                     <span style={{ fontFamily: BRICOLAGE }} className="uppercase tracking-wide text-sm font-bold">{isEN ? `Season Pass — ${TEAM_SEASON_PASS_PRICE}€` : `Pass Stagionale — ${TEAM_SEASON_PASS_PRICE}€`}</span>
                     <span className="text-[10.5px] font-medium opacity-80">{isEN ? `instead of ${TEAM_SEASON_FULL_PRICE}€ — valid until end of season` : `invece di ${TEAM_SEASON_FULL_PRICE}€ — valido fino a fine stagione`}</span>
-                  </a>
-                  <a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked')} className="os-focus os-btn os-btn-dark relative w-full py-3 text-xs uppercase tracking-wide">
+                  </a>)}
+                  {!IS_NATIVE && (<a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked')} className="os-focus os-btn os-btn-dark relative w-full py-3 text-xs uppercase tracking-wide">
                     {isEN ? 'Or pay monthly — €50/month' : 'Oppure mese per mese — 50€/mese'}
-                  </a>
-                  <p style={{ color: 'rgba(255,255,255,0.6)' }} className="relative text-[10.5px] text-center mt-2.5">
+                  </a>)}
+                  {!IS_NATIVE && (<p style={{ color: 'rgba(255,255,255,0.6)' }} className="relative text-[10.5px] text-center mt-2.5">
                     {isEN ? 'Payments handled securely by Stripe. ' : 'Pagamenti gestiti in sicurezza da Stripe. '}
                     <a href="/privacy.html" style={{ color: 'rgba(255,255,255,0.85)' }} className="underline hover:opacity-100">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>
-                  </p>
+                  </p>)}
                 </div>
-                <button onClick={loadTeamDashboard} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">{isEN ? 'I already paid — refresh' : 'Ho già pagato — aggiorna'}</button>
+                <button onClick={loadTeamDashboard} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">{IS_NATIVE ? (isEN ? 'Refresh' : 'Aggiorna') : (isEN ? 'I already paid — refresh' : 'Ho già pagato — aggiorna')}</button>
               </div>
             ) : (
               <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] md:items-start">
@@ -7872,17 +7973,17 @@ export default function Offside() {
                         <p style={{ fontFamily: BRICOLAGE, color: LED_TEAL }} className="text-xs font-bold mb-0.5">{isEN ? 'Free trial' : 'Mese di prova'}</p>
                         <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">
                           {isEN
-                            ? `${teamDashboardData.trialDaysLeft} ${teamDashboardData.trialDaysLeft === 1 ? 'day' : 'days'} left, then €50/month.`
-                            : `${teamDashboardData.trialDaysLeft} ${teamDashboardData.trialDaysLeft === 1 ? 'giorno rimasto' : 'giorni rimasti'}, poi 50€/mese.`}
+                            ? `${teamDashboardData.trialDaysLeft} ${teamDashboardData.trialDaysLeft === 1 ? 'day' : 'days'} left${IS_NATIVE ? '.' : ', then €50/month.'}`
+                            : `${teamDashboardData.trialDaysLeft} ${teamDashboardData.trialDaysLeft === 1 ? 'giorno rimasto' : 'giorni rimasti'}${IS_NATIVE ? '.' : ', poi 50€/mese.'}`}
                         </p>
                       </div>
-                      <a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked_early')} style={{ color: LED_TEAL }} className="os-focus flex-shrink-0 text-xs font-semibold underline hover:opacity-70">
+                      {!IS_NATIVE && (<a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked_early')} style={{ color: LED_TEAL }} className="os-focus flex-shrink-0 text-xs font-semibold underline hover:opacity-70">
                         {isEN ? 'Activate now' : 'Attiva ora'}
-                      </a>
+                      </a>)}
                     </div>
-                    <a href={STRIPE_TEAM_SEASON_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_season_pass_clicked_early')} style={{ color: LED_TEAL }} className="os-focus block mt-1.5 text-[11.5px] font-semibold underline hover:opacity-70">
+                    {!IS_NATIVE && (<a href={STRIPE_TEAM_SEASON_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_season_pass_clicked_early')} style={{ color: LED_TEAL }} className="os-focus block mt-1.5 text-[11.5px] font-semibold underline hover:opacity-70">
                       {isEN ? `Or save with the Season Pass — ${TEAM_SEASON_PASS_PRICE}€ instead of ${TEAM_SEASON_FULL_PRICE}€` : `Oppure risparmia col Pass Stagionale — ${TEAM_SEASON_PASS_PRICE}€ invece di ${TEAM_SEASON_FULL_PRICE}€`}
-                    </a>
+                    </a>)}
                   </div>
                 )}
 
