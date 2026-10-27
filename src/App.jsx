@@ -9,6 +9,8 @@ const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/dRmbJ1c2K3Zt1sB8mB7IY00';
 // Prezzo di Premium individuale mostrato nella pagina Premium (biglietto e bottone).
 // Deve restare uguale al prezzo impostato su Stripe (vedi anche api/stripe-webhook.js).
 const PREMIUM_PRICE = { it: '3,99 €', en: '€3.99' };
+// Prezzo di riserva dell'app iPhone: quello vero arriva da Apple (App Store Connect).
+const NATIVE_PRICE = { it: '4,99 €', en: '€4.99' };
 
 // Payment Link per l'abbonamento "Offside Squadre" (50€/mese) — da creare su Stripe come
 // prodotto separato e incollare qui. Finché resta questo placeholder, il bottone di
@@ -7461,7 +7463,7 @@ export default function Offside() {
                     <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[19px] font-bold leading-snug mt-3">{isEN ? 'Train like your role and injury need' : 'Allenati come richiedono ruolo e infortunio'}</p>
                     <p style={{ color: '#B8C4CE' }} className="text-sm leading-relaxed mt-1.5">{isEN ? 'Exercises tailored to your position and the specific area, plus your real progress over time.' : 'Esercizi su misura per il tuo ruolo e la zona specifica, più il tuo vero andamento nel tempo.'}</p>
                     <p className="flex items-baseline gap-2 mt-4">
-                      <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-[48px] leading-none">{isEN ? PREMIUM_PRICE.en : PREMIUM_PRICE.it}</span>
+                      <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-[48px] leading-none">{IS_NATIVE ? (iapOffer?.priceString || (isEN ? NATIVE_PRICE.en : NATIVE_PRICE.it)) : (isEN ? PREMIUM_PRICE.en : PREMIUM_PRICE.it)}</span>
                       <span style={{ color: '#B8C4CE' }} className="text-sm">{isEN ? 'per month' : 'al mese'}</span>
                     </p>
                   </div>
@@ -7497,7 +7499,7 @@ export default function Offside() {
                   <>
                     <GoldButton full onClick={iapBuy}>
                       <span>
-                        {iapStatus === 'buying' ? '...' : (<>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{iapOffer?.priceString || (isEN ? PREMIUM_PRICE.en : PREMIUM_PRICE.it)}{isEN ? '/month' : '/mese'}</>)}
+                        {iapStatus === 'buying' ? '...' : (<>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{iapOffer?.priceString || (isEN ? NATIVE_PRICE.en : NATIVE_PRICE.it)}{isEN ? '/month' : '/mese'}</>)}
                       </span><ArrowRight size={16} />
                     </GoldButton>
                     {iapStatus === 'error' && <p role="alert" style={{ color: colors.red }} className="text-xs text-center mt-2">{isEN ? 'Purchase not completed. Please try again in a moment.' : 'Acquisto non completato. Riprova tra poco.'}</p>}
@@ -7505,8 +7507,8 @@ export default function Offside() {
                     {iapStatus === 'notfound' && <p style={{ color: colors.mutedInk }} className="text-xs text-center mt-2">{isEN ? 'No purchases to restore for this Apple Account.' : 'Nessun acquisto da ripristinare per questo Apple Account.'}</p>}
                     <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed text-center mt-3">
                       {isEN
-                        ? `Monthly subscription, ${iapOffer?.priceString || PREMIUM_PRICE.en} per month. Payment is charged to your Apple Account at purchase confirmation. The subscription renews automatically every month unless you cancel it at least 24 hours before the end of the period. You can manage or cancel it any time in Settings > your name > Subscriptions. `
-                        : `Abbonamento mensile, ${iapOffer?.priceString || PREMIUM_PRICE.it} al mese. Il pagamento viene addebitato sul tuo Apple Account alla conferma dell'acquisto. L'abbonamento si rinnova automaticamente ogni mese, salvo disdetta almeno 24 ore prima della fine del periodo. Puoi gestirlo o annullarlo in qualsiasi momento da Impostazioni > il tuo nome > Abbonamenti. `}
+                        ? `Monthly subscription, ${iapOffer?.priceString || NATIVE_PRICE.en} per month. Payment is charged to your Apple Account at purchase confirmation. The subscription renews automatically every month unless you cancel it at least 24 hours before the end of the period. You can manage or cancel it any time in Settings > your name > Subscriptions. `
+                        : `Abbonamento mensile, ${iapOffer?.priceString || NATIVE_PRICE.it} al mese. Il pagamento viene addebitato sul tuo Apple Account alla conferma dell'acquisto. L'abbonamento si rinnova automaticamente ogni mese, salvo disdetta almeno 24 ore prima della fine del periodo. Puoi gestirlo o annullarlo in qualsiasi momento da Impostazioni > il tuo nome > Abbonamenti. `}
                     </p>
                     <p className="text-xs text-center mt-1.5">
                       <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noopener noreferrer" style={{ color: colors.mutedInk }} className="underline hover:opacity-70">{isEN ? 'Terms of Use (Apple EULA)' : 'Termini d\'uso (EULA Apple)'}</a>
