@@ -3254,7 +3254,6 @@ function BottomNav({ screen, isEN, onNavigate }) {
   const items = [
     { key: 'regions', label: isEN ? 'Home' : 'Home', icon: Compass, screens: ['regions', 'triage', 'triageResults', 'injuries', 'firstaid'] },
     { key: 'tracker', label: isEN ? 'Recovery' : 'Percorso', icon: Activity, screens: ['tracker'] },
-    { key: 'physios', label: isEN ? 'Physio' : 'Fisio', icon: Stethoscope, screens: ['physios'] },
     { key: 'premium', label: 'Premium', icon: Trophy, screens: ['premium'] },
   ];
   const activeIdx = items.findIndex((it) => it.screens.includes(screen));
@@ -6566,11 +6565,11 @@ export default function Offside() {
     const coverPoints = isEN ? [
       { icon: ShieldCheck, text: 'Prevent the most common injuries, before they happen.' },
       { icon: Bandage, text: 'Know what to do in the first few minutes, if you get hurt.' },
-      { icon: Heartbeat, text: 'Follow a tailored recovery plan, step by step.' },
+      { icon: Heartbeat, text: 'Follow a phased recovery path, step by step.' },
     ] : [
       { icon: ShieldCheck, text: 'Previeni gli infortuni più comuni, prima che succedano.' },
       { icon: Bandage, text: 'Sai cosa fare nei primi minuti, se ti fai male.' },
-      { icon: Heartbeat, text: 'Segui un percorso di recupero fatto su misura, passo dopo passo.' },
+      { icon: Heartbeat, text: 'Segui un percorso di recupero a fasi, passo dopo passo.' },
     ];
     // Le luci dello stadio: due torri di fari che si accendono una alla volta (con lo
     // sfarfallio dei fari veri), poi i coni di luce, il lampo e il campo che si disegna.
@@ -6607,9 +6606,8 @@ export default function Offside() {
         </div>
 
         <main className={`relative flex flex-col flex-1 px-6 sm:px-10 ${!cookieChoice ? 'pb-56' : 'pb-8'}`} style={{ paddingTop: 'calc(64px + env(safe-area-inset-top, 0px))' }}>
-          <div className="flex items-center justify-between mb-10 os-rise" style={{ '--d': '1.5s' }}>
+          <div className="flex items-center justify-end mb-10 os-rise" style={{ '--d': '1.5s' }}>
             <Segmented items={languageItems} value={isEN ? 'en' : 'it'} onChange={pickLanguage} role="radiogroup" ariaLabel={isEN ? 'Language' : 'Lingua'} size="sm" className="w-[104px]" />
-            <span style={{ fontFamily: BRICOLAGE, color: LED_GREEN, border: `1px solid ${LED_GREEN}44`, background: 'rgba(125,255,168,0.08)', letterSpacing: '0.12em' }} className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full">Beta</span>
           </div>
 
           <div className="flex-1 flex flex-col justify-center mb-8">
@@ -7354,7 +7352,6 @@ export default function Offside() {
                       <div className="relative flex items-center gap-2.5 mb-3">
                         <div style={{ background: GOLD_GRADIENT }} className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"><Camera size={19} color="#0B121A" weight="fill" /></div>
                         <span style={{ fontFamily: BEBAS, letterSpacing: '0.14em' }} className="os-gold-text text-[16px] leading-none">Premium</span>
-                        <span style={{ border: '1px solid rgba(245,196,81,0.5)', color: colors.premiumGold }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">Beta</span>
                       </div>
                       <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[18px] font-bold mb-1.5">{isEN ? 'Movement screening' : 'Screening del movimento'}</p>
                       <p style={{ color: '#B8C4CE' }} className="relative text-sm leading-relaxed mb-4">{isEN ? 'Use your camera for a real-time look at squats and balance: symmetry, knee control, stability. It all runs on your phone.' : 'Usa la fotocamera per uno sguardo in tempo reale a squat ed equilibrio: simmetria, controllo del ginocchio, stabilità. Gira tutto sul telefono.'}</p>
@@ -7372,7 +7369,6 @@ export default function Offside() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-1">
                           <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-base font-bold">{isEN ? 'Movement screening' : 'Screening del movimento'}</p>
-                          <span style={{ background: 'rgba(114,230,242,0.12)', color: LED_TEAL }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0">Beta</span>
                         </div>
                         <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed">{isEN ? 'Camera-based squat and balance check — nothing ever leaves your phone.' : 'Analisi di squat ed equilibrio con la fotocamera — nulla lascia mai il tuo telefono.'}</p>
                         {movementScreenings.length > 0 && (() => {
@@ -7530,7 +7526,7 @@ export default function Offside() {
                       <SplitWords text="PREMIUM" base={80} step={50} />
                     </p>
                     <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[19px] font-bold leading-snug mt-3">{isEN ? 'Train like your role and injury need' : 'Allenati come richiedono ruolo e infortunio'}</p>
-                    <p style={{ color: '#B8C4CE' }} className="text-sm leading-relaxed mt-1.5">{isEN ? 'Exercises tailored to your position and the specific area, plus your real progress over time.' : 'Esercizi su misura per il tuo ruolo e la zona specifica, più il tuo vero andamento nel tempo.'}</p>
+                    <p style={{ color: '#B8C4CE' }} className="text-sm leading-relaxed mt-1.5">{isEN ? 'Exercises designed for your position and the specific area, plus your real progress over time.' : 'Esercizi pensati per il tuo ruolo e la zona specifica, più il tuo vero andamento nel tempo.'}</p>
                     <p className="flex items-baseline gap-2 mt-4">
                       <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-[48px] leading-none">{IS_NATIVE ? (iapOffer?.priceString || (isEN ? NATIVE_PRICE.en : NATIVE_PRICE.it)) : (isEN ? PREMIUM_PRICE.en : PREMIUM_PRICE.it)}</span>
                       <span style={{ color: '#B8C4CE' }} className="text-sm">{isEN ? 'per month' : 'al mese'}</span>
@@ -7549,14 +7545,13 @@ export default function Offside() {
                         { icon: TrendingUp, title: isEN ? 'Your progress, charted' : 'Il tuo andamento, in grafico', text: isEN ? 'Feeling and stiffness day by day' : 'Feeling e rigidità giorno per giorno' },
                         { icon: ClipboardCheck, title: isEN ? 'A report for your physio' : 'Un resoconto per il fisio', text: isEN ? 'A printable or PDF summary for your physio or coach' : 'Un riepilogo stampabile o in PDF per fisioterapista o allenatore' },
                         { icon: SoccerBall, title: isEN ? 'Technique by position' : 'Tecnica per ruolo', text: isEN ? 'Ball control, passing, finishing: drills for your position' : 'Controllo palla, passaggio, finalizzazione: esercizi per il tuo ruolo' },
-                        { icon: Camera, title: isEN ? 'Movement screening' : 'Screening del movimento', beta: true, text: isEN ? 'Squat and balance with your camera, all on your phone' : 'Squat ed equilibrio con la fotocamera, tutto sul telefono' },
+                        { icon: Camera, title: isEN ? 'Movement screening' : 'Screening del movimento', text: isEN ? 'Squat and balance with your camera, all on your phone' : 'Squat ed equilibrio con la fotocamera, tutto sul telefono' },
                         { icon: User, title: isEN ? 'Return tip for your role' : 'Consiglio di rientro per ruolo', text: isEN ? 'In the final phase, a return-to-play tip built for your position' : 'Nell\'ultima fase, un consiglio sul rientro pensato per il tuo ruolo' },
                       ].map((f) => (
                         <div key={f.title} data-rv="pop" className="rounded-2xl p-3" style={{ background: 'rgba(0,0,0,0.28)', border: '1px solid rgba(245,196,81,0.16)' }}>
                           <div style={{ backgroundColor: 'rgba(245,196,81,0.12)', border: '1px solid rgba(245,196,81,0.3)' }} className="w-9 h-9 rounded-xl flex items-center justify-center mb-2.5"><f.icon size={17} color={colors.premiumGold} /></div>
                           <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[13px] font-bold leading-snug">
                             {f.title}
-                            {f.beta && <span style={{ border: '1px solid rgba(245,196,81,0.5)', color: colors.premiumGold }} className="ml-1.5 align-middle text-[8.5px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full">Beta</span>}
                           </p>
                           <p style={{ color: '#B8C4CE' }} className="text-[11.5px] leading-snug mt-1">{f.text}</p>
                         </div>
@@ -7656,7 +7651,7 @@ export default function Offside() {
                               </div>
                             </>
                           ) : (
-                            <p style={{ color: '#B8C4CE' }} className="text-xs leading-relaxed">{isEN ? 'Role-specific training for this area is coming soon.' : 'L\'allenamento per ruolo per questa zona arriva presto.'}</p>
+                            <p style={{ color: '#B8C4CE' }} className="text-xs leading-relaxed">{isEN ? 'Role-specific training is not available for this area.' : 'Per questa zona non c\'è un allenamento per ruolo.'}</p>
                           )}
                         </div>
                       )}
@@ -8179,7 +8174,7 @@ export default function Offside() {
 
         {screen === 'physios' && (
           <div>
-            <PageTitle title={isEN ? 'Physiotherapists' : 'Fisioterapisti'} sub={isEN ? 'A directory of sports physiotherapists, to make it easier to find real help nearby. This is a simple listing, not a vetted or verified recommendation — always check credentials yourself.' : 'Un elenco di fisioterapisti sportivi, per rendere più facile trovare un aiuto vero vicino a te. È un semplice elenco, non una raccomandazione verificata — controlla sempre tu le credenziali.'} />
+            <PageTitle title={isEN ? 'Physiotherapists' : 'Fisioterapisti'} sub={physiosData.length === 0 ? (isEN ? 'Find a sports physiotherapist near you. We do not vet or recommend anyone: always check qualifications yourself.' : 'Trova un fisioterapista dello sport vicino a te. Non verifichiamo né raccomandiamo nessuno: controlla sempre tu le credenziali.') : (isEN ? 'A directory of sports physiotherapists, to make it easier to find real help nearby. This is a simple listing, not a vetted or verified recommendation — always check credentials yourself.' : 'Un elenco di fisioterapisti sportivi, per rendere più facile trovare un aiuto vero vicino a te. È un semplice elenco, non una raccomandazione verificata — controlla sempre tu le credenziali.')} />
 
             <div className="relative mb-5" data-rv="">
               <Search size={17} color={colors.mutedInk} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -8203,8 +8198,11 @@ export default function Offside() {
                     <div style={{ background: 'rgba(125,255,168,0.12)', border: `1px solid ${LED_GREEN}44`, boxShadow: `0 0 30px -10px ${LED_GREEN}` }} className="relative w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <Stethoscope size={28} color={LED_GREEN} />
                     </div>
-                    <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="relative text-[40px] leading-none mb-2">{isEN ? 'Coming soon' : 'Arriva presto'}</p>
-                    <p style={{ color: 'rgba(255,255,255,0.78)' }} className="relative text-sm leading-relaxed max-w-[30ch] mx-auto">{isEN ? 'We\'re building this list one physiotherapist at a time. Check back soon.' : 'Stiamo costruendo questo elenco un fisioterapista alla volta. Torna a trovarci presto.'}</p>
+                    <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="relative text-[32px] leading-none mb-2">{isEN ? 'Search near you' : 'Cerca vicino a te'}</p>
+                    <p style={{ color: 'rgba(255,255,255,0.78)' }} className="relative text-sm leading-relaxed max-w-[32ch] mx-auto mb-5">{isEN ? 'Type your city above and search for a sports physiotherapist on Google Maps. Always check qualifications and reviews yourself.' : 'Scrivi la tua città qui sopra e cerca un fisioterapista dello sport su Google Maps. Controlla sempre tu titoli e recensioni.'}</p>
+                    <a href={`https://www.google.com/maps/search/${encodeURIComponent((isEN ? 'sports physiotherapist ' : 'fisioterapista sportivo ') + (physioSearch.trim() || (isEN ? 'near me' : 'vicino a me')))}`} target="_blank" rel="noopener noreferrer" className="os-focus os-btn os-btn-ghost relative w-full py-3 text-[13px]" style={{ color: LED_GREEN, borderColor: `${LED_GREEN}55` }}>
+                      <MapPin size={15} />{isEN ? 'Search on Maps' : 'Cerca su Maps'}<ExternalLink size={13} />
+                    </a>
                   </div>
                 );
               }
@@ -8254,11 +8252,10 @@ export default function Offside() {
 
         {screen === 'movementScreen' && (
           <div>
-            <PageTitle title={isEN ? 'Movement screening' : 'Screening del movimento'} right={<span style={{ background: 'rgba(114,230,242,0.12)', color: LED_TEAL }} className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full mb-1.5 inline-block">Beta</span>} />
+            <PageTitle title={isEN ? 'Movement screening' : 'Screening del movimento'} />
             {!premiumUnlocked ? (
               <PremiumLockCard
                 icon={Camera}
-                badge="Beta"
                 title={isEN ? 'Movement screening' : 'Screening del movimento'}
                 text={isEN ? 'Camera-based squat and balance screening is a Premium feature.' : 'Lo screening del movimento con la fotocamera è una funzione Premium.'}
                 cta={isEN ? 'Unlock Premium' : 'Sblocca Premium'}
