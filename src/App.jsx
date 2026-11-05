@@ -2,6 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useR
 import { flushSync } from 'react-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { IS_NATIVE, apiUrl } from './platform.js';
+import { SOURCES, GENERAL_SOURCE_GROUPS, INJURY_SOURCES, SOURCE_KIND_LABELS, SOURCES_CHECKED_ON } from './sources.js';
 import { loadPremiumOffer, hasPremiumEntitlement, buyPremium, restorePremiumPurchases } from './purchases.js';
 
 // SOSTITUISCI questo con il tuo vero Payment Link di Stripe una volta creato
@@ -5394,6 +5395,8 @@ export default function Offside() {
   const [movementScreenings, setMovementScreenings] = useState([]);
   const [movementActive, setMovementActive] = useState(null); // null | 'squat' | 'balance'
   const [showRedFlags, setShowRedFlags] = useState(false);
+  const [sourcesFor, setSourcesFor] = useState(null); // fonti scientifiche: null chiuso | '' tutte | 'g:gruppo' | chiave infortunio
+  const lastSourcesForRef = useRef(null);
   const [saveError, setSaveError] = useState(false);
   const [editingSetup, setEditingSetup] = useState(false);
   const [setupSection, setSetupSection] = useState('gravita');
@@ -5716,7 +5719,7 @@ export default function Offside() {
   // Un foglio, la sessione guidata o il GOL aperti aggiungono una voce alla cronologia: così il
   // tasto Indietro di Android li chiude invece di uscire dall'app. Chiusi dai loro pulsanti, la
   // voce si toglie (e il popstate che ne segue si ignora).
-  const layerFlags = [!!celebration, !!session, !!showRedFlags, screen === 'regions' && !!expandedPrevention, screen === 'regions' && !!warmupOpen];
+  const layerFlags = [!!celebration, !!session, !!showRedFlags, sourcesFor !== null, screen === 'regions' && !!expandedPrevention, screen === 'regions' && !!warmupOpen];
   const anyLayer = layerFlags.some(Boolean);
   // Con due livelli (sessione sopra il foglio) "indietro" chiude quello in cima: se ne resta uno
   // aperto la voce si rimette, per questo l'effetto riparte a ogni cambio di livello.
@@ -6561,6 +6564,115 @@ export default function Offside() {
   const languageItems = [{ key: 'it', label: 'IT', lang: 'it' }, { key: 'en', label: 'EN', lang: 'en' }];
   const pickLanguage = (key) => { setLanguage(key); persist(snapshot({ language: key })); };
 
+  // ---- Fonti scientifiche (linea guida Apple 1.4.1: le informazioni mediche citano le fonti) ----
+  if (sourcesFor !== null) lastSourcesForRef.current = sourcesFor;
+  const openSources = (key = '') => { haptic(8); setSourcesFor(key); };
+  const renderSourcesBar = (injuryKey, extraClass = '') => (
+    <button
+      type="button"
+      data-rv=""
+      onClick={() => openSources(injuryKey)}
+      aria-haspopup="dialog"
+      className={`os-focus os-press [--press:0.98] w-full flex items-center gap-3 rounded-[18px] px-3.5 py-3 text-left ${extraClass}`}
+      style={{ background: 'linear-gradient(90deg, rgba(125,255,168,0.13), rgba(125,255,168,0.04))', border: '1px solid rgba(125,255,168,0.26)' }}
+    >
+      <span className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(125,255,168,0.16)' }}><BookOpen size={16} color={LED_GREEN} weight="fill" /></span>
+      <span className="flex-1 min-w-0">
+        <span style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="block text-[13.5px] font-semibold leading-snug">{isEN ? 'Scientific sources' : 'Fonti scientifiche'}</span>
+        <span style={{ color: colors.mutedInk }} className="block text-[11.5px] leading-snug">{isEN ? 'Guidelines and studies behind this guide' : 'Linee guida e studi alla base di questa scheda'}</span>
+      </span>
+      <ChevronRight size={16} color={LED_GREEN} />
+    </button>
+  );
+  const renderSourcesLink = (key, before, color = LED_GREEN) => (
+    <button type="button" onClick={() => { if (before) before(); openSources(key); }} style={{ color }} className="os-focus inline-flex items-center gap-1.5 py-2 text-[12.5px] font-semibold hover:underline">
+      <BookOpen size={14} />{isEN ? 'Scientific sources' : 'Fonti scientifiche'}
+    </button>
+  );
+  const renderSourceItem = (id, i) => {
+    const s = SOURCES[id];
+    if (!s) return null;
+    const kind = SOURCE_KIND_LABELS[isEN ? 'en' : 'it'][s.k];
+    const linkCls = 'os-focus os-chip os-press py-1.5 px-3 text-[12px]';
+    return (
+      <li key={id} className="py-3" style={{ borderTop: i ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+        <p style={{ color: LED_GREEN }} className="text-[10.5px] font-bold uppercase tracking-wider mb-0.5">{kind}</p>
+        <p style={{ color: colors.ink }} className="text-[13.5px] font-semibold leading-snug">{s.t}</p>
+        <p style={{ color: colors.mutedInk }} className="text-[12px] leading-snug mt-0.5">{s.a} · {s.j}</p>
+        <div className="flex flex-wrap gap-2 mt-2">
+          <a href={`https://pubmed.ncbi.nlm.nih.gov/${s.p}/`} target="_blank" rel="noopener noreferrer" className={linkCls} style={{ color: LED_GREEN }} aria-label={`PubMed: ${s.t}`}>PubMed<ExternalLink size={12} /></a>
+          {s.d && <a href={`https://doi.org/${s.d}`} target="_blank" rel="noopener noreferrer" className={linkCls} style={{ color: LED_GREEN }} aria-label={`DOI: ${s.t}`}>DOI<ExternalLink size={12} /></a>}
+        </div>
+      </li>
+    );
+  };
+  const renderSourcesContent = () => {
+    const key = lastSourcesForRef.current;
+    if (key === null) return null;
+    const lang = isEN ? 'en' : 'it';
+    const focusGroup = key.startsWith('g:') ? GENERAL_SOURCE_GROUPS.find((g) => g.id === key.slice(2)) : null;
+    const ownIds = !focusGroup && key && INJURY_SOURCES[key] && injuriesData[key] ? INJURY_SOURCES[key] : null;
+    const groups = focusGroup ? [focusGroup, ...GENERAL_SOURCE_GROUPS.filter((g) => g !== focusGroup)] : GENERAL_SOURCE_GROUPS;
+    const otherKeys = Object.keys(INJURY_SOURCES).filter((k) => injuriesData[k] && (!ownIds || k !== key));
+    const heading = (txt, cls = 'mt-6') => <p style={{ color: colors.mutedInk }} className={`os-label mb-1 ${cls}`}>{txt}</p>;
+    const injuryList = (k) => (
+      <div key={k} className="mb-4">
+        <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[14.5px] font-bold mt-3 mb-0.5">{injuriesData[k].label}</p>
+        <ul>{INJURY_SOURCES[k].map(renderSourceItem)}</ul>
+      </div>
+    );
+    return (
+      <div>
+        <p style={{ color: colors.ink }} className="text-[13.5px] leading-relaxed">
+          {isEN
+            ? 'The information in Offside is a plain-language summary of clinical guidelines, expert consensus statements and reviews published in peer-reviewed medical journals. Tap a reference to read it on PubMed.'
+            : 'Le informazioni di Offside sono una sintesi in linguaggio semplice di linee guida cliniche, consensi di esperti e revisioni pubblicate su riviste mediche con revisione tra pari. Tocca un riferimento per leggerlo su PubMed.'}
+        </p>
+        <p style={{ color: colors.mutedInk }} className="text-[12px] leading-relaxed mt-2">
+          {isEN
+            ? `References checked on PubMed on ${SOURCES_CHECKED_ON.en}. General educational information: it does not replace the advice of a doctor or physiotherapist.`
+            : `Riferimenti controllati su PubMed il ${SOURCES_CHECKED_ON.it}. Informazioni generali a scopo educativo: non sostituiscono il parere di un medico o di un fisioterapista.`}
+        </p>
+        {ownIds && (
+          <>
+            {heading(`${isEN ? 'For this injury' : 'Per questo infortunio'} · ${injuriesData[key].label}`)}
+            <ul>{ownIds.map(renderSourceItem)}</ul>
+          </>
+        )}
+        {groups.map((g) => (
+          <div key={g.id}>
+            {heading(g[lang])}
+            <p style={{ color: colors.mutedInk }} className="text-[12px] leading-snug mb-1">{isEN ? g.noteEn : g.noteIt}</p>
+            <ul>{g.ids.map(renderSourceItem)}</ul>
+          </div>
+        ))}
+        {ownIds || focusGroup ? (
+          <details className="mt-6">
+            <summary style={{ color: LED_GREEN }} className="os-focus cursor-pointer py-2 text-[13px] font-semibold">{isEN ? 'Sources for all other injuries' : 'Fonti di tutti gli altri infortuni'}</summary>
+            {otherKeys.map(injuryList)}
+          </details>
+        ) : (
+          <>
+            {heading(isEN ? 'Sources by injury' : 'Fonti per infortunio')}
+            {otherKeys.map(injuryList)}
+          </>
+        )}
+      </div>
+    );
+  };
+  const sourcesSheet = (
+    <Sheet
+      open={sourcesFor !== null}
+      onClose={() => setSourcesFor(null)}
+      title={isEN ? 'Scientific sources' : 'Fonti scientifiche'}
+      subtitle={isEN ? 'What the information in Offside is based on' : 'Le basi delle informazioni di Offside'}
+      icon={BookOpen}
+      isEN={isEN}
+    >
+      {renderSourcesContent()}
+    </Sheet>
+  );
+
   if (screen === 'cover') {
     const coverPoints = isEN ? [
       { icon: ShieldCheck, text: 'Prevent the most common injuries, before they happen.' },
@@ -6668,10 +6780,15 @@ export default function Offside() {
               <a href="/privacy.html" style={{ color: colors.mutedInk }} className="os-focus text-[11.5px] underline hover:opacity-70">
                 {isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}
               </a>
+              <span aria-hidden="true" style={{ color: colors.mutedInk }} className="mx-2 text-[11.5px]">·</span>
+              <button type="button" onClick={() => openSources('')} style={{ color: colors.mutedInk }} className="os-focus text-[11.5px] underline hover:opacity-70">
+                {isEN ? 'Scientific sources' : 'Fonti scientifiche'}
+              </button>
             </p>
           </div>
         </main>
         {!cookieChoice && <CookieBanner isEN={isEN} onChoice={handleCookieChoice} />}
+        {sourcesSheet}
       </div>
     );
   }
@@ -6811,6 +6928,7 @@ export default function Offside() {
           <MapPin size={15} />{isEN ? 'Find a physiotherapist near you on Maps' : 'Trova un fisioterapista vicino a te su Maps'}<ExternalLink size={13} />
         </a>
       )}
+      <div className="mt-3 text-center">{renderSourcesLink('g:firstaid', () => setShowRedFlags(false))}</div>
     </div>
   );
 
@@ -6918,6 +7036,7 @@ export default function Offside() {
   const openSession = (kind, opts = {}) => { haptic([10, 30, 10]); setSession({ kind, ...opts }); };
   overlayCloseRef.current = celebration ? closeCelebration
     : sessionCfg ? () => setSession(null)
+    : sourcesFor !== null ? () => setSourcesFor(null)
     : showRedFlags ? () => setShowRedFlags(false)
     : (screen === 'regions' && expandedPrevention) ? () => setExpandedPrevention(null)
     : (screen === 'regions' && warmupOpen) ? () => setWarmupOpen(false)
@@ -6931,7 +7050,7 @@ export default function Offside() {
   const isTeamScreen = TEAM_SCREENS.includes(screen);
   // Con un foglio o la sessione guidata aperti, il resto dell'app non è raggiungibile
   // (né col tocco né con la tastiera o i lettori di schermo).
-  const overlayOpen = !!sessionCfg || showRedFlags || (screen === 'regions' && (!!expandedPrevention || warmupOpen));
+  const overlayOpen = !!sessionCfg || showRedFlags || sourcesFor !== null || (screen === 'regions' && (!!expandedPrevention || warmupOpen));
   const screenEnterClass = vtSupported ? '' : 'os-screen-in';
   const screenEnterX = screenDirRef.current === 'back' ? '-28px' : screenDirRef.current === 'tab' ? '0px' : '28px';
   const topLeading = screen === 'regions' ? (
@@ -8278,6 +8397,7 @@ export default function Offside() {
                       ? 'A quick, indicative screening of movement symmetry and control, meant to help you notice compensations early — it\'s not a clinical assessment and doesn\'t replace a physiotherapist\'s judgment. Everything runs on your phone: the video is never recorded or sent anywhere, not even to us.'
                       : 'Uno screening rapido e indicativo di simmetria e controllo del movimento, pensato per aiutarti a notare per tempo eventuali compensi — non è una valutazione clinica e non sostituisce il giudizio di un fisioterapista. Tutta l\'analisi avviene sul tuo telefono: il video non viene mai registrato né inviato da nessuna parte, nemmeno a noi.'}
                   </p>
+                  <div className="mt-1">{renderSourcesLink('g:screening', null, LED_TEAL)}</div>
                 </div>
 
                 <SectionTitle title={isEN ? 'Choose a test' : 'Scegli un test'} />
@@ -9047,6 +9167,7 @@ export default function Offside() {
                 </div>
 
                 <div className="mb-4">{renderRedFlagsBar()}</div>
+                <div className="mb-4 -mt-1.5">{renderSourcesBar(selectedInjury)}</div>
 
                 <div className="os-seg-sticky -mx-5 sm:-mx-8 px-5 sm:px-8 pt-2 pb-3 mb-3" style={{ background: 'linear-gradient(180deg, rgba(4,10,7,0.92) 0%, rgba(4,10,7,0.92) 72%, rgba(4,10,7,0) 100%)' }}>
                   <Segmented
@@ -9428,6 +9549,9 @@ export default function Offside() {
           <a href="mailto:manuelegusella@icloud.com?subject=Feedback%20Offside" style={{ color: LED_GREEN }} className="os-focus flex items-center justify-center gap-1.5 mt-2 py-2 hover:underline">
             <Mail size={12} />{isEN ? 'Found a problem or have a suggestion? Let me know' : 'Hai trovato un problema o hai un suggerimento? Scrivimelo'}
           </a>
+          <button type="button" onClick={() => openSources('')} style={{ color: LED_GREEN }} className="os-focus flex items-center justify-center gap-1.5 w-full py-2 text-[12px] font-semibold hover:underline">
+            <BookOpen size={13} />{isEN ? 'Scientific sources' : 'Fonti scientifiche'}
+          </button>
           <a href="/privacy.html" style={{ color: colors.mutedInk }} className="os-focus block py-2 underline hover:opacity-70">
             {isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}
           </a>
@@ -9511,6 +9635,8 @@ export default function Offside() {
         {renderRedFlagsContent()}
       </Sheet>
 
+      {sourcesSheet}
+
       <Sheet
         open={warmupOpen && screen === 'regions'}
         onClose={() => setWarmupOpen(false)}
@@ -9548,6 +9674,7 @@ export default function Offside() {
         <p style={{ color: colors.mutedInk }} className="text-[12px] leading-relaxed">
           {isEN ? `${warmupExerciseCount} exercises inspired by the preventive warm-ups studied in football, such as FIFA 11+. They work when done regularly: at least twice a week, all season long.` : `${warmupExerciseCount} esercizi ispirati ai riscaldamenti preventivi studiati nel calcio, come il FIFA 11+. Funzionano se fatti con costanza: almeno 2 volte a settimana, per tutta la stagione.`}
         </p>
+        <div className="mt-2">{renderSourcesLink('g:prevention', () => setWarmupOpen(false), LED_TEAL)}</div>
       </Sheet>
 
       {(() => {
@@ -9631,6 +9758,7 @@ export default function Offside() {
                 </div>
               </>
             )}
+            <div className="mt-3">{renderSourcesLink('g:prevention', () => setExpandedPrevention(null), LED_TEAL)}</div>
           </Sheet>
         );
       })()}
