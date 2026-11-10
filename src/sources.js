@@ -1,6 +1,6 @@
 // src/sources.js
 // Fonti scientifiche citate dentro l'app (richieste da Apple, linea guida 1.4.1).
-// Ogni riferimento è stato controllato su PubMed il 5 novembre 2026: titolo, rivista, anno, volume e DOI
+// Ogni riferimento è stato controllato su PubMed il 5 novembre 2026 (silbernagel2007: il 10 novembre 2026): titolo, rivista, anno, volume e DOI
 // corrispondono alla scheda PubMed (p = numero PMID, d = DOI quando esiste).
 // k = tipo di documento: guideline | consensus | sr (revisione sistematica / meta-analisi) | review | rct | cohort
 //
@@ -60,6 +60,9 @@ export const SOURCES = {
   lbpLancet: { k: 'review', a: 'Foster NE et al.', t: 'Prevention and treatment of low back pain: evidence, challenges, and promising directions', j: 'Lancet 2018;391:2368', p: '29573872', d: '10.1016/S0140-6736(18)30489-6' },
   cramps: { k: 'review', a: 'Schwellnus MP', t: 'Cause of exercise associated muscle cramps (EAMC)—altered neuromuscular control, dehydration or electrolyte depletion?', j: 'Br J Sports Med 2009;43:401', p: '18981039', d: '10.1136/bjsm.2008.050401' },
 
+  // ---- carico e dolore durante gli esercizi ----
+  silbernagel2007: { k: 'rct', a: 'Silbernagel KG et al.', t: 'Continued sports activity, using a pain-monitoring model, during rehabilitation in patients with Achilles tendinopathy: a randomized controlled study', j: 'Am J Sports Med 2007;35:897', p: '17307888', d: '10.1177/0363546506298279' },
+
   // ---- spalla, braccio, mano ----
   shoulderPieters: { k: 'sr', a: 'Pieters L et al.', t: 'An Update of Systematic Reviews Examining the Effectiveness of Conservative Physical Therapy Interventions for Subacromial Shoulder Pain', j: 'J Orthop Sports Phys Ther 2020;50:131', p: '31726927', d: '10.2519/jospt.2020.8498' },
   shoulderDoiron: { k: 'sr', a: 'Doiron-Cadrin P et al.', t: 'Shoulder Rotator Cuff Disorders: A Systematic Review of Clinical Practice Guidelines and Semantic Analyses of Recommendations', j: 'Arch Phys Med Rehabil 2020', p: '32007452', d: '10.1016/j.apmr.2019.12.017' },
@@ -95,6 +98,14 @@ export const GENERAL_SOURCE_GROUPS = [
     noteIt: 'Perché un test di movimento è solo indicativo e non prevede gli infortuni con certezza.',
     noteEn: 'Why a movement test is only indicative and cannot predict injuries with certainty.',
     ids: ['screening'],
+  },
+  {
+    id: 'pain',
+    it: 'Dolore e carico durante gli esercizi',
+    en: 'Pain and loading during exercises',
+    noteIt: 'Regolare il carico in base al dolore durante la riabilitazione di un tendine. Le soglie del semaforo di Offside (0-3, 4-5, 6 o più) sono una regola pratica prudente scelta da noi: non vengono da questi studi e non sono un test clinico.',
+    noteEn: 'Adjusting load according to pain while rehabilitating a tendon. Offside\'s traffic-light thresholds (0-3, 4-5, 6 or more) are a cautious practical rule we chose: they do not come from these studies and are not a clinical test.',
+    ids: ['silbernagel2007', 'patellar'],
   },
 ];
 
@@ -136,4 +147,4 @@ export const SOURCE_KIND_LABELS = {
   en: { guideline: 'Guideline', consensus: 'Expert consensus', sr: 'Systematic review', review: 'Review', rct: 'Randomized trial', cohort: 'Cohort study' },
 };
 
-export const SOURCES_CHECKED_ON = { it: '5 novembre 2026', en: 'November 5, 2026' };
+export const SOURCES_CHECKED_ON = { it: '5 e 10 novembre 2026', en: 'November 5 and 10, 2026' };

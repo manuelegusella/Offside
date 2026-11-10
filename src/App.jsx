@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea } from 'recharts';
 import { IS_NATIVE, apiUrl } from './platform.js';
 import { SOURCES, GENERAL_SOURCE_GROUPS, INJURY_SOURCES, SOURCE_KIND_LABELS, SOURCES_CHECKED_ON } from './sources.js';
 import { loadPremiumOffer, hasPremiumEntitlement, buyPremium, restorePremiumPurchases } from './purchases.js';
+import { FREE_PHASES, deriveLegacyInjuries, painZone, painLight, LIGHT_COPY, FLAG_COPY, todayMode, planCounts, MODE_COPY, classifyExercise, LEVELS_COPY, levelsFor } from './premiumPlan.js';
+import { remindersSupported, reminderPermission, scheduleDailyReminder, cancelDailyReminder, REMINDER_COPY } from './notifications.js';
 
 // SOSTITUISCI questo con il tuo vero Payment Link di Stripe una volta creato
 const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/dRmbJ1c2K3Zt1sB8mB7IY00';
@@ -53,8 +55,8 @@ import {
   Aperture, Camera, PersonSimple as PersonStanding, Ruler, Plant as Sprout, ArrowClockwise as RotateCw, CircleDashed, ShieldWarning as ShieldAlert,
   Snowflake, Bandaids as Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, DeviceMobile as Smartphone,
   User, Hand, DotsSixVertical as Grip, MapPin, Phone, Envelope as Mail, Stethoscope, ArrowSquareOut as ExternalLink, MagnifyingGlass as Search,
-  Users, SignOut as LogOut, Copy, UserPlus, Buildings as Building2, Eye, EyeSlash as EyeOff, SoccerBall, Trash, BookOpen,
-  Play, Heartbeat, ChartLineUp, Siren, FirstAid
+  Users, SignOut as LogOut, Copy, UserPlus, Buildings as Building2, Eye, EyeSlash as EyeOff, Trash, BookOpen,
+  Play, Heartbeat, ChartLineUp, Siren, FirstAid, Bell, Stairs, TrafficSignal, ArrowDown
 } from '@phosphor-icons/react';
 
 // Palette "Notte allo stadio": tutta l'app vive su un campo di notte sotto i riflettori.
@@ -2884,90 +2886,6 @@ const regionRoleExercisesIT = {
     ]},
   },
 };
-const techniqueDataIT = {
-  portiere: { why: 'Il primo tocco di un portiere spesso è già l\'inizio dell\'azione — precisione e rapidità contano quanto le parate.', exercises: [
-    { text: `Distribuzione con i piedi su bersagli a diverse distanze (15-20 palloni, corto/medio/lungo)`, cat: 'strength', howTo: `Posiziona tre bersagli a distanza corta, media e lunga (coni, sagome o compagni) e distribuisci il pallone con i piedi verso ciascuno, alternando le distanze. Punta sulla precisione prima che sulla potenza: un rinvio preciso a media distanza vale più di uno lungo ma impreciso.` },
-    { text: `Controllo orientato sotto pressione simulata, poi rinvio rapido (10-12 ripetizioni)`, cat: 'balance', howTo: `Fatti pressare da un compagno che si avvicina mentre ricevi un retropassaggio, e controlla il pallone orientandolo subito verso lo spazio libero prima di rinviarlo rapidamente. Allena la rapidità di lettura sotto pressione, la situazione più comune negli errori di retropassaggio.` },
-    { text: `Rinvio di precisione su corridoi stretti (10 tentativi per lato)`, cat: 'strength', howTo: `Delimita due corridoi stretti con dei coni, uno a sinistra e uno a destra, e prova a far arrivare il rinvio dentro il corridoio invece che in un'area generica. Restringere il bersaglio ti costringe a curare tecnica e precisione, non solo la distanza.` },
-    { text: `Uscite basse con controllo del rimbalzo (8-10 ripetizioni)`, cat: 'balance', howTo: `Fatti lanciare palloni bassi e rasoterra da diverse angolazioni, uscendo per bloccarli o deviarli con la tecnica corretta di caduta laterale. Il controllo del rimbalzo su terreni irregolari è spesso ciò che fa la differenza tra un blocco pulito e una respinta corta pericolosa.` },
-    { text: `Gioco con i piedi in superiorità numerica 2v1 (8-10 minuti)`, cat: 'balance', howTo: `Insieme a due compagni che si scambiano un pressing leggero, gestisci il possesso con i piedi cercando sempre l'appoggio libero. Allena la lettura rapida dello spazio richiesta oggi a un portiere che partecipa attivamente alla costruzione.` },
-    { text: `Comunicazione e organizzazione della barriera su punizione (6-8 ripetizioni)`, cat: 'balance', howTo: `Su una punizione simulata dal limite dell'area, posiziona verbalmente la barriera e te stesso rispetto alla porta, correggendo la posizione se necessario. È un gesto più mentale che fisico, ma decisivo quanto una parata sui palloni inattivi.` },
-    { text: `Uscite alte su cross, scelta tra presa e pugno (10-12 palloni)`, cat: 'strength', howTo: `Fatti crossare palloni alti da diverse posizioni e decidi in ogni caso se uscire in presa o respingere di pugno, in base a traiettoria e pressione avversaria simulata. Allena il giudizio rapido, spesso più determinante della sola elevazione fisica.` },
-    { text: `Lettura e anticipo su lancio in profondità (8-10 ripetizioni)`, cat: 'run', howTo: `Fatti lanciare palloni in profondità alle spalle della linea difensiva e valuta ogni volta se uscire per anticipare o restare sulla porta. Un portiere moderno deve leggere questa situazione in una frazione di secondo, non solo saper parare da fermo.` },
-  ]},
-  difensore: { why: 'Il primo tocco dopo un recupero palla decide se la squadra riparte bene o perde di nuovo possesso.', exercises: [
-    { text: `Primo tocco orientato in avanti, subito dopo un contrasto simulato (10-12 ripetizioni)`, cat: 'balance', howTo: `Fai un contrasto leggero simulato con un compagno, poi ricevi immediatamente un pallone e orientalo con il primo tocco verso lo spazio libero in avanti. Allena il passaggio mentale dal recupero palla al rilancio dell'azione, spesso il momento in cui si perde di nuovo il possesso.` },
-    { text: `Controllo sotto pressione avversaria diretta (8-10 ripetizioni per lato)`, cat: 'balance', howTo: `Fatti marcare da vicino da un compagno mentre ricevi il pallone, e cerca di controllarlo proteggendolo con il corpo prima di girarti o passarlo. Riproduce la pressione reale che un difensore riceve appena tocca palla in fase di possesso.` },
-    { text: `Passaggio lungo di precisione su bersaglio (15 tentativi)`, cat: 'strength', howTo: `Posiziona un bersaglio, un cono, una sagoma o un compagno, a 25-30 metri e prova a colpirlo con un passaggio lungo, variando l'angolo di partenza. Un passaggio lungo preciso permette alla squadra di saltare la pressione avversaria e ripartire velocemente.` },
-    { text: `Conduzione palla in spazio stretto sotto pressing (5-6 serie brevi)`, cat: 'run', howTo: `In uno spazio delimitato stretto, conduci il pallone mentre un compagno cerca di pressarti, cercando di uscire dalla zona senza perdere il controllo. Allena la sicurezza nella conduzione quando il pressing avversario è alto e lo spazio per pensare è minimo.` },
-    { text: `Marcatura e anticipo su palla scoperta (8-10 ripetizioni)`, cat: 'run', howTo: `Parti affiancato a un attaccante simulato e, al lancio di un compagno, cerca di anticiparlo sulla palla scoperta invece di aspettarlo. Il tempismo dell'anticipo è ciò che distingue un difensore che previene l'azione da uno che rincorre.` },
-    { text: `Impostazione sotto pressing avversario alto (6-8 sequenze)`, cat: 'balance', howTo: `Ricevi il pallone dal portiere o da un compagno mentre un avversario simulato ti pressa da vicino, e decidi rapidamente se giocare corto, lungo o portare palla. Allena la capacità di restare lucido nella costruzione anche quando il pressing è alto, sempre più richiesta al ruolo.` },
-    { text: `Duello aereo con tempismo di stacco (6-8 ripetizioni per lato)`, cat: 'strength', howTo: `Su un pallone crossato o lanciato, cura il tempismo dello stacco per arrivare al punto più alto del salto nell'istante dell'impatto con il pallone. Il tempismo, più della sola elevazione, decide la maggior parte dei duelli aerei.` },
-    { text: `Copertura e diagonale difensiva (6-8 ripetizioni)`, cat: 'run', howTo: `Quando un compagno esce a pressare l'avversario, muoviti in diagonale per coprire lo spazio alle sue spalle, mantenendo la giusta distanza sia dal compagno che dall'attaccante. È un movimento poco visibile ma centrale per non lasciare spazi quando un compagno si sbilancia.` },
-  ]},
-  centrocampista: { why: 'Il centrocampista tocca il pallone più di chiunque altro — la qualità del primo controllo in spazi stretti fa la differenza.', exercises: [
-    { text: `Controllo orientato in spazio stretto, un tocco per liberarsi (12-15 ripetizioni)`, cat: 'balance', howTo: `In uno spazio ridotto, ricevi il pallone e orientalo con un solo tocco nella direzione che ti libera dalla pressione più vicina. È il gesto che decide se il centrocampista guadagna tempo o perde subito il possesso.` },
-    { text: `Cambio di gioco su lunga distanza, precisione (12 tentativi)`, cat: 'strength', howTo: `Da un lato del campo, prova a cambiare gioco con un passaggio lungo verso un bersaglio sul lato opposto, curando l'altezza e il peso del pallone perché arrivi giocabile. Un cambio di gioco preciso apre spazi che il pressing avversario aveva chiuso su un lato.` },
-    { text: `Passaggio e movimento (dai e vai), ritmo sostenuto (8-10 sequenze)`, cat: 'run', howTo: `Passa il pallone a un compagno e muoviti immediatamente in uno spazio libero per ricevere il ritorno al primo tocco, mantenendo un ritmo sostenuto per tutta la sequenza. Il movimento dopo il passaggio, non il passaggio in sé, è spesso quello che sblocca l'azione.` },
-    { text: `Ricezione spalle alla porta e giro in un tocco (10-12 ripetizioni)`, cat: 'balance', howTo: `Ricevi il pallone con le spalle rivolte alla porta avversaria e, con un solo tocco, giralo per orientarti verso l'azione offensiva. Allena un gesto tecnico che i centrocampisti usano di continuo per far ripartire l'azione senza perdere tempi preziosi.` },
-    { text: `Scanning: controllo dello spazio prima di ricevere (10-12 ripetizioni)`, cat: 'balance', howTo: `Prima che il pallone arrivi, gira la testa per controllare posizione di avversari e compagni, poi ricevi orientandoti già in base a ciò che hai visto. Guardarsi intorno prima di ricevere, non dopo, è ciò che distingue un centrocampista che ha sempre tempo da uno sempre in affanno.` },
-    { text: `Pressing e recupero palla in coppia (6-8 sequenze)`, cat: 'run', howTo: `Insieme a un compagno, pressa in modo coordinato un avversario che gestisce il pallone, chiudendo insieme le linee di passaggio più semplici. Il pressing efficace è quasi sempre un lavoro di squadra, non un inseguimento individuale.` },
-    { text: `Inserimento senza palla in area (8-10 ripetizioni)`, cat: 'run', howTo: `Parti da centrocampo e inserisciti in area con tempismo, coordinandoti con il momento in cui un compagno riceve palla sull'esterno. L'inserimento giusto al momento giusto è un gesto tattico allenabile quanto un tiro o un passaggio.` },
-    { text: `Copertura della profondità dopo una perdita di palla (6-8 ripetizioni)`, cat: 'run', howTo: `Subito dopo aver perso il possesso in fase offensiva, scatta indietro per coprire lo spazio più pericoloso invece di inseguire subito il pallone. La reazione immediata dopo una perdita di palla è spesso ciò che decide se la squadra subisce una ripartenza.` },
-  ]},
-  attaccante: { why: 'In area il tempo per pensare è quasi zero — il primo tocco verso la porta spesso vale più del tiro stesso.', exercises: [
-    { text: `Controllo orientato in area sotto pressione, subito verso la porta (10-12 ripetizioni)`, cat: 'balance', howTo: `In area di rigore, ricevi il pallone con un difensore che ti pressa da dietro e orientalo con il primo tocco già verso la porta. In area il tempo per pensare è quasi nullo, quindi il primo tocco deve fare già gran parte del lavoro.` },
-    { text: `Primo tocco su cross da diverse angolazioni (15 palloni)`, cat: 'balance', howTo: `Fatti crossare palloni da diverse angolazioni, fondo, mezzaluna, cross basso, e lavora il primo controllo per orientarti subito verso la conclusione. Cross diversi richiedono un primo tocco diverso, quindi vale la pena allenare più varianti, non solo una.` },
-    { text: `Finalizzazione dopo conduzione rapida (8-10 ripetizioni)`, cat: 'run', howTo: `Conduci il pallone a ritmo sostenuto per alcuni metri e concludi a rete senza rallentare prima del tiro. Allena la capacità di tirare con precisione anche quando il corpo è ancora in movimento, come capita nella maggior parte delle occasioni reali.` },
-    { text: `Tiro di prima intenzione su assist (12-15 tentativi)`, cat: 'strength', howTo: `Fatti servire assist da diverse posizioni e calcia al volo o di prima intenzione, senza controllare prima il pallone. È un gesto tecnico che richiede tempismo, e va allenato a parte perché diverso dal tiro dopo un controllo.` },
-    { text: `Movimento ad aggirare il difensore (attacco alla profondità) (8-10 ripetizioni)`, cat: 'run', howTo: `Parti leggermente defilato rispetto al difensore e attacca lo spazio alle sue spalle nel momento in cui un compagno è pronto a servirti in profondità. Il movimento giusto prima del passaggio conta quanto la finalizzazione stessa.` },
-    { text: `Gioco spalle alla porta e sponda per un compagno (10-12 ripetizioni)`, cat: 'strength', howTo: `Ricevi il pallone spalle alla porta sotto la pressione di un difensore e gioca una sponda pulita per un compagno in inserimento. Proteggere palla e far salire la squadra è un contributo importante quanto il gol per un attaccante che gioca spesso da riferimento.` },
-    { text: `Finalizzazione di testa su cross (10-12 palloni)`, cat: 'balance', howTo: `Fatti crossare palloni da diverse posizioni e attacca la porta di testa, curando il tempismo dello stacco rispetto alla traiettoria. La finalizzazione aerea è un gesto tecnico a sé, che merita un allenamento specifico oltre al tiro con i piedi.` },
-    { text: `Pressing offensivo sul portiere/primo difensore (6-8 ripetizioni)`, cat: 'run', howTo: `Dopo una perdita di palla in fase offensiva, pressa immediatamente il portiere o il primo difensore che riceve, chiudendo l'appoggio più semplice. Il primo a pressare dopo una perdita di palla è quasi sempre un attaccante, ed è un gesto che si allena quanto il tiro.` },
-  ]},
-};
-const techniqueDataEN = {
-  portiere: { why: 'A goalkeeper\'s first touch is often already the start of the attack — precision and speed matter as much as saves.', exercises: [
-    { text: `Distribution with the feet to targets at different distances (15-20 balls, short/medium/long)`, cat: 'strength', howTo: `Set up three targets at short, medium and long distance (cones, mannequins or teammates) and distribute the ball with your feet to each, alternating distances. Prioritise precision over power: an accurate medium pass is worth more than a long, wayward one.` },
-    { text: `Oriented control under simulated pressure, then quick clearance (10-12 reps)`, cat: 'balance', howTo: `Have a teammate close you down as you receive a back-pass, controlling the ball toward open space before clearing it quickly. Trains quick decision-making under pressure, the most common situation behind back-pass errors.` },
-    { text: `Precision clearance through narrow lanes (10 attempts per side)`, cat: 'strength', howTo: `Mark out two narrow lanes with cones, one left and one right, and try to land the clearance inside the lane rather than a general area. Narrowing the target forces you to focus on technique and accuracy, not just distance.` },
-    { text: `Low saves with rebound control (8-10 reps)`, cat: 'balance', howTo: `Have low, ground-level balls played to you from different angles, coming out to smother or parry them with correct lateral-fall technique. Controlling the bounce on uneven ground often decides between a clean save and a dangerous short rebound.` },
-    { text: `Playing out with the feet in a 2v1 (8-10 minutes)`, cat: 'balance', howTo: `With two teammates taking turns to press lightly, manage possession with your feet, always looking for the free option. Trains the quick spatial reading required of a modern ball-playing goalkeeper.` },
-    { text: `Communication and organizing the wall on a free kick (6-8 reps)`, cat: 'balance', howTo: `On a simulated edge-of-the-box free kick, verbally position the wall and yourself relative to the goal, correcting as needed. A more mental than physical skill, but just as decisive as a save on set pieces.` },
-    { text: `High crosses, choosing between catching and punching (10-12 balls)`, cat: 'strength', howTo: `Have high crosses played in from different positions and decide each time whether to catch or punch, based on trajectory and simulated pressure. Trains quick judgment, often more decisive than jumping ability alone.` },
-    { text: `Reading and anticipating a through-ball (8-10 reps)`, cat: 'run', howTo: `Have through-balls played in behind the defensive line and judge each time whether to rush out or stay on your line. A modern goalkeeper must read this in a split second, not just make saves from a standing position.` },
-  ]},
-  difensore: { why: 'The first touch after winning the ball decides whether the team breaks out well or loses possession again.', exercises: [
-    { text: `Forward-oriented first touch, right after a simulated tackle (10-12 reps)`, cat: 'balance', howTo: `Do a light simulated tackle with a teammate, then immediately receive a ball and direct your first touch toward free space ahead. Trains the mental switch from winning the ball to starting the attack, often when possession is lost again.` },
-    { text: `Control under direct opponent pressure (8-10 reps per side)`, cat: 'balance', howTo: `Have a teammate mark you tightly as you receive the ball, controlling it while shielding with your body before turning or passing. Reproduces the real pressure a defender feels the instant they touch the ball in possession.` },
-    { text: `Long precision pass to a target (15 attempts)`, cat: 'strength', howTo: `Place a target — a cone, a mannequin or a teammate — 25-30 metres away and try to hit it with a long pass, varying your starting angle. An accurate long pass lets the team skip the opponent's press and break forward quickly.` },
-    { text: `Ball carrying in tight space under pressing (5-6 short sets)`, cat: 'run', howTo: `In a tight marked-off space, carry the ball while a teammate tries to press you, trying to get out of the zone without losing control. Trains confident ball-carrying when the opponent's press is high and there's little time to think.` },
-    { text: `Marking and anticipating on an exposed ball (8-10 reps)`, cat: 'run', howTo: `Start alongside a simulated attacker and, as a teammate plays a long ball, try to beat them to it instead of waiting. The timing of the interception is what separates a defender who prevents the play from one who chases it.` },
-    { text: `Playing out under a high opponent press (6-8 sequences)`, cat: 'balance', howTo: `Receive the ball from the keeper or a teammate while a simulated opponent presses closely, and quickly decide whether to play short, go long, or carry it. Trains staying composed in build-up under a high press, an increasingly common demand of the role.` },
-    { text: `Aerial duel with take-off timing (6-8 reps per side)`, cat: 'strength', howTo: `On a crossed or thrown ball, time your take-off to reach the highest point of your jump right as the ball arrives. Timing, more than jumping ability alone, decides most aerial duels.` },
-    { text: `Cover and defensive diagonal run (6-8 reps)`, cat: 'run', howTo: `When a teammate steps up to press an opponent, move diagonally to cover the space behind them, keeping the right distance from both teammate and attacker. A subtle but crucial movement to avoid leaving gaps when a teammate is drawn out of position.` },
-  ]},
-  centrocampista: { why: 'A midfielder touches the ball more than anyone else — the quality of the first touch in tight spaces makes the difference.', exercises: [
-    { text: `Oriented control in tight space, one touch to get free (12-15 reps)`, cat: 'balance', howTo: `In a small space, receive the ball and direct it with a single touch toward whatever side frees you from the nearest pressure. The action that decides whether a midfielder buys time or loses the ball immediately.` },
-    { text: `Long-distance switch of play, precision (12 attempts)`, cat: 'strength', howTo: `From one side of the pitch, try switching play with a long pass to a target on the opposite side, minding height and weight so it's playable on arrival. An accurate switch opens space the opponent's press had closed off on one side.` },
-    { text: `Pass and move, sustained rhythm (8-10 sequences)`, cat: 'run', howTo: `Pass the ball to a teammate and immediately move into free space to receive the first-time return, keeping a sustained rhythm throughout. The movement after the pass, not the pass itself, is often what unlocks the play.` },
-    { text: `Receiving back to goal and turning in one touch (10-12 reps)`, cat: 'balance', howTo: `Receive the ball with your back to the opponent's goal and, in one touch, turn it to face the attacking play. Trains a technique midfielders use constantly to restart the attack without losing precious time.` },
-    { text: `Scanning: checking space before receiving (10-12 reps)`, cat: 'balance', howTo: `Before the ball arrives, turn your head to check the position of opponents and teammates, then receive already oriented by what you saw. Scanning before receiving, not after, is what separates a midfielder who always seems to have time from one who's always under pressure.` },
-    { text: `Pressing and winning the ball in a pair (6-8 sequences)`, cat: 'run', howTo: `Together with a teammate, press an opponent in possession in a coordinated way, jointly closing off the easiest passing lanes. Effective pressing is almost always teamwork, not an individual chase.` },
-    { text: `Off-the-ball run into the box (8-10 reps)`, cat: 'run', howTo: `Start from midfield and time a run into the box, coordinating with the moment a teammate receives the ball wide. The right run at the right time is a tactical skill just as trainable as a shot or a pass.` },
-    { text: `Covering depth after losing the ball (6-8 reps)`, cat: 'run', howTo: `Right after losing possession in attack, sprint back to cover the most dangerous space instead of immediately chasing the ball. The immediate reaction after losing the ball often decides whether the team concedes a counter-attack.` },
-  ]},
-  attaccante: { why: 'In the box there\'s almost no time to think — the first touch toward goal is often worth more than the shot itself.', exercises: [
-    { text: `Oriented control in the box under pressure, straight toward goal (10-12 reps)`, cat: 'balance', howTo: `In the box, receive the ball with a defender pressing from behind and direct your first touch straight toward goal. There's almost no time to think in the box, so the first touch has to do most of the work.` },
-    { text: `First touch on crosses from different angles (15 balls)`, cat: 'balance', howTo: `Have crosses played in from different angles — byline, edge of the box, low cross — and work your first touch to orient straight toward a finish. Different crosses need a different first touch, so it's worth training several variants, not just one.` },
-    { text: `Finishing after a quick carry (8-10 reps)`, cat: 'run', howTo: `Carry the ball at pace for a few metres and finish on goal without slowing down before the shot. Trains shooting accurately while the body is still moving, as happens in most real chances.` },
-    { text: `First-time shot on an assist (12-15 attempts)`, cat: 'strength', howTo: `Have assists played to you from different positions and strike first-time, without controlling the ball first. A technique that requires timing and needs dedicated practice, since it differs from shooting off a controlled touch.` },
-    { text: `Movement around the defender (attacking depth) (8-10 reps)`, cat: 'run', howTo: `Start slightly offset from the defender and attack the space behind them the moment a teammate is ready to play you through. The right movement before the pass matters as much as the finish itself.` },
-    { text: `Playing with your back to goal and laying it off (10-12 reps)`, cat: 'strength', howTo: `Receive the ball with your back to goal under a defender's pressure and lay off a clean pass for an onrushing teammate. Holding the ball up and bringing the team forward is as valuable as a goal for a target-man forward.` },
-    { text: `Heading finish from a cross (10-12 balls)`, cat: 'balance', howTo: `Have crosses played in from different positions and attack the goal with your head, timing your jump to the flight of the ball. Aerial finishing is its own skill, worth dedicated practice alongside shooting with the feet.` },
-    { text: `Offensive press on the goalkeeper/first defender (6-8 reps)`, cat: 'run', howTo: `After losing the ball in attack, immediately press the goalkeeper or first defender who receives it, cutting off the easiest option. The first player to press after losing the ball is almost always a forward, and it's a skill worth training as much as shooting.` },
-  ]},
-};
 const regionRoleExercisesEN = {
   ankle_foot: {
     portiere: { why: 'On dives, the ankle absorbs load on unstable footing — landing technique matters as much as raw strength.', exercises: [
@@ -3739,7 +3657,7 @@ const DRILL_TONES = {
 // a sinistra (si accende quando è fatto), nome in chiaro, dosaggio sul "tabellone" LED, spunta
 // tonda a destra e il "Come si fa" che si apre sotto. Senza onToggle (tecnica) non c'è la
 // spunta; con onPlay compare "Guida", che apre l'esercizio nella sessione guidata.
-function DrillCard({ index, ex, catLabel, done = false, onToggle, helpOpen = false, onToggleHelp, isEN, tone = 'green', dark = false, onPlay }) {
+function DrillCard({ index, ex, catLabel, done = false, onToggle, helpOpen = false, onToggleHelp, isEN, tone = 'green', dark = false, onPlay, mode = 'ok', levels }) {
   const t = DRILL_TONES[tone] || DRILL_TONES.green;
   const { main, dose, note } = splitDose(ex.text);
   const CatIcon = catIcons[ex.cat] || Circle;
@@ -3762,8 +3680,8 @@ function DrillCard({ index, ex, catLabel, done = false, onToggle, helpOpen = fal
       <div className="flex items-start gap-3 pl-3.5 pr-3 pt-3.5 pb-1">
         <span className="os-tabular w-8 flex-shrink-0 text-[30px] leading-[0.9] mt-0.5" style={{ fontFamily: BEBAS, color: done ? t.led : 'rgba(255,255,255,0.3)', textShadow: done ? `0 0 14px ${t.led}77` : 'none', transition: 'color 300ms ease' }} aria-hidden="true">{num}</span>
         <div onClick={checkable ? toggle : undefined} className={`flex-1 min-w-0 ${checkable ? 'cursor-pointer select-none' : ''}`}>
-          <p style={{ color: t.led, fontFamily: BRICOLAGE, letterSpacing: '0.11em' }} className="flex items-center gap-1 text-[10px] font-bold uppercase mb-1"><CatIcon size={11} />{catLabel}</p>
-          <p style={{ color: colors.ink, opacity: done ? 0.72 : 1 }} className="text-[15px] font-semibold leading-snug transition-opacity">{main}</p>
+          <p style={{ color: t.led, fontFamily: BRICOLAGE, letterSpacing: '0.11em' }} className="flex flex-wrap items-center gap-x-1 gap-y-1 text-[10px] font-bold uppercase mb-1"><CatIcon size={11} />{catLabel}{mode !== 'ok' && <span className="ml-1"><ModeTag mode={mode} isEN={isEN} /></span>}</p>
+          <p style={{ color: colors.ink, opacity: done ? 0.72 : (mode === 'skip' ? 0.6 : 1) }} className="text-[15px] font-semibold leading-snug transition-opacity">{main}</p>
           {(dose || note) && (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2">
               {dose && <span style={{ background: 'rgba(0,0,0,0.42)', color: t.led, fontFamily: BEBAS, letterSpacing: '0.05em', border: `1px solid ${t.chip}`, textShadow: `0 0 10px ${t.led}55` }} className="text-[14.5px] leading-none px-2 pt-[5px] pb-1 rounded-md">{dose}</span>}
@@ -3808,7 +3726,7 @@ function DrillCard({ index, ex, catLabel, done = false, onToggle, helpOpen = fal
               <p style={{ color: '#D7E1EA' }} className="text-[13px] leading-relaxed">{ex.howTo || main}</p>
             </div>
           ) : (
-            <ExerciseHelp ex={ex} isEN={isEN} />
+            <ExerciseHelp ex={ex} isEN={isEN} levels={levels} />
           )}
         </div>
       </Accordion>
@@ -4035,7 +3953,253 @@ function PositionPicker({ positions, value, onPick }) {
   );
 }
 
-function ExerciseHelp({ ex, isEN }) {
+// ---------------------------------------------------------------------------------------
+// Premium del percorso: semaforo del dolore, piano di oggi, livelli degli esercizi, fase bloccata.
+// Regole e testi stanno in premiumPlan.js; qui c'è solo la grafica.
+// ---------------------------------------------------------------------------------------
+const LIGHT_COLORS = { green: LED_GREEN, yellow: colors.orange, red: colors.red };
+
+// Dolore di oggi (0-10) e tre segnali da non ignorare. È un controllo di sicurezza: gratis per tutti.
+function PainCheck({ entry, onPain, onFlag, isEN }) {
+  const pain = typeof entry.pain === 'number' ? entry.pain : null;
+  const flags = entry.flags || {};
+  const flagCopy = FLAG_COPY[isEN ? 'en' : 'it'];
+  return (
+    <div className="mb-3">
+      <p className="os-label mb-1.5" style={{ color: colors.mutedInk }}>{isEN ? 'Pain right now' : 'Dolore adesso'}</p>
+      <div role="radiogroup" aria-label={isEN ? 'Pain right now, from 0 to 10' : 'Dolore adesso, da 0 a 10'} className="grid grid-cols-11 gap-[3px]">
+        {Array.from({ length: 11 }, (_, n) => {
+          const on = pain === n;
+          const c = LIGHT_COLORS[{ green: 'green', yellow: 'yellow', red: 'red' }[painZone(n)]];
+          return (
+            <button
+              key={n}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              aria-label={String(n)}
+              onClick={() => { haptic(8); onPain(n); }}
+              style={{ background: on ? c : 'rgba(255,255,255,0.045)', color: on ? '#07130C' : colors.ink, border: `1.5px solid ${on ? c : 'rgba(255,255,255,0.12)'}`, boxShadow: on ? `0 0 16px -2px ${c}AA` : 'none', fontFamily: BEBAS, transition: 'background 180ms ease, border-color 180ms ease, box-shadow 220ms ease' }}
+              className="os-focus os-press [--press:0.92] h-[46px] rounded-lg text-[19px] leading-none os-tabular"
+            >{n}</button>
+          );
+        })}
+      </div>
+      <div className="flex justify-between mt-1 px-0.5" aria-hidden="true">
+        <span style={{ color: colors.faint }} className="text-[10.5px]">{isEN ? 'No pain' : 'Nessun dolore'}</span>
+        <span style={{ color: colors.faint }} className="text-[10.5px]">{isEN ? 'Worst pain' : 'Il peggiore'}</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5 mt-2.5">
+        {['swelling', 'giving', 'worse'].map((k) => {
+          const on = !!flags[k];
+          return (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={on}
+              onClick={() => { haptic(8); onFlag(k); }}
+              style={{ background: on ? 'rgba(255,107,94,0.16)' : 'rgba(255,255,255,0.045)', border: `1px solid ${on ? colors.red : 'rgba(255,255,255,0.14)'}`, color: on ? '#FFD0CB' : colors.mutedInk, transition: 'background 180ms ease, border-color 180ms ease' }}
+              className="os-focus os-press inline-flex items-center gap-1.5 rounded-full px-3 min-h-[38px] text-[12px] font-semibold text-left"
+            >
+              {on && <Check size={12} weight="bold" color={colors.red} />}{flagCopy[k]}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Il semaforo di oggi: un verdetto in una riga e cosa fare. Le soglie sono una regola pratica di Offside.
+function LightCard({ light, isEN, onSources }) {
+  if (!light) return null;
+  const copy = LIGHT_COPY[isEN ? 'en' : 'it'][light];
+  const c = LIGHT_COLORS[light];
+  return (
+    <div role="status" className="os-card-in rounded-2xl p-3.5" style={{ background: `${c}12`, border: `1px solid ${c}55` }}>
+      <div className="flex items-center gap-2.5 mb-2">
+        <span style={{ background: `${c}26`, border: `1px solid ${c}77`, boxShadow: `0 0 16px -4px ${c}` }} className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center"><TrafficSignal size={17} color={c} weight="fill" /></span>
+        <div className="min-w-0">
+          <p style={{ fontFamily: BEBAS, color: c, letterSpacing: '0.12em', textShadow: `0 0 12px ${c}66` }} className="text-[15px] leading-none">{copy.chip}</p>
+          <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[15.5px] font-bold leading-snug mt-0.5">{copy.title}</p>
+        </div>
+      </div>
+      <ul className="space-y-1.5">
+        {copy.lines.map((line, i) => (
+          <li key={i} style={{ color: colors.ink }} className="flex gap-2 text-[13px] leading-snug"><span style={{ backgroundColor: c }} className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-[6px]" />{line}</li>
+        ))}
+      </ul>
+      <p style={{ color: colors.faint }} className="text-[10.5px] leading-snug mt-2.5">{isEN ? 'Offside\'s practical rule, not a clinical test. It does not replace a doctor or a physiotherapist.' : 'Regola pratica di Offside, non un test clinico. Non sostituisce un medico o un fisioterapista.'}{onSources && <> <button type="button" onClick={onSources} style={{ color: LED_GREEN }} className="os-focus underline font-semibold">{isEN ? 'Sources' : 'Fonti'}</button></>}</p>
+    </div>
+  );
+}
+
+// Premium: quanti esercizi di oggi restano come da programma, quanti passano alla versione più facile, quanti si saltano.
+function PlanCounts({ counts, isEN }) {
+  const total = counts.ok + counts.easier + counts.skip;
+  const items = [
+    { k: 'ok', n: counts.ok, label: isEN ? 'as planned' : 'come da programma', c: LED_GREEN },
+    { k: 'easier', n: counts.easier, label: isEN ? 'easier version' : 'versione più facile', c: colors.orange },
+    { k: 'skip', n: counts.skip, label: isEN ? 'skip today' : 'da saltare oggi', c: colors.red },
+  ];
+  return (
+    <div className="grid grid-cols-3 gap-2 mt-3" role="group" aria-label={isEN ? `Today's plan: ${total} exercises` : `Piano di oggi: ${total} esercizi`}>
+      {items.map((it) => (
+        <div key={it.k} className="os-well px-2 py-2.5 text-center" style={{ opacity: it.n ? 1 : 0.45 }}>
+          <p style={{ fontFamily: BEBAS, color: it.c, textShadow: it.n ? `0 0 12px ${it.c}66` : 'none' }} className="text-[30px] leading-none os-tabular">{it.n}</p>
+          <p style={{ color: colors.mutedInk }} className="text-[11px] leading-tight mt-1">{it.label}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Etichetta sull'esercizio quando il piano di oggi lo cambia.
+function ModeTag({ mode, isEN }) {
+  if (!mode || mode === 'ok') return null;
+  const c = mode === 'skip' ? colors.red : colors.orange;
+  return (
+    <span style={{ color: c, background: `${c}1A`, border: `1px solid ${c}55`, letterSpacing: '0.06em' }} className="inline-flex items-center rounded-full px-2 py-[2px] text-[9.5px] font-bold uppercase leading-tight">{MODE_COPY[isEN ? 'en' : 'it'][mode]}</span>
+  );
+}
+
+function LevelRow({ icon: Icon, color, label, text }) {
+  return (
+    <div className="flex gap-2.5">
+      <span style={{ background: `${color}1F`, border: `1px solid ${color}55` }} className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center mt-0.5"><Icon size={14} color={color} weight="bold" /></span>
+      <div className="min-w-0">
+        <p style={{ color, fontFamily: BRICOLAGE, letterSpacing: '0.1em' }} className="text-[10.5px] font-bold uppercase mb-0.5">{label}</p>
+        <p style={{ color: colors.ink }} className="text-[13px] leading-relaxed">{text}</p>
+      </div>
+    </div>
+  );
+}
+
+// Livelli dell'esercizio (Premium): più facile, più difficile, cosa fare se fa male. Senza Premium resta una riga che li annuncia.
+function LevelsPanel({ ex, isEN, levels }) {
+  const lv = levelsFor(classifyExercise(ex.text, ex.cat), isEN);
+  if (!lv) return null;
+  const copy = LEVELS_COPY[isEN ? 'en' : 'it'];
+  if (!levels.unlocked) {
+    return (
+      <button type="button" onClick={levels.onUnlock} className="os-focus os-press [--press:0.98] w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 mt-2 text-left" style={{ background: 'rgba(245,196,81,0.07)', border: '1px dashed rgba(245,196,81,0.45)' }}>
+        <Lock size={13} color={colors.premiumGold} weight="fill" className="flex-shrink-0" />
+        <span style={{ color: '#E9D9A6' }} className="flex-1 text-[12.5px] leading-snug font-medium">{copy.teaser}</span>
+        <span style={{ fontFamily: BEBAS, letterSpacing: '0.12em' }} className="os-gold-text text-[13px]">Premium</span>
+      </button>
+    );
+  }
+  return (
+    <div className="os-well mt-2 p-3.5 space-y-3">
+      <p style={{ color: colors.premiumGold, fontFamily: BRICOLAGE, letterSpacing: '0.12em' }} className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase"><Stairs size={13} />{copy.title}</p>
+      <LevelRow icon={ArrowDown} color={LED_TEAL} label={copy.easier} text={lv.easier} />
+      <LevelRow icon={ArrowUp} color={LED_GREEN} label={copy.harder} text={lv.harder} />
+      <LevelRow icon={AlertTriangle} color={colors.orange} label={copy.hurts} text={copy.hurtsText} />
+      <p style={{ color: colors.faint }} className="text-[10.5px] leading-snug">{copy.footer}</p>
+    </div>
+  );
+}
+
+// Fase bloccata (Premium): si vede cosa c'è dentro (numero e tipo di esercizi, sfocati) ma non come si fanno.
+// Panoramica e criteri per entrarci restano visibili sopra. Un utente gratuito non resta mai senza uscita:
+// il bottone sotto lo riporta all'ultima fase gratis.
+function PhaseLockCard({ phaseNo, exercises, catLabels, isEN, onUnlock, onBack, freeCount }) {
+  const counts = {};
+  exercises.forEach((e) => { counts[e.cat] = (counts[e.cat] || 0) + 1; });
+  const summary = ['strength', 'balance', 'run', 'stretch', 'hold', 'rest'].filter((c) => counts[c]).map((c) => `${counts[c]} ${String(catLabels[c] || c).toLowerCase()}`).join(' · ');
+  const preview = exercises.filter((e) => e.cat !== 'rest').slice(0, 5).map((e) => splitDose(e.text).main);
+  return (
+    <>
+      <PremiumLockCard
+        icon={Lock}
+        badge={isEN ? `Phase ${phaseNo}` : `Fase ${phaseNo}`}
+        title={isEN ? `Phase ${phaseNo} is included in Premium` : `La fase ${phaseNo} è inclusa in Premium`}
+        text={isEN ? `${exercises.length} exercises: ${summary}. The first ${freeCount} phases stay free, and you can always see what it takes to get here.` : `${exercises.length} esercizi: ${summary}. Le prime ${freeCount} fasi restano gratis e i criteri per arrivarci li vedi sempre.`}
+        cta={isEN ? `Unlock phase ${phaseNo}` : `Sblocca la fase ${phaseNo}`}
+        onUnlock={onUnlock}
+        preview={preview}
+      />
+      <button type="button" onClick={onBack} style={{ color: LED_GREEN }} className="os-focus os-press flex items-center justify-center gap-1.5 w-full min-h-[44px] mt-3 text-[13px] font-semibold">
+        <ArrowLeft size={14} />{isEN ? `Back to phase ${freeCount} (free)` : `Torna alla fase ${freeCount} (gratis)`}
+      </button>
+    </>
+  );
+}
+
+// Promemoria giornaliero (Premium, solo app iPhone): una notifica sul telefono all'ora scelta. Niente server.
+function ReminderRow({ reminder, busy, note, onToggle, onTime, isEN }) {
+  const hh = String(reminder.hour).padStart(2, '0');
+  const mm = String(reminder.minute).padStart(2, '0');
+  return (
+    <div className="os-well p-3.5 mt-3">
+      <div className="flex items-center gap-3">
+        <span style={{ background: reminder.on ? 'rgba(125,255,168,0.14)' : 'rgba(255,255,255,0.05)', border: `1px solid ${reminder.on ? LED_GREEN + '55' : 'rgba(255,255,255,0.12)'}` }} className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"><Bell size={17} color={reminder.on ? LED_GREEN : colors.mutedInk} weight={reminder.on ? 'fill' : 'bold'} /></span>
+        <div className="flex-1 min-w-0">
+          <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[14px] font-bold leading-snug">{isEN ? 'Daily reminder' : 'Promemoria giornaliero'}</p>
+          <p style={{ color: colors.mutedInk }} className="text-[12px] leading-snug">{reminder.on ? (isEN ? `Every day at ${hh}:${mm}` : `Ogni giorno alle ${hh}:${mm}`) : (isEN ? 'A notification on this phone, only if you want it' : 'Una notifica su questo telefono, solo se la vuoi')}</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={reminder.on}
+          aria-label={isEN ? 'Daily reminder' : 'Promemoria giornaliero'}
+          disabled={busy}
+          onClick={() => { haptic(10); onToggle(!reminder.on); }}
+          style={{ background: reminder.on ? LED_GREEN : 'rgba(255,255,255,0.14)', opacity: busy ? 0.6 : 1, transition: 'background 220ms ease' }}
+          className="os-focus relative flex-shrink-0 w-[52px] h-[32px] rounded-full"
+        >
+          <span style={{ transform: reminder.on ? 'translateX(20px)' : 'translateX(0)', background: reminder.on ? '#06120D' : '#FFFFFF', transition: 'transform 220ms var(--ease-out-expo), background 220ms ease' }} className="absolute top-[3px] left-[3px] w-[26px] h-[26px] rounded-full" />
+        </button>
+      </div>
+      {reminder.on && (
+        <label className="flex items-center justify-between gap-3 mt-3">
+          <span style={{ color: colors.mutedInk }} className="text-[12.5px]">{isEN ? 'Time' : 'Ora'}</span>
+          <input
+            type="time"
+            value={`${hh}:${mm}`}
+            onChange={(e) => {
+              const [h, m] = String(e.target.value || '').split(':').map((v) => parseInt(v, 10));
+              if (Number.isInteger(h) && Number.isInteger(m)) onTime(h, m);
+            }}
+            className="os-date os-focus text-base px-3 py-2 rounded-xl"
+            style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', color: colors.ink }}
+          />
+        </label>
+      )}
+      {note === 'denied' && <p style={{ color: '#FFD0CB' }} className="text-[12px] leading-snug mt-2.5">{isEN ? 'Notifications are off for Offside. Turn them on in Settings, then try again.' : 'Le notifiche sono disattivate per Offside. Attivale da Impostazioni e riprova.'}</p>}
+      {note === 'error' && <p style={{ color: '#FFD0CB' }} className="text-[12px] leading-snug mt-2.5">{isEN ? 'I could not set the reminder. Try again.' : 'Non sono riuscito a programmare il promemoria. Riprova.'}</p>}
+    </div>
+  );
+}
+
+// Grafico del dolore (0-10) con le tre fasce del semaforo sullo sfondo. Premium.
+function PainChart({ data, isEN, height = 180 }) {
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+        <ReferenceArea y1={0} y2={3.5} fill={LED_GREEN} fillOpacity={0.07} stroke="none" />
+        <ReferenceArea y1={3.5} y2={5.5} fill={colors.orange} fillOpacity={0.1} stroke="none" />
+        <ReferenceArea y1={5.5} y2={10} fill={colors.red} fillOpacity={0.1} stroke="none" />
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+        <XAxis dataKey="date" tick={{ fontSize: 11, fill: colors.mutedInk }} stroke="rgba(255,255,255,0.15)" />
+        <YAxis domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} tick={{ fontSize: 11, fill: colors.mutedInk }} width={34} stroke="rgba(255,255,255,0.15)" />
+        <Tooltip formatter={(v) => [v, isEN ? 'Pain' : 'Dolore']} isAnimationActive={false} contentStyle={{ background: '#0C1A14', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, color: '#ECF5EF' }} labelStyle={{ color: '#9DB3A7' }} itemStyle={{ color: '#ECF5EF' }} />
+        <Line type="monotone" dataKey="pain" stroke={colors.red} strokeWidth={2.5} dot={{ r: 4, fill: colors.red }} connectNulls animationDuration={900} animationEasing="ease-out" />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function ExerciseHelp({ ex, isEN, levels }) {
+  return (
+    <>
+      <ExerciseHelpBody ex={ex} isEN={isEN} />
+      {levels && <LevelsPanel ex={ex} isEN={isEN} levels={levels} />}
+    </>
+  );
+}
+
+function ExerciseHelpBody({ ex, isEN }) {
   // Quando l'esercizio ha una spiegazione specifica scritta (howTo), la mostriamo al posto
   // del vecchio video: i video erano assegnati per categoria generica (es. tutti gli esercizi
   // "strength" condividevano lo stesso video), quindi spesso non c'entravano con l'esercizio
@@ -4126,7 +4290,7 @@ function buildChartData(injuryLog, isEN) {
   const stiffnessMap = { si: 1, poca: 2, no: 3 };
   const dates = Object.keys(injuryLog).sort();
   return dates
-    .filter((d) => injuryLog[d].feeling || injuryLog[d].stiffness)
+    .filter((d) => injuryLog[d].feeling || injuryLog[d].stiffness || typeof injuryLog[d].pain === 'number')
     .map((d) => {
       const entry = injuryLog[d];
       const dateObj = new Date(d + 'T00:00:00');
@@ -4135,6 +4299,7 @@ function buildChartData(injuryLog, isEN) {
         date: label,
         feeling: entry.feeling ? feelingMap[entry.feeling] : null,
         stiffness: entry.stiffness ? stiffnessMap[entry.stiffness] : null,
+        pain: typeof entry.pain === 'number' ? entry.pain : null,
       };
     });
 }
@@ -5162,7 +5327,7 @@ function toneButtonProps(tone) {
 // successivo. Si scorre anche col dito (sinistra/destra) o con le frecce della tastiera.
 // Alla fine il riepilogo, con l'azione finale (es. segnare la sessione di oggi → GOL).
 // ---------------------------------------------------------------------------------------
-function GuidedSession({ open, title, tone = 'green', exercises = [], doneFlags = null, onToggle, startIndex = 0, onClose, isEN, catLabels = {}, finish }) {
+function GuidedSession({ open, title, tone = 'green', exercises = [], doneFlags = null, onToggle, startIndex = 0, onClose, isEN, catLabels = {}, finish, levels, modeFor }) {
   const t = DRILL_TONES[tone] || DRILL_TONES.green;
   const n = exercises.length;
   const checkable = typeof onToggle === 'function' && Array.isArray(doneFlags);
@@ -5315,8 +5480,9 @@ function GuidedSession({ open, title, tone = 'green', exercises = [], doneFlags 
                   {split.note && <span style={{ color: colors.mutedInk }} className="text-[13px] leading-snug">{split.note}</span>}
                 </div>
               )}
+              {modeFor && modeFor(ex) !== 'ok' && <div className="mt-3"><ModeTag mode={modeFor(ex)} isEN={isEN} /></div>}
               <p style={{ fontFamily: BRICOLAGE, color: colors.mutedInk, letterSpacing: '0.1em' }} className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase mt-6 mb-2"><BookOpen size={13} />{isEN ? 'How to do it' : 'Come si fa'}</p>
-              <ExerciseHelp ex={ex} isEN={isEN} />
+              <ExerciseHelp ex={ex} isEN={isEN} levels={levels} />
               {n > 1 && <p style={{ color: colors.faint }} className="text-[11px] text-center mt-5">{isEN ? 'Swipe or use the arrows to move between exercises' : 'Scorri col dito o usa le frecce per passare da un esercizio all\'altro'}</p>}
             </div>
           ) : (
@@ -5414,6 +5580,12 @@ export default function Offside() {
   const [celebration, setCelebration] = useState(null);
   const [language, setLanguage] = useState('it');
   const [premiumUnlocked, setPremiumUnlocked] = useState(false);
+  // Percorsi già avviati prima del blocco della fase 3: restano gratis fino alla fine (vedi deriveLegacyInjuries).
+  const [legacyInjuries, setLegacyInjuries] = useState([]);
+  // Promemoria giornaliero del piano di oggi (solo app iPhone): { on, hour, minute }.
+  const [reminder, setReminder] = useState({ on: false, hour: 18, minute: 0 });
+  const [reminderBusy, setReminderBusy] = useState(false);
+  const [reminderNote, setReminderNote] = useState(null); // null | 'denied' | 'error'
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [installDismissed, setInstallDismissed] = useState(false);
   const [userProfile, setUserProfile] = useState({ age: '', weight: '', height: '', sex: '', level: '' });
@@ -5439,7 +5611,6 @@ export default function Offside() {
   const playerPositions = isEN ? playerPositionsEN : playerPositionsIT;
   const playerLevels = isEN ? playerLevelsEN : playerLevelsIT;
   const regionRoleExercises = isEN ? regionRoleExercisesEN : regionRoleExercisesIT;
-  const techniqueData = isEN ? techniqueDataEN : techniqueDataIT;
   const dateChips = isEN ? dateChipsEN : dateChipsIT;
   const mechanismOptions = isEN ? mechanismOptionsEN : mechanismOptionsIT;
   const popOptions = isEN ? popOptionsEN : popOptionsIT;
@@ -5463,7 +5634,7 @@ export default function Offside() {
   // Redesign: capitolo del percorso (Oggi / Fase / Progressi), sessione guidata aperta,
   // domanda corrente del triage (una alla volta).
   const [trackerChapter, setTrackerChapter] = useState('oggi');
-  const [session, setSession] = useState(null); // null | { kind: 'recovery'|'warmup'|'prevention'|'technique'|'role', key, start }
+  const [session, setSession] = useState(null); // null | { kind: 'recovery'|'warmup'|'prevention'|'role', key, start }
   const [triageQ, setTriageQ] = useState(0);
 
   // --- Offside Squadre: stato del responsabile (fisio/preparatore) ---
@@ -5586,6 +5757,21 @@ export default function Offside() {
           setWarmupLog(Array.isArray(loaded.warmupLog) ? loaded.warmupLog : []);
           setLanguage(loaded.language || 'it');
           setPremiumUnlocked(!!loaded.premiumUnlocked);
+          // Chi aveva già un percorso in corso lo finisce gratis: l'elenco si calcola UNA volta, al primo
+          // avvio dopo l'aggiornamento, e si salva. Dopo di allora un percorso nuovo non entra mai nell'elenco.
+          let legacy = loaded.legacyInjuries;
+          if (!Array.isArray(legacy)) {
+            legacy = deriveLegacyInjuries(loaded);
+            loaded.legacyInjuries = legacy;
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(loaded)); } catch (err) {}
+          }
+          setLegacyInjuries(legacy);
+          // Chi riapre l'app non atterra su una fase bloccata: ci arriva solo toccandola di proposito.
+          if (!loaded.premiumUnlocked && !legacy.includes(injuryKey) && (loaded.activePhase || 0) >= FREE_PHASES) setActivePhase(FREE_PHASES - 1);
+          if (loaded.reminder && typeof loaded.reminder === 'object') {
+            const h = loaded.reminder.hour; const m = loaded.reminder.minute;
+            setReminder({ on: !!loaded.reminder.on, hour: Number.isInteger(h) && h >= 0 && h < 24 ? h : 18, minute: Number.isInteger(m) && m >= 0 && m < 60 ? m : 0 });
+          }
           setCriteriaChecked(loaded.criteriaChecked || {});
           setInstallDismissed(!!loaded.installDismissed);
           setUserProfile(loaded.userProfile || { age: '', weight: '', height: '', sex: '', level: '' });
@@ -5762,7 +5948,81 @@ export default function Offside() {
     }
   }, []);
 
-  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, wellnessCheckins, movementScreenings, playerPosition, preventionProgress, warmupLog, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, onboardingProfileDone, injuryRecurrence, teamAuth, myTeamMembership, disclaimerAcceptedAt, ...overrides });
+  const snapshot = (overrides = {}) => ({ selectedInjury, activePhase, progress, injuryDates, injurySeverities, dailyLog, wellnessCheckins, movementScreenings, playerPosition, preventionProgress, warmupLog, language, premiumUnlocked, criteriaChecked, installDismissed, userProfile, onboardingProfileDone, injuryRecurrence, teamAuth, myTeamMembership, disclaimerAcceptedAt, legacyInjuries, reminder, ...overrides });
+
+  // Premium del percorso: le prime FREE_PHASES fasi sono gratis; dalla terza serve Premium, salvo per i percorsi
+  // già avviati prima di questo aggiornamento. Panoramica e criteri per entrare in ogni fase restano sempre gratis.
+  const injuryIsFree = (key) => premiumUnlocked || legacyInjuries.includes(key);
+  const phaseIsLocked = (key, idx) => !injuryIsFree(key) && idx >= FREE_PHASES;
+  // La fase che l'app SUGGERISCE dai giorni non porta mai un utente gratuito davanti a un blocco: ci arriva solo se tocca la fase.
+  const capPhaseFor = (key, idx) => (injuryIsFree(key) ? idx : Math.min(idx, FREE_PHASES - 1));
+
+  // Analytics: una fase bloccata è stata vista (serve a capire se il blocco convince o respinge).
+  useEffect(() => {
+    if (screen !== 'tracker' || !selectedInjury || !injuriesData[selectedInjury]) return;
+    if (phaseIsLocked(selectedInjury, activePhase)) trackEvent('phase_lock_viewed', { injury: selectedInjury, phase: activePhase + 1 });
+  }, [screen, selectedInjury, activePhase, premiumUnlocked, legacyInjuries]);
+
+  const goPremium = (source) => { trackEvent('premium_lock_cta_clicked', { source }); setScreen('premium'); };
+
+  // Promemoria giornaliero (solo app iPhone, Premium). Dopo il caricamento e a ogni cambio di ora o di lingua
+  // si riprogramma (il testo della notifica è nella lingua in uso). Se Premium non c'è più o il telefono ha
+  // tolto il permesso, il promemoria si spegne da solo.
+  useEffect(() => {
+    if (loading || !reminder.on || !remindersSupported()) return undefined;
+    let cancelled = false;
+    const turnOff = (note) => {
+      const next = { ...reminder, on: false };
+      setReminder(next);
+      persist(snapshot({ reminder: next }));
+      if (note) setReminderNote(note);
+    };
+    (async () => {
+      if (!premiumUnlocked) { await cancelDailyReminder(); if (!cancelled) turnOff(null); return; }
+      const perm = await reminderPermission();
+      if (cancelled) return;
+      if (perm !== 'granted') { await cancelDailyReminder(); turnOff('denied'); return; }
+      const copy = REMINDER_COPY[isEN ? 'en' : 'it'];
+      await scheduleDailyReminder({ hour: reminder.hour, minute: reminder.minute, title: copy.title, body: copy.body });
+    })();
+    return () => { cancelled = true; };
+  }, [loading, premiumUnlocked, reminder.on, reminder.hour, reminder.minute, language]);
+
+  const setReminderOn = async (on) => {
+    if (reminderBusy) return;
+    setReminderBusy(true);
+    setReminderNote(null);
+    try {
+      if (!on) {
+        await cancelDailyReminder();
+        const next = { ...reminder, on: false };
+        setReminder(next);
+        persist(snapshot({ reminder: next }));
+        trackEvent('reminder_off');
+      } else {
+        const copy = REMINDER_COPY[isEN ? 'en' : 'it'];
+        const res = await scheduleDailyReminder({ hour: reminder.hour, minute: reminder.minute, title: copy.title, body: copy.body });
+        if (res === 'granted') {
+          const next = { ...reminder, on: true };
+          setReminder(next);
+          persist(snapshot({ reminder: next }));
+          trackEvent('reminder_on', { hour: reminder.hour });
+        } else {
+          setReminderNote(res === 'denied' ? 'denied' : 'error');
+        }
+      }
+    } finally {
+      setReminderBusy(false);
+    }
+  };
+  // Cambio d'ora: si salva subito; è l'effetto qui sopra a riprogrammare la notifica.
+  const setReminderTime = (hour, minute) => {
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return;
+    const next = { ...reminder, hour, minute };
+    setReminder(next);
+    persist(snapshot({ reminder: next }));
+    trackEvent('reminder_time', { hour });
+  };
 
   // Salva un nuovo screening del movimento nello storico locale (max 20, i più vecchi cadono).
   // Non tocca mai la rete: né qui né altrove per questa funzione, coerentemente con il fatto
@@ -5801,7 +6061,7 @@ export default function Offside() {
     let suggested = 0;
     if (date) {
       const { dayThresholds } = injuriesData[key].severityData[sev];
-      suggested = suggestPhase(daysSince(date), dayThresholds);
+      suggested = capPhaseFor(key, suggestPhase(daysSince(date), dayThresholds));
     }
     setSelectedInjury(key);
     setActivePhase(suggested);
@@ -5839,7 +6099,7 @@ export default function Offside() {
     setInjurySeverities(nextSeverities);
     if (injuryDates[selectedInjury]) {
       const { dayThresholds } = injuriesData[selectedInjury].severityData[sev];
-      const suggested = suggestPhase(daysSince(injuryDates[selectedInjury]), dayThresholds);
+      const suggested = capPhaseFor(selectedInjury, suggestPhase(daysSince(injuryDates[selectedInjury]), dayThresholds));
       setActivePhase(suggested);
       persist(snapshot({ injurySeverities: nextSeverities, activePhase: suggested }));
     } else {
@@ -5852,7 +6112,7 @@ export default function Offside() {
     const nextDates = { ...injuryDates, [selectedInjury]: isoDate };
     const sev = injurySeverities[selectedInjury] || 'moderato';
     const { dayThresholds } = injuriesData[selectedInjury].severityData[sev];
-    const suggested = suggestPhase(daysSince(isoDate), dayThresholds);
+    const suggested = capPhaseFor(selectedInjury, suggestPhase(daysSince(isoDate), dayThresholds));
     setInjuryDates(nextDates);
     setActivePhase(suggested);
     setPendingDate('');
@@ -6277,9 +6537,11 @@ export default function Offside() {
     persist(snapshot({ progress: nextProgress }));
   };
 
-  const toggleCriterion = (cIdx) => {
+  // I criteri scritti nella fase N sono quelli per ENTRARE in N: nella fase N-1 si spuntano per passare a N.
+  // La chiave salvata resta quella della fase a cui i criteri appartengono.
+  const toggleCriterion = (cIdx, phaseIdx = activePhase + 1) => {
     if (!selectedInjury) return;
-    const pKey = `${selectedInjury}-${activePhase}`;
+    const pKey = `${selectedInjury}-${phaseIdx}`;
     const current = criteriaChecked[pKey] || {};
     const nextForPhase = { ...current, [cIdx]: !current[cIdx] };
     const nextChecked = { ...criteriaChecked, [pKey]: nextForPhase };
@@ -6360,6 +6622,33 @@ export default function Offside() {
     const nextLog = { ...dailyLog, [selectedInjury]: nextForInjury };
     setDailyLog(nextLog);
     persist(snapshot({ dailyLog: nextLog }));
+  };
+
+  // Dolore di oggi (0-10) e segnali da non ignorare: finiscono nel diario di oggi, accanto a "come va" e "rigidità".
+  // Il semaforo che ne deriva (vedi premiumPlan.js) è un consiglio di sicurezza e resta gratis.
+  const setTodayPain = (pain) => {
+    if (!selectedInjury) return;
+    const today = todayKey();
+    const current = dailyLog[selectedInjury] || {};
+    const todayEntry = current[today] || {};
+    const nextEntry = { ...todayEntry, pain };
+    const nextLog = { ...dailyLog, [selectedInjury]: { ...current, [today]: nextEntry } };
+    setDailyLog(nextLog);
+    persist(snapshot({ dailyLog: nextLog }));
+    trackEvent('pain_logged'); // nessun valore: il dolore resta solo sul telefono
+  };
+  const toggleTodayFlag = (flag) => {
+    if (!selectedInjury) return;
+    const today = todayKey();
+    const current = dailyLog[selectedInjury] || {};
+    const todayEntry = current[today] || {};
+    const flags = { ...(todayEntry.flags || {}) };
+    flags[flag] = !flags[flag];
+    const nextEntry = { ...todayEntry, flags };
+    const nextLog = { ...dailyLog, [selectedInjury]: { ...current, [today]: nextEntry } };
+    setDailyLog(nextLog);
+    persist(snapshot({ dailyLog: nextLog }));
+    if (flags[flag]) trackEvent('pain_flag');
   };
 
   // Aggiorna la risposta di oggi per un campo del check-in di benessere (sonno/soreness/carico).
@@ -6489,6 +6778,12 @@ export default function Offside() {
   const injuryLog = selectedInjury ? (dailyLog[selectedInjury] || {}) : {};
   const todayEntry = injuryLog[todayKey()] || {};
   const streak = useMemo(() => computeStreak(injuryLog), [injuryLog]);
+  // Semaforo e piano di oggi. Il semaforo (consiglio di sicurezza) è per tutti; il piano esercizio per esercizio,
+  // i livelli e il promemoria sono Premium.
+  const todayLight = painLight(todayEntry);
+  const phaseLocked = !!(injury && selectedInjury && phaseIsLocked(selectedInjury, activePhase));
+  const planModeFor = (ex) => (premiumUnlocked && todayLight ? todayMode(todayLight, ex.cat, ex.text) : 'ok');
+  const levelsProp = { unlocked: premiumUnlocked, onUnlock: () => goPremium('levels') };
 
   const segments = useMemo(() => {
     if (!injury) return [];
@@ -6537,7 +6832,7 @@ export default function Offside() {
   const paneDirRef = useRef({ regionsTab, trackerChapter, triageQ, dirs: { regions: 'in', tracker: 'in', triage: 'in' } });
   {
     const pd = paneDirRef.current;
-    const tabOrder = { injury: 0, prevention: 1, technique: 2 };
+    const tabOrder = { injury: 0, prevention: 1 };
     const chapterOrder = { oggi: 0, fase: 1, progressi: 2 };
     if (pd.regionsTab !== regionsTab) { pd.dirs.regions = tabOrder[regionsTab] > tabOrder[pd.regionsTab] ? 'right' : 'left'; pd.regionsTab = regionsTab; }
     if (pd.trackerChapter !== trackerChapter) { pd.dirs.tracker = chapterOrder[trackerChapter] > chapterOrder[pd.trackerChapter] ? 'right' : 'left'; pd.trackerChapter = trackerChapter; }
@@ -6939,7 +7234,7 @@ export default function Offside() {
     const inj = injuriesData[heroKey];
     const sevData = inj.severityData[injurySeverities[heroKey] || 'moderato'];
     const dayNum = daysSince(injuryDates[heroKey]);
-    const phaseIdx = suggestPhase(dayNum, sevData.dayThresholds);
+    const phaseIdx = capPhaseFor(heroKey, suggestPhase(dayNum, sevData.dayThresholds));
     const rawMinute = Math.round((dayNum / sevData.totalEstimateDays) * 90);
     const bounds = [0, sevData.dayThresholds[0], sevData.dayThresholds[1], sevData.totalEstimateDays];
     const log = dailyLog[heroKey] || {};
@@ -6984,16 +7279,18 @@ export default function Offside() {
   const todayLabelCap = todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1);
 
   // Titolo della schermata: grande nel contenuto, piccolo nella barra in alto quando scorri.
-  const screenTitle = screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : regionsTab === 'technique' ? (isEN ? 'Technique' : 'Tecnica') : (isEN ? 'Today' : 'Oggi')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'triageResults' ? (isEN ? 'Possible matches' : 'Possibili corrispondenze') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'movementScreen' ? (isEN ? 'Movement screening' : 'Screening del movimento') : screen === 'teamRegister' ? (isEN ? 'Register your team' : 'Registra la squadra') : screen === 'teamLogin' ? (isEN ? 'Team login' : 'Accedi alla squadra') : screen === 'teamDashboard' ? (teamAuth?.teamName || 'Offside Squadre') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso');
+  const screenTitle = screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Today' : 'Oggi')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'triageResults' ? (isEN ? 'Possible matches' : 'Possibili corrispondenze') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'movementScreen' ? (isEN ? 'Movement screening' : 'Screening del movimento') : screen === 'teamRegister' ? (isEN ? 'Register your team' : 'Registra la squadra') : screen === 'teamLogin' ? (isEN ? 'Team login' : 'Accedi alla squadra') : screen === 'teamDashboard' ? (teamAuth?.teamName || 'Offside Squadre') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso');
 
   // Sessione guidata aperta: quali esercizi, con quali spunte e cosa succede alla fine.
   const sessionCfg = (() => {
     if (!session) return null;
-    if (session.kind === 'recovery' && injury && phase && phase.exercises.length) {
+    if (session.kind === 'recovery' && injury && phase && phase.exercises.length && !phaseLocked) {
       return {
         title: isEN ? `Today's session · Phase ${activePhase + 1}` : `Allenamento di oggi · Fase ${activePhase + 1}`,
         tone: 'green',
         exercises: phase.exercises,
+        levels: levelsProp,
+        modeFor: planModeFor,
         doneFlags: phase.exercises.map((_, i) => !!phaseProgress[i]),
         onToggle: (i) => toggleExercise(i),
         finish: currentDate ? {
@@ -7025,10 +7322,6 @@ export default function Offside() {
       const d = preventionData[session.key];
       const rp = preventionProgress[session.key] || {};
       return { title: d.label, tone: 'teal', exercises: d.exercises, doneFlags: d.exercises.map((_, i) => !!rp[i]), onToggle: (i) => togglePreventionExercise(session.key, i), finish: null };
-    }
-    if (session.kind === 'technique' && playerPosition && techniqueData[playerPosition]) {
-      const label = playerPositions.find((p) => p.key === playerPosition)?.label || '';
-      return { title: isEN ? `Technique · ${label}` : `Tecnica · ${label}`, tone: 'gold', exercises: techniqueData[playerPosition].exercises, doneFlags: null, onToggle: null, finish: null };
     }
     return null;
   })();
@@ -7326,11 +7619,10 @@ export default function Offside() {
                 ariaLabel={isEN ? 'App sections' : 'Sezioni dell\'app'}
                 value={regionsTab}
                 onChange={(k) => { setRegionsTab(k); const el = document.getElementById('home-tabs'); if (el && el.getBoundingClientRect().top < 40) el.scrollIntoView({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' }); }}
-                led={regionsTab === 'prevention' ? LED_TEAL : regionsTab === 'technique' ? colors.premiumGold : LED_GREEN}
+                led={regionsTab === 'prevention' ? LED_TEAL : LED_GREEN}
                 items={[
                   { key: 'injury', icon: Bandage, label: isEN ? 'Injury' : 'Infortunio', sub: isEN ? 'to recover' : 'per recuperare', color: LED_GREEN },
                   { key: 'prevention', icon: ShieldCheck, label: isEN ? 'Prevention' : 'Prevenzione', sub: isEN ? 'to stay fit' : 'per non farti male', color: LED_TEAL },
-                  { key: 'technique', icon: SoccerBall, label: isEN ? 'Technique' : 'Tecnica', sub: isEN ? 'for your role' : 'per il tuo ruolo', color: colors.premiumGold, lock: !premiumUnlocked },
                 ]}
               />
             </div>
@@ -7395,7 +7687,7 @@ export default function Offside() {
                   })}
                 </div>
               </>
-            ) : regionsTab === 'prevention' ? (
+            ) : (
               <>
                 {selectedInjury && injuriesData[selectedInjury] && (
                   <button data-rv="" onClick={() => resumeInjury(selectedInjury)} className="os-focus os-panel-flat w-full flex items-center gap-2 px-4 py-3 mb-5 text-left hover:bg-white/5 transition-colors">
@@ -7538,74 +7830,12 @@ export default function Offside() {
                   })}
                 </div>
               </>
-            ) : (
-              <>
-                {!premiumUnlocked ? (
-                  <PremiumLockCard
-                    title={isEN ? 'Technical training, by role' : 'Allenamento tecnico, per ruolo'}
-                    text={isEN ? 'Ball control, passing, finishing — exercises built for your position on the pitch.' : 'Controllo palla, passaggio, finalizzazione — esercizi pensati per il tuo ruolo in campo.'}
-                    cta={isEN ? 'Unlock Premium' : 'Sblocca Premium'}
-                    onUnlock={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }}
-                    icon={SoccerBall}
-                    preview={(techniqueData.centrocampista?.exercises || []).slice(0, 5).map((ex) => splitDose(ex.text).main)}
-                  />
-                ) : !playerPosition ? (
-                  <div data-rv="" className="os-pitch-gold p-5">
-                    <PitchArc size={180} />
-                    <p style={{ fontFamily: BEBAS, letterSpacing: '0.12em' }} className="os-gold-text relative text-[16px] leading-none mb-2">{isEN ? 'Technique · Premium' : 'Tecnica · Premium'}</p>
-                    <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[18px] font-bold leading-snug mb-4">{isEN ? 'Pick your position to see the right drills' : 'Scegli il tuo ruolo per vedere gli esercizi giusti'}</p>
-                    <div className="relative">
-                      <PositionPicker positions={playerPositions} value={playerPosition} onPick={(k) => { setPlayerPosition(k); persist(snapshot({ playerPosition: k })); }} />
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <div data-rv="" className="os-pitch-gold os-floodsweep p-5 mb-4">
-                      <PitchArc size={190} />
-                      <div className="relative flex items-center justify-between gap-3 mb-2">
-                        <p style={{ fontFamily: BRICOLAGE, color: colors.premiumGold, letterSpacing: '0.14em' }} className="text-[10px] font-bold uppercase">{isEN ? 'Your position' : 'Il tuo ruolo'}</p>
-                        <button onClick={() => setPlayerPosition(null)} className="os-focus os-btn os-btn-dark flex-shrink-0 rounded-full px-3 py-1.5 text-[11px]">
-                          <RotateCw size={12} />{isEN ? 'Change' : 'Cambia'}
-                        </button>
-                      </div>
-                      <div className="relative flex items-end gap-3">
-                        <span style={{ fontFamily: BEBAS }} className="os-gold-text text-[72px] leading-[0.78]">{POSITION_NUMBERS[playerPosition] || ''}</span>
-                        <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[38px] leading-[0.85] min-w-0 break-words">{playerPositions.find((p) => p.key === playerPosition)?.label}</p>
-                      </div>
-                      <p style={{ color: '#B8C4CE' }} className="relative text-sm leading-relaxed mt-3">{techniqueData[playerPosition].why}</p>
-                      <button onClick={() => openSession('technique')} className="os-focus os-btn relative w-full py-3.5 mt-4 text-[13.5px] uppercase tracking-wide" style={{ background: GOLD_GRADIENT, color: '#0B121A', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), 0 10px 24px -10px rgba(245,196,81,0.6)' }}>
-                        <Play size={16} weight="fill" />{isEN ? 'Guided session' : 'Sessione guidata'}
-                      </button>
-                    </div>
-                    <div className="space-y-2.5">
-                      {techniqueData[playerPosition].exercises.map((ex, i) => {
-                        const techKey = `tech-${i}`;
-                        const tipOpen = activeVideo === techKey;
-                        return (
-                          <div key={techKey} data-rv="">
-                            <DrillCard
-                              index={i}
-                              ex={ex}
-                              tone="gold"
-                              catLabel={catLabels[ex.cat]}
-                              helpOpen={tipOpen}
-                              onToggleHelp={() => setActiveVideo(tipOpen ? null : techKey)}
-                              onPlay={() => openSession('technique', { start: i })}
-                              isEN={isEN}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </>
             )}
             </div>
 
-            {regionsTab !== 'technique' && !premiumUnlocked && (
+            {!premiumUnlocked && (
               <div className="pt-6 mt-2">
-                <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: exercises for your role and this area' : 'Premium: esercizi per il tuo ruolo e per questa zona'} />
+                <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: phase 3, today\'s plan and levels for every exercise' : 'Premium: fase 3, piano di oggi e livelli per ogni esercizio'} />
               </div>
             )}
 
@@ -7644,8 +7874,8 @@ export default function Offside() {
                     <p style={{ fontFamily: BEBAS, letterSpacing: '0.02em' }} className="os-gold-text text-[84px] leading-[0.82]" aria-hidden="true">
                       <SplitWords text="PREMIUM" base={80} step={50} />
                     </p>
-                    <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[19px] font-bold leading-snug mt-3">{isEN ? 'Train like your role and injury need' : 'Allenati come richiedono ruolo e infortunio'}</p>
-                    <p style={{ color: '#B8C4CE' }} className="text-sm leading-relaxed mt-1.5">{isEN ? 'Exercises designed for your position and the specific area, plus your real progress over time.' : 'Esercizi pensati per il tuo ruolo e la zona specifica, più il tuo vero andamento nel tempo.'}</p>
+                    <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[19px] font-bold leading-snug mt-3">{isEN ? 'The whole path, all the way back' : 'Tutto il percorso, fino al rientro'}</p>
+                    <p style={{ color: '#B8C4CE' }} className="text-sm leading-relaxed mt-1.5">{isEN ? 'Phases 1 and 2 of every injury are free. Premium unlocks phase 3, a daily plan that adapts to your pain, and levels for every exercise.' : 'Le fasi 1 e 2 di ogni infortunio sono gratis. Con Premium sblocchi la fase 3, il piano di oggi che si adatta al dolore e i livelli per ogni esercizio.'}</p>
                     <p className="flex items-baseline gap-2 mt-4">
                       <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-[48px] leading-none">{IS_NATIVE ? (iapOffer?.priceString || (isEN ? NATIVE_PRICE.en : NATIVE_PRICE.it)) : (isEN ? PREMIUM_PRICE.en : PREMIUM_PRICE.it)}</span>
                       <span style={{ color: '#B8C4CE' }} className="text-sm">{isEN ? 'per month' : 'al mese'}</span>
@@ -7660,12 +7890,12 @@ export default function Offside() {
                     <p style={{ fontFamily: BEBAS, color: colors.premiumGold, letterSpacing: '0.12em' }} className="text-[16px] leading-none mb-3 px-1">{isEN ? 'What you unlock' : 'Cosa sblocchi'}</p>
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { icon: Target, title: isEN ? 'Role + area training' : 'Allenamento ruolo + zona', text: isEN ? 'Exercises that combine your position and the injured area' : 'Esercizi che uniscono il tuo ruolo e la zona dell\'infortunio' },
-                        { icon: TrendingUp, title: isEN ? 'Your progress, charted' : 'Il tuo andamento, in grafico', text: isEN ? 'Feeling and stiffness day by day' : 'Feeling e rigidità giorno per giorno' },
-                        { icon: ClipboardCheck, title: isEN ? 'A report for your physio' : 'Un resoconto per il fisio', text: isEN ? 'A printable or PDF summary for your physio or coach' : 'Un riepilogo stampabile o in PDF per fisioterapista o allenatore' },
-                        { icon: SoccerBall, title: isEN ? 'Technique by position' : 'Tecnica per ruolo', text: isEN ? 'Ball control, passing, finishing: drills for your position' : 'Controllo palla, passaggio, finalizzazione: esercizi per il tuo ruolo' },
+                        { icon: Lock, title: isEN ? 'Phase 3 of every injury' : 'Fase 3 di ogni infortunio', text: isEN ? 'The exercises of the final phase, the one that gets you back on the pitch' : 'Gli esercizi dell\'ultima fase, quella che ti riporta in campo' },
+                        { icon: TrafficSignal, title: isEN ? 'Today\'s plan' : 'Piano di oggi', text: isEN ? `Log your pain and each exercise becomes keep, easier or skip${IS_NATIVE ? ', with a daily reminder' : ''}` : `Segni il dolore e ogni esercizio diventa: tieni, più facile o salta${IS_NATIVE ? ', con promemoria ogni giorno' : ''}` },
+                        { icon: Stairs, title: isEN ? 'Levels for every exercise' : 'Livelli per ogni esercizio', text: isEN ? 'Easier, harder, and what to do if it hurts' : 'Più facile, più difficile e cosa fare se fa male' },
+                        { icon: Target, title: isEN ? 'Role + area training' : 'Per il tuo ruolo', text: isEN ? 'Exercises that combine your position and the injured area, plus a return tip' : 'Esercizi che uniscono ruolo e zona dell\'infortunio, più un consiglio di rientro' },
+                        { icon: TrendingUp, title: isEN ? 'Progress and report' : 'Andamento e resoconto', text: isEN ? 'Pain, feeling and stiffness day by day, and a PDF for your physio' : 'Dolore, feeling e rigidità giorno per giorno, e un PDF per il fisio' },
                         { icon: Camera, title: isEN ? 'Movement screening' : 'Screening del movimento', text: isEN ? 'Squat and balance with your camera, all on your phone' : 'Squat ed equilibrio con la fotocamera, tutto sul telefono' },
-                        { icon: User, title: isEN ? 'Return tip for your role' : 'Consiglio di rientro per ruolo', text: isEN ? 'In the final phase, a return-to-play tip built for your position' : 'Nell\'ultima fase, un consiglio sul rientro pensato per il tuo ruolo' },
                       ].map((f) => (
                         <div key={f.title} data-rv="pop" className="rounded-2xl p-3" style={{ background: 'rgba(0,0,0,0.28)', border: '1px solid rgba(245,196,81,0.16)' }}>
                           <div style={{ backgroundColor: 'rgba(245,196,81,0.12)', border: '1px solid rgba(245,196,81,0.3)' }} className="w-9 h-9 rounded-xl flex items-center justify-center mb-2.5"><f.icon size={17} color={colors.premiumGold} /></div>
@@ -7676,6 +7906,7 @@ export default function Offside() {
                         </div>
                       ))}
                     </div>
+                    <p style={{ color: '#B8C4CE' }} className="text-[11.5px] leading-relaxed mt-3 px-1">{isEN ? 'Always free: phases 1 and 2 of every injury, the guided session, your log, warning signs, first aid, prevention, the criteria to enter every phase and the pain light.' : 'Restano sempre gratis: le fasi 1 e 2 di ogni infortunio, la sessione guidata, il diario, i segnali d\'allarme, il primo soccorso, la prevenzione, i criteri per entrare in ogni fase e il semaforo del dolore.'}</p>
                   </div>
                 </div>
                 {IS_NATIVE ? (
@@ -7803,6 +8034,14 @@ export default function Offside() {
                         </ResponsiveContainer>
                       </div>
 
+                      {chartData.some((d) => d.pain != null) && (
+                        <div data-rv="" className="os-panel p-4 mb-4">
+                          <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold mb-3">{isEN ? 'Pain, from 0 to 10' : 'Dolore, da 0 a 10'}</p>
+                          <PainChart data={chartData} isEN={isEN} />
+                          <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-snug mt-2">{isEN ? 'Green, amber and red follow Offside\'s practical rule for the daily light. Not a clinical test.' : 'Verde, giallo e rosso seguono la regola pratica di Offside per il semaforo di ogni giorno. Non è un test clinico.'}</p>
+                        </div>
+                      )}
+
                       <div data-rv="" className="os-panel p-4 mb-5">
                         <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold mb-3">{isEN ? 'Stiffness trend' : 'Andamento rigidità'}</p>
                         <ResponsiveContainer width="100%" height={180}>
@@ -7842,10 +8081,10 @@ export default function Offside() {
                     {currentDate && <p><strong>{isEN ? 'Started on' : 'Iniziato il'}:</strong> {currentDate} ({isEN ? 'day' : 'giorno'} {dayCount})</p>}
                     <p><strong>{isEN ? 'Current phase' : 'Fase attuale'}:</strong> {phase.name} ({isEN ? 'Phase' : 'Fase'} {activePhase + 1}/{injury.phases.length})</p>
                     <p>{phase.why}</p>
-                    {phase.criteriaToAdvance && (
+                    {injury.phases[activePhase + 1] && injury.phases[activePhase + 1].criteriaToAdvance && (
                       <>
-                        <p><strong>{isEN ? 'Criteria to advance' : 'Criteri per avanzare'}:</strong></p>
-                        <ul>{phase.criteriaToAdvance.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                        <p><strong>{isEN ? 'Criteria to move to the next phase' : 'Criteri per passare alla fase successiva'}:</strong></p>
+                        <ul>{injury.phases[activePhase + 1].criteriaToAdvance.map((c, i) => <li key={i}>{c}</li>)}</ul>
                       </>
                     )}
                     <p><strong>{isEN ? 'Exercises in this phase' : 'Esercizi in questa fase'}:</strong></p>
@@ -7854,13 +8093,14 @@ export default function Offside() {
                       <>
                         <p><strong>{isEN ? 'Daily log' : 'Diario giornaliero'}:</strong></p>
                         <table>
-                          <thead><tr><th>{isEN ? 'Date' : 'Data'}</th><th>{isEN ? 'Feeling' : 'Feeling'}</th><th>{isEN ? 'Stiffness' : 'Rigidità'}</th></tr></thead>
+                          <thead><tr><th>{isEN ? 'Date' : 'Data'}</th><th>{isEN ? 'Feeling' : 'Feeling'}</th><th>{isEN ? 'Stiffness' : 'Rigidità'}</th><th>{isEN ? 'Pain (0-10)' : 'Dolore (0-10)'}</th></tr></thead>
                           <tbody>
                             {chartData.map((d, i) => (
                               <tr key={i}>
                                 <td>{d.date}</td>
                                 <td>{d.feeling ? feelingLabel(d.feeling) : '—'}</td>
                                 <td>{d.stiffness ? stiffnessLabel(d.stiffness) : '—'}</td>
+                                <td>{d.pain != null ? d.pain : '—'}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -8900,7 +9140,7 @@ export default function Offside() {
               })}
             </div>
             <div className="mt-6">
-              {!premiumUnlocked && <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: training designed for each injury, matched to your role' : 'Premium: allenamento pensato per ogni infortunio, in base al tuo ruolo'} />}
+              {!premiumUnlocked && <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: the whole path, today\'s plan and levels for every exercise' : 'Premium: tutto il percorso, il piano di oggi e i livelli per ogni esercizio'} />}
             </div>
           </div>
           );
@@ -9183,8 +9423,45 @@ export default function Offside() {
                 </div>
 
                 <div key={trackerChapter} className={paneClass('tracker')}>
-                {trackerChapter === 'oggi' && (
+                {trackerChapter === 'oggi' && (phaseLocked ? (
                   <>
+                    <div data-rv="" className="os-panel p-4 mb-4">
+                      <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-2 text-[16px] font-bold mb-2"><Info size={16} color={LED_GREEN} />{isEN ? 'Why this phase' : 'Perché questa fase'}</p>
+                      <p style={{ color: colors.ink }} className="text-[14px] leading-relaxed">{phase.why}</p>
+                    </div>
+                    <PhaseLockCard
+                      phaseNo={activePhase + 1}
+                      exercises={phase.exercises}
+                      catLabels={catLabels}
+                      isEN={isEN}
+                      freeCount={FREE_PHASES}
+                      onUnlock={() => goPremium('phase_lock')}
+                      onBack={() => changePhase(FREE_PHASES - 1)}
+                    />
+                  </>
+                ) : (
+                  <>
+                    {currentDate && (
+                      <div data-rv="" id="sez-piano" className="os-panel p-4 mb-4">
+                        <h2 style={{ fontFamily: BRICOLAGE, color: colors.ink, letterSpacing: '-0.015em' }} className="flex items-center gap-2 text-[20px] font-bold leading-tight">
+                          <TrafficSignal size={19} color={LED_GREEN} />{isEN ? 'Today\'s plan' : 'Piano di oggi'}
+                        </h2>
+                        <p style={{ color: colors.mutedInk }} className="text-[12.5px] mt-0.5 mb-3.5">{isEN ? 'Before you start, log how you feel. The light tells you how to train today.' : 'Prima di iniziare, segna come stai. Il semaforo ti dice come allenarti oggi.'}</p>
+                        <PainCheck entry={todayEntry} onPain={setTodayPain} onFlag={toggleTodayFlag} isEN={isEN} />
+                        <LightCard light={todayLight} isEN={isEN} onSources={() => openSources('g:pain')} />
+                        {todayLight && premiumUnlocked && <PlanCounts counts={planCounts(todayLight, phase.exercises)} isEN={isEN} />}
+                        {todayLight && !premiumUnlocked && (
+                          <button type="button" onClick={() => goPremium('plan')} className="os-focus os-press [--press:0.98] w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 mt-3 text-left" style={{ background: 'rgba(245,196,81,0.07)', border: '1px dashed rgba(245,196,81,0.45)' }}>
+                            <Lock size={13} color={colors.premiumGold} weight="fill" className="flex-shrink-0" />
+                            <span style={{ color: '#E9D9A6' }} className="flex-1 text-[12.5px] leading-snug font-medium">{isEN ? `Exercise by exercise: keep, ease or skip${remindersSupported() ? ', plus a daily reminder' : ''}` : `Esercizio per esercizio: tieni, alleggerisci o salta${remindersSupported() ? ', e un promemoria ogni giorno' : ''}`}</span>
+                            <span style={{ fontFamily: BEBAS, letterSpacing: '0.12em' }} className="os-gold-text text-[13px]">Premium</span>
+                          </button>
+                        )}
+                        {premiumUnlocked && remindersSupported() && (
+                          <ReminderRow reminder={reminder} busy={reminderBusy} note={reminderNote} onToggle={setReminderOn} onTime={setReminderTime} isEN={isEN} />
+                        )}
+                      </div>
+                    )}
                     <div data-rv="" className="os-panel p-4 mb-4" style={{ borderColor: completedCount === phase.exercises.length && phase.exercises.length > 0 ? `${LED_GREEN}66` : undefined }}>
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="min-w-0">
@@ -9274,6 +9551,8 @@ export default function Offside() {
                               onToggleHelp={() => setActiveVideo(isVideoOpen ? null : exKey)}
                               onPlay={() => openSession('recovery', { start: i })}
                               isEN={isEN}
+                              mode={planModeFor(ex)}
+                              levels={levelsProp}
                             />
                           </div>
                         );
@@ -9332,7 +9611,7 @@ export default function Offside() {
                       )
                     )}
                   </>
-                )}
+                ))}
 
                 {trackerChapter === 'fase' && (
                   <>
@@ -9348,6 +9627,7 @@ export default function Offside() {
                             <span className="flex items-center gap-1.5">
                               <span style={{ fontFamily: BEBAS, color: isActive ? LED_GREEN : 'rgba(255,255,255,0.4)', textShadow: isActive ? `0 0 12px ${LED_GREEN}88` : 'none' }} className="text-[30px] leading-none">{i + 1}</span>
                               {pDone && <CheckCircle2 size={15} color={LED_GREEN} weight="fill" />}
+                              {phaseIsLocked(selectedInjury, i) && <Lock size={13} color={colors.premiumGold} weight="fill" aria-label={isEN ? 'Premium' : 'Premium'} />}
                             </span>
                             <span style={{ fontFamily: BRICOLAGE, color: isActive ? '#FFFFFF' : colors.ink }} className="text-[12.5px] font-bold leading-tight">{p.name}</span>
                             <span style={{ color: isActive ? 'rgba(255,255,255,0.75)' : colors.mutedInk }} className="text-[10.5px] font-medium os-tabular mt-auto">{phaseRangeLabel(i, dayThresholds, isEN)}</span>
@@ -9361,23 +9641,50 @@ export default function Offside() {
                       <p style={{ color: colors.ink }} className="text-[14px] leading-relaxed">{phase.why}</p>
                     </div>
 
-                    {phase.criteriaToAdvance && (() => {
-                      const pKey = `${selectedInjury}-${activePhase}`;
+                    {phaseLocked && (
+                      <>
+                        {phase.criteriaToAdvance && (
+                          <div data-rv="" className="os-panel p-4 mb-4">
+                            <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-2 text-[16px] font-bold mb-2.5"><ClipboardCheck size={16} color={LED_GREEN} />{isEN ? 'To enter this phase' : 'Per entrare in questa fase'}</p>
+                            <ul className="space-y-2">
+                              {phase.criteriaToAdvance.map((c, i) => {
+                                const on = !!(criteriaChecked[`${selectedInjury}-${activePhase}`] || {})[i];
+                                return (
+                                  <li key={i} style={{ color: on ? colors.mutedInk : colors.ink }} className="flex gap-2.5 text-[13.5px] leading-snug">
+                                    {on ? <CheckCircle2 size={15} color={LED_GREEN} weight="fill" className="flex-shrink-0 mt-0.5" /> : <Circle size={15} color="rgba(255,255,255,0.3)" className="flex-shrink-0 mt-0.5" />}{c}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                            <p style={{ color: colors.mutedInk }} className="text-xs font-medium mt-3">{isEN ? 'You tick these in the previous phase. A self-check, not a clinical test.' : 'Li spunti nella fase precedente. Un autocontrollo, non un test clinico.'}</p>
+                          </div>
+                        )}
+                        <PremiumBanner onClick={() => goPremium('phase_lock_fase')} text={isEN ? `Premium: the ${phase.exercises.length} exercises of phase ${activePhase + 1}` : `Premium: i ${phase.exercises.length} esercizi della fase ${activePhase + 1}`} />
+                      </>
+                    )}
+
+                    {injury.phases[activePhase + 1] && injury.phases[activePhase + 1].criteriaToAdvance && (() => {
+                      // I criteri scritti nella fase successiva sono quelli per ENTRARCI: qui si spuntano per passarci.
+                      const nextPhase = injury.phases[activePhase + 1];
+                      const nextCriteria = nextPhase.criteriaToAdvance;
+                      const nextNo = activePhase + 2;
+                      const nextLocked = phaseIsLocked(selectedInjury, activePhase + 1);
+                      const pKey = `${selectedInjury}-${activePhase + 1}`;
                       const checkedForPhase = criteriaChecked[pKey] || {};
-                      const checkedCount = phase.criteriaToAdvance.filter((_, i) => checkedForPhase[i]).length;
-                      const allChecked = checkedCount === phase.criteriaToAdvance.length;
-                      const isLastPhase = activePhase === injury.phases.length - 1;
+                      const checkedCount = nextCriteria.filter((_, i) => checkedForPhase[i]).length;
+                      const allChecked = checkedCount === nextCriteria.length;
                       return (
                         <div data-rv="" className="os-panel p-4 mb-4" style={allChecked ? { borderColor: `${LED_GREEN}66` } : undefined}>
                           <div className="flex items-center justify-between gap-3 mb-3">
-                            <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-2 text-[16px] font-bold"><ClipboardCheck size={16} color={LED_GREEN} />{isEN ? 'Ready to advance?' : 'Pronto ad avanzare?'}</p>
-                            <span style={{ fontFamily: BEBAS, color: allChecked ? LED_GREEN : colors.mutedInk }} className="text-[20px] leading-none os-tabular">{checkedCount}/{phase.criteriaToAdvance.length}</span>
+                            <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-2 text-[16px] font-bold"><ClipboardCheck size={16} color={LED_GREEN} />{isEN ? `Ready for phase ${nextNo}?` : `Pronto per la fase ${nextNo}?`}</p>
+                            <span style={{ fontFamily: BEBAS, color: allChecked ? LED_GREEN : colors.mutedInk }} className="text-[20px] leading-none os-tabular">{checkedCount}/{nextCriteria.length}</span>
                           </div>
+                          <p style={{ color: colors.mutedInk }} className="text-[12px] -mt-1.5 mb-2.5">{isEN ? 'To move on to' : 'Per passare a'} «{nextPhase.name}»</p>
                           <div className="space-y-1.5 mb-1">
-                            {phase.criteriaToAdvance.map((c, i) => {
+                            {nextCriteria.map((c, i) => {
                               const checked = !!checkedForPhase[i];
                               return (
-                                <button key={i} onClick={() => { if (!checked) haptic(10); toggleCriterion(i); }} role="checkbox" aria-checked={checked} className="os-focus w-full flex items-start gap-3 text-left rounded-xl px-2 py-2 hover:bg-white/5 transition-colors">
+                                <button key={i} onClick={() => { if (!checked) haptic(10); toggleCriterion(i, activePhase + 1); }} role="checkbox" aria-checked={checked} className="os-focus w-full flex items-start gap-3 text-left rounded-xl px-2 py-2 hover:bg-white/5 transition-colors">
                                   <span style={{ background: checked ? `radial-gradient(circle at 35% 30%, ${LED_GREEN}, ${colors.accent})` : 'rgba(255,255,255,0.04)', border: `1.5px solid ${checked ? colors.accent : 'rgba(255,255,255,0.22)'}`, boxShadow: checked ? `0 0 10px ${LED_GREEN}77` : 'none', transition: 'all 200ms ease' }} className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center mt-px">
                                     {checked && <Check size={13} weight="bold" color="#03130A" className="os-check-pop" />}
                                   </span>
@@ -9389,11 +9696,10 @@ export default function Offside() {
                           {allChecked ? (
                             <div style={{ background: 'rgba(125,255,168,0.1)', border: `1px solid ${LED_GREEN}44` }} className="rounded-2xl p-3.5 mt-3 os-card-in">
                               <p style={{ color: LED_GREEN }} className="text-sm font-bold mb-2.5">{isEN ? 'Looks like you\'re ready.' : 'Sembra che tu sia pronto.'}</p>
-                              {!isLastPhase && (
-                                <button onClick={() => { haptic([10, 30, 16]); changePhase(activePhase + 1); }} className="os-focus os-btn os-btn-primary w-full py-3 text-xs uppercase tracking-wide">
-                                  {isEN ? 'Move to the next phase' : 'Passa alla fase successiva'}<ArrowRight size={14} />
-                                </button>
-                              )}
+                              {nextLocked && <p style={{ color: colors.mutedInk }} className="text-[12px] leading-snug mb-2.5">{isEN ? `Phase ${nextNo} is included in Premium: you can see the overview, the exercises unlock with Premium.` : `La fase ${nextNo} è inclusa in Premium: la panoramica la vedi, gli esercizi si sbloccano con Premium.`}</p>}
+                              <button onClick={() => { haptic([10, 30, 16]); changePhase(activePhase + 1); }} className="os-focus os-btn os-btn-primary w-full py-3 text-xs uppercase tracking-wide">
+                                {nextLocked && <Lock size={14} weight="fill" />}{isEN ? 'Move to the next phase' : 'Passa alla fase successiva'}<ArrowRight size={14} />
+                              </button>
                             </div>
                           ) : (
                             <p style={{ color: colors.mutedInk }} className="text-xs font-medium mt-2 px-2">{isEN ? 'A self-check, not a clinical test.' : 'Un autocontrollo, non un test clinico.'}</p>
@@ -9489,6 +9795,12 @@ export default function Offside() {
                                 <Line type="monotone" dataKey="feeling" stroke={LED_GREEN} strokeWidth={2.5} dot={{ r: 4, fill: LED_GREEN }} connectNulls animationDuration={900} animationEasing="ease-out" />
                               </LineChart>
                             </ResponsiveContainer>
+                            {chartData.some((d) => d.pain != null) && (
+                              <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                                <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[14px] font-bold mb-2">{isEN ? 'Pain, from 0 to 10' : 'Dolore, da 0 a 10'}</p>
+                                <PainChart data={chartData} isEN={isEN} height={150} />
+                              </div>
+                            )}
                             <button onClick={() => setScreen('premium')} className="os-focus os-btn os-btn-ghost w-full py-3 text-[12.5px] mt-3">
                               <ClipboardCheck size={15} />{isEN ? 'Charts and printable report' : 'Grafici e resoconto stampabile'}
                             </button>
@@ -9512,7 +9824,7 @@ export default function Offside() {
                         {shareCopied ? <Check size={15} color={LED_GREEN} weight="bold" /> : <Share2 size={15} />}{shareCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Share your progress' : 'Condividi il tuo percorso')}
                       </button>
 
-                      {!premiumUnlocked && <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: your progress over time + a document for your physio' : 'Premium: il tuo andamento nel tempo + un documento per il fisio'} />}
+                      {!premiumUnlocked && <PremiumBanner onClick={() => { trackEvent('premium_banner_clicked'); setScreen('premium'); }} text={isEN ? 'Premium: pain, feeling and stiffness over time + a document for your physio' : 'Premium: dolore, feeling e rigidità nel tempo + un documento per il fisio'} />}
 
                       {injury.relatedInjuries && injury.relatedInjuries.length > 0 && (
                         <div className="mt-2" id="sez-collegati">
@@ -9779,6 +10091,8 @@ export default function Offside() {
             isEN={isEN}
             catLabels={catLabels}
             finish={cfg.finish}
+            levels={cfg.levels}
+            modeFor={cfg.modeFor}
           />
         );
       })()}
