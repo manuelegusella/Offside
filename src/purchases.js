@@ -45,6 +45,9 @@ const isActive = (customerInfo) =>
   Object.keys(customerInfo?.entitlements?.active || {}).some((k) => k.toLowerCase() === ENTITLEMENT_ID.toLowerCase());
 
 // Il pacchetto mensile di Premium (con prezzo già formattato per il paese dell'utente).
+// intro: l'offerta introduttiva di App Store (es. Black Friday: 3,49 € al mese per i primi 3 mesi),
+// solo se esiste su App Store Connect E l'utente ne ha diritto. Se Apple non sa dirlo (stato
+// "sconosciuto") mostriamo il prezzo pieno, per non promettere uno sconto che poi non arriva.
 export async function loadPremiumOffer() {
   await initPurchases();
   const { P } = await getPlugin();
@@ -52,7 +55,18 @@ export async function loadPremiumOffer() {
   const current = offerings?.current;
   const pkg = current?.monthly || current?.availablePackages?.[0] || null;
   if (!pkg) return null;
-  return { pkg, priceString: pkg.product?.priceString || '' };
+  const product = pkg.product || {};
+  let intro = null;
+  const ip = product.introPrice;
+  if (ip && ip.priceString && ip.price > 0 && product.identifier) {
+    try {
+      const elig = await P.checkTrialOrIntroductoryPriceEligibility({ productIdentifiers: [product.identifier] });
+      if (elig?.[product.identifier]?.status === 2) { // 2 = INTRO_ELIGIBILITY_STATUS_ELIGIBLE
+        intro = { priceString: ip.priceString, cycles: ip.cycles || 1, periodUnit: ip.periodUnit || '', periodNumberOfUnits: ip.periodNumberOfUnits || 1 };
+      }
+    } catch (err) {}
+  }
+  return { pkg, priceString: product.priceString || '', intro };
 }
 
 // true se Premium è attivo adesso (RevenueCat controlla anche la scadenza).

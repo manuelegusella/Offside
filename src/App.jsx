@@ -15,6 +15,19 @@ const PREMIUM_PRICE = { it: '3,99 €', en: '€3.99' };
 // Prezzo di riserva dell'app iPhone: quello vero arriva da Apple (App Store Connect).
 const NATIVE_PRICE = { it: '4,99 €', en: '€4.99' };
 
+// Black Friday 2026 (23/11 - 6/12): offerta introduttiva di App Store, 3,49 € al mese per i primi 3 mesi.
+// Il prezzo scontato lo applica Apple (va creato su App Store Connect); nell'app lo mostriamo solo se
+// RevenueCat lo restituisce davvero. Le date servono per l'etichetta, il pop-up e il box sul sito.
+const BF_START = new Date(2026, 10, 23); // 23 novembre 2026, 00:00 ora del telefono
+const BF_END = new Date(2026, 11, 7); // fino al 6 dicembre compreso
+const isBlackFriday = () => { const n = new Date(); return n >= BF_START && n < BF_END; };
+const BF_WEB_PRICE = { it: '3,49 €', en: '€3.49' }; // mostrato sul sito agli utenti iPhone (l'offerta è nell'app)
+const APP_STORE_URL = 'https://apps.apple.com/it/app/offside/id6826790586';
+const IS_IOS_WEB = !IS_NATIVE && typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+// Mesi dell'offerta introduttiva (es. 3 x 1 mese = 3). 0 se Apple usa un'altra unità.
+const introMonths = (intro) => { if (!intro) return 0; const unit = intro.periodUnit === 'MONTH' ? 1 : intro.periodUnit === 'YEAR' ? 12 : 0; return unit * (intro.periodNumberOfUnits || 1) * (intro.cycles || 1); };
+const introSpan = (intro, isEN) => { const m = introMonths(intro); if (!m) return isEN ? 'for a limited time' : 'per un periodo limitato'; return isEN ? `for the first ${m} months` : `per i primi ${m} mesi`; };
+
 // Payment Link per l'abbonamento "Offside Squadre" (50€/mese) — da creare su Stripe come
 // prodotto separato e incollare qui. Finché resta questo placeholder, il bottone di
 // attivazione nella schermata Squadre non farà nulla di reale.
@@ -56,7 +69,7 @@ import {
   Snowflake, Bandaids as Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, DeviceMobile as Smartphone,
   User, Hand, DotsSixVertical as Grip, MapPin, Phone, Envelope as Mail, Stethoscope, ArrowSquareOut as ExternalLink, MagnifyingGlass as Search,
   Users, SignOut as LogOut, Copy, UserPlus, Buildings as Building2, Eye, EyeSlash as EyeOff, Trash, BookOpen,
-  Play, Heartbeat, ChartLineUp, Siren, FirstAid, Bell, Stairs, TrafficSignal, ArrowDown
+  Play, Heartbeat, ChartLineUp, Siren, FirstAid, Bell, Stairs, TrafficSignal, ArrowDown, Tag
 } from '@phosphor-icons/react';
 
 // Palette "Notte allo stadio": tutta l'app vive su un campo di notte sotto i riflettori.
@@ -6160,6 +6173,25 @@ export default function Offside() {
     }
   }, [iapChange]);
 
+  // Pop-up Black Friday: una volta al giorno al massimo, solo nell'app, solo se l'offerta di Apple
+  // è attiva per questo utente e Premium non è già sbloccato. Dopo il 6 dicembre sparisce da solo.
+  const [bfOpen, setBfOpen] = useState(false);
+  const bfTriedRef = useRef(false);
+  useEffect(() => {
+    if (bfTriedRef.current || !IS_NATIVE || loading || premiumUnlocked || !iapOffer?.intro || !isBlackFriday()) return undefined;
+    if (screen === 'cover' || screen === 'onboarding' || screen === 'premium') return undefined;
+    let seen = 0;
+    try { seen = Number(localStorage.getItem('offside_bf_seen') || 0); } catch (err) {}
+    if (Date.now() - seen < 20 * 3600 * 1000) { bfTriedRef.current = true; return undefined; }
+    const tm = setTimeout(() => {
+      bfTriedRef.current = true;
+      setBfOpen(true);
+      trackEvent('bf_popup_shown');
+      try { localStorage.setItem('offside_bf_seen', String(Date.now())); } catch (err) {}
+    }, 1800);
+    return () => clearTimeout(tm);
+  }, [loading, premiumUnlocked, iapOffer, screen]);
+
   const iapBuy = async () => {
     if (iapStatus === 'buying' || iapStatus === 'restoring') return;
     trackEvent('premium_unlock_clicked_native');
@@ -7876,10 +7908,22 @@ export default function Offside() {
                     </p>
                     <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[19px] font-bold leading-snug mt-3">{isEN ? 'The whole path, all the way back' : 'Tutto il percorso, fino al rientro'}</p>
                     <p style={{ color: '#B8C4CE' }} className="text-sm leading-relaxed mt-1.5">{isEN ? 'Phases 1 and 2 of every injury are free. Premium unlocks phase 3, a daily plan that adapts to your pain, and levels for every exercise.' : 'Le fasi 1 e 2 di ogni infortunio sono gratis. Con Premium sblocchi la fase 3, il piano di oggi che si adatta al dolore e i livelli per ogni esercizio.'}</p>
+                    {IS_NATIVE && iapOffer?.intro ? (
+                      <div className="mt-4">
+                        <span style={{ background: '#05070A', color: '#FFFFFF', border: '1px solid rgba(245,196,81,0.6)', fontFamily: BRICOLAGE, letterSpacing: '0.16em' }} className="inline-block rounded-full px-2.5 py-1 text-[10px] font-bold uppercase mb-2">{isBlackFriday() ? 'Black Friday' : (isEN ? 'Welcome offer' : 'Offerta di benvenuto')}</span>
+                        <p className="flex items-baseline gap-2 flex-wrap">
+                          <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-[48px] leading-none">{iapOffer.intro.priceString}</span>
+                          {iapOffer.priceString && <span style={{ color: '#B8C4CE' }} className="text-[15px] line-through">{iapOffer.priceString}</span>}
+                          <span style={{ color: '#B8C4CE' }} className="text-sm">{isEN ? 'per month' : 'al mese'}</span>
+                        </p>
+                        <p style={{ color: '#B8C4CE' }} className="text-[12.5px] leading-snug mt-1">{introSpan(iapOffer.intro, isEN)}{iapOffer.priceString ? (isEN ? `, then ${iapOffer.priceString} per month` : `, poi ${iapOffer.priceString} al mese`) : ''}</p>
+                      </div>
+                    ) : (
                     <p className="flex items-baseline gap-2 mt-4">
                       <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-[48px] leading-none">{IS_NATIVE ? (iapOffer?.priceString || (isEN ? NATIVE_PRICE.en : NATIVE_PRICE.it)) : (isEN ? PREMIUM_PRICE.en : PREMIUM_PRICE.it)}</span>
                       <span style={{ color: '#B8C4CE' }} className="text-sm">{isEN ? 'per month' : 'al mese'}</span>
                     </p>
+                    )}
                   </div>
                   <div className="relative h-5" aria-hidden="true">
                     <span style={{ backgroundColor: colors.night }} className="absolute -left-2.5 top-0 w-5 h-5 rounded-full" />
@@ -7913,13 +7957,16 @@ export default function Offside() {
                   <>
                     <GoldButton full onClick={iapBuy}>
                       <span>
-                        {iapStatus === 'buying' ? '...' : (<>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{iapOffer?.priceString || (isEN ? NATIVE_PRICE.en : NATIVE_PRICE.it)}{isEN ? '/month' : '/mese'}</>)}
+                        {iapStatus === 'buying' ? '...' : (<>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{iapOffer?.intro?.priceString || iapOffer?.priceString || (isEN ? NATIVE_PRICE.en : NATIVE_PRICE.it)}{isEN ? '/month' : '/mese'}</>)}
                       </span><ArrowRight size={16} />
                     </GoldButton>
                     {iapStatus === 'error' && <p role="alert" style={{ color: colors.red }} className="text-xs text-center mt-2">{isEN ? 'Purchase not completed. Please try again in a moment.' : 'Acquisto non completato. Riprova tra poco.'}</p>}
                     {iapStatus === 'cancelled' && <p style={{ color: colors.mutedInk }} className="text-xs text-center mt-2">{isEN ? 'Purchase cancelled.' : 'Acquisto annullato.'}</p>}
                     {iapStatus === 'notfound' && <p style={{ color: colors.mutedInk }} className="text-xs text-center mt-2">{isEN ? 'No purchases to restore for this Apple Account.' : 'Nessun acquisto da ripristinare per questo Apple Account.'}</p>}
                     <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed text-center mt-3">
+                      {iapOffer?.intro && (isEN
+                        ? `Offer for new subscribers: ${iapOffer.intro.priceString} per month ${introSpan(iapOffer.intro, true)}, then ${iapOffer.priceString || NATIVE_PRICE.en} per month. `
+                        : `Offerta per nuovi abbonati: ${iapOffer.intro.priceString} al mese ${introSpan(iapOffer.intro, false)}, poi ${iapOffer.priceString || NATIVE_PRICE.it} al mese. `)}
                       {isEN
                         ? `Monthly subscription, ${iapOffer?.priceString || NATIVE_PRICE.en} per month. Payment is charged to your Apple Account at purchase confirmation. The subscription renews automatically every month unless you cancel it at least 24 hours before the end of the period. You can manage or cancel it any time in Settings > your name > Subscriptions. `
                         : `Abbonamento mensile, ${iapOffer?.priceString || NATIVE_PRICE.it} al mese. Il pagamento viene addebitato sul tuo Apple Account alla conferma dell'acquisto. L'abbonamento si rinnova automaticamente ogni mese, salvo disdetta almeno 24 ore prima della fine del periodo. Puoi gestirlo o annullarlo in qualsiasi momento da Impostazioni > il tuo nome > Abbonamenti. `}
@@ -7934,6 +7981,16 @@ export default function Offside() {
                     </button>
                   </>
                 ) : (<>
+                {IS_IOS_WEB && isBlackFriday() && (
+                  <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('bf_web_appstore_clicked')} className="os-focus os-press [--press:0.98] block rounded-2xl p-4 mb-3 text-left" style={{ background: '#05070A', border: '1px solid rgba(245,196,81,0.5)' }}>
+                    <span style={{ fontFamily: BRICOLAGE, color: colors.premiumGold, letterSpacing: '0.14em' }} className="block text-[10px] font-bold uppercase">{isEN ? "Black Friday · iPhone app only" : "Black Friday · solo nell'app iPhone"}</span>
+                    <span className="flex items-baseline gap-2 flex-wrap mt-1">
+                      <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-[34px] leading-none">{isEN ? BF_WEB_PRICE.en : BF_WEB_PRICE.it}</span>
+                      <span style={{ color: '#B8C4CE' }} className="text-[12.5px]">{isEN ? 'per month for the first 3 months, until 6 December' : 'al mese per i primi 3 mesi, fino al 6 dicembre'}</span>
+                    </span>
+                    <span style={{ color: colors.ink }} className="flex items-center gap-1.5 text-[13px] font-bold mt-2">{isEN ? 'Download Offside on the App Store' : 'Scarica Offside su App Store'}<ArrowRight size={14} /></span>
+                  </a>
+                )}
                 <GoldButton full href={STRIPE_PAYMENT_LINK} onClick={() => trackEvent('premium_unlock_clicked')}>
                   <span>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{isEN ? `${PREMIUM_PRICE.en}/month` : `${PREMIUM_PRICE.it}/mese`}</span><ArrowRight size={16} />
                 </GoldButton>
@@ -9945,6 +10002,33 @@ export default function Offside() {
 
       <Sheet open={showRedFlags} onClose={() => setShowRedFlags(false)} title={isEN ? 'When to stop and call a professional' : 'Quando fermarti e chiamare un professionista'} icon={Siren} tone="red" isEN={isEN}>
         {renderRedFlagsContent()}
+      </Sheet>
+
+      <Sheet
+        open={bfOpen && !!iapOffer?.intro}
+        onClose={() => { setBfOpen(false); trackEvent('bf_popup_closed'); }}
+        title="Black Friday"
+        subtitle={isEN ? 'Offside Premium · until 6 December' : 'Offside Premium · fino al 6 dicembre'}
+        icon={Tag}
+        tone="gold"
+        isEN={isEN}
+        footer={(
+          <GoldButton full onClick={() => { trackEvent('bf_popup_cta'); setBfOpen(false); setPremiumTab('individual'); setScreen('premium'); }}>
+            <span>{isEN ? 'See the offer' : "Scopri l'offerta"}</span><ArrowRight size={16} />
+          </GoldButton>
+        )}
+      >
+        {iapOffer?.intro && (
+          <div className="pb-2">
+            <p className="flex items-baseline gap-3 flex-wrap">
+              <span style={{ fontFamily: BEBAS, color: colors.premiumGold, letterSpacing: '0.02em' }} className="text-[68px] leading-none">{iapOffer.intro.priceString}</span>
+              {iapOffer.priceString && <span style={{ color: colors.mutedInk }} className="text-[17px] line-through">{iapOffer.priceString}</span>}
+            </p>
+            <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[17px] font-bold leading-snug mt-1">{isEN ? `per month ${introSpan(iapOffer.intro, true)}` : `al mese ${introSpan(iapOffer.intro, false)}`}</p>
+            <p style={{ color: colors.mutedInk }} className="text-[13.5px] leading-relaxed mt-2">{isEN ? "Phase 3 of every injury, today's plan that adapts to your pain and levels for every exercise." : 'La fase 3 di ogni infortunio, il piano di oggi che si adatta al dolore e i livelli per ogni esercizio.'}</p>
+            <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed mt-3">{isEN ? `For new subscribers. Then ${iapOffer.priceString || NATIVE_PRICE.en} per month, renews automatically, cancel anytime.` : `Per nuovi abbonati. Poi ${iapOffer.priceString || NATIVE_PRICE.it} al mese, rinnovo automatico, disdici quando vuoi.`}</p>
+          </div>
+        )}
       </Sheet>
 
       {sourcesSheet}
