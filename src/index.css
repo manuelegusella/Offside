@@ -21,6 +21,8 @@
 /* Ombre profonde (su fondo scuro il nero puro è giusto): valgono anche per le utility
    shadow-* già usate nel file. */
 @theme {
+  /* Testo di base: Public Sans, incluso nell'app (vedi main.jsx), anche fuori dai contenitori con bodyFont. */
+  --font-sans: 'Public Sans Variable', 'Public Sans', ui-sans-serif, system-ui, sans-serif;
   --default-transition-timing-function: ease;
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4), 0 2px 6px -2px rgb(0 0 0 / 0.35);
   --shadow-md: 0 10px 24px -10px rgb(0 0 0 / 0.7), 0 3px 8px -3px rgb(0 0 0 / 0.45);
@@ -88,7 +90,7 @@
   ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); border-radius: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
   a { text-underline-offset: 3px; text-decoration-thickness: 1px; }
-  input[type="date"].os-date { font-family: 'Public Sans', sans-serif; color-scheme: dark; }
+  input[type="date"].os-date { font-family: 'Public Sans Variable', 'Public Sans', sans-serif; color-scheme: dark; }
   input[type="number"] { -moz-appearance: textfield; }
   input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 }
@@ -205,9 +207,9 @@
 
   /* ---------------------------------------------------------------- Tipografia */
   .os-display { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.01em; font-weight: 400; }
-  .os-head { font-family: 'Bricolage Grotesque', sans-serif; letter-spacing: -0.015em; }
-  .os-cond { font-family: 'Bricolage Grotesque', sans-serif; font-stretch: 78%; letter-spacing: -0.005em; }
-  .os-label { font-family: 'Bricolage Grotesque', sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase; }
+  .os-head { font-family: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', sans-serif; letter-spacing: -0.015em; }
+  .os-cond { font-family: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', sans-serif; font-stretch: 78%; letter-spacing: -0.005em; }
+  .os-label { font-family: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase; }
   .os-led-text { color: var(--led); text-shadow: 0 0 14px rgba(125, 255, 168, 0.45); }
   .os-led-teal { color: var(--teal); text-shadow: 0 0 14px rgba(114, 230, 242, 0.45); }
   .os-led-gold { color: var(--gold); text-shadow: 0 0 14px rgba(245, 196, 81, 0.4); }
@@ -220,7 +222,7 @@
     justify-content: center;
     gap: 8px;
     border-radius: 16px;
-    font-family: 'Bricolage Grotesque', sans-serif;
+    font-family: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', sans-serif;
     font-weight: 700;
     transition: scale 140ms var(--ease-out), background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 220ms ease, opacity 160ms ease, filter 160ms ease;
     -webkit-user-select: none;
@@ -602,6 +604,15 @@
   .os-cover-beam { position: absolute; top: 24px; width: 300px; height: 82vh; transform-origin: 50% 0; clip-path: polygon(46% 0, 54% 0, 100% 100%, 0 100%); background: linear-gradient(180deg, rgba(220, 255, 235, 0.22), rgba(220, 255, 235, 0.06) 55%, rgba(220, 255, 235, 0) 88%); opacity: 0; mix-blend-mode: screen; filter: blur(5px); animation: os-cone-on 1400ms var(--ease-out) var(--d) both; pointer-events: none; }
   .os-cover-cone { position: absolute; top: -10%; width: 70%; height: 95%; opacity: 0; pointer-events: none; animation: os-cone-on 1400ms var(--ease-out) var(--d) both; mix-blend-mode: screen; }
   @keyframes os-cone-on { 0% { opacity: 0; } 30% { opacity: 1; } 40% { opacity: 0.45; } 100% { opacity: 1; } }
+  /* I tre punti della copertina: più compatti sugli schermi bassi (iPhone SE, Safari con le barre). */
+  .os-cover-points li { padding-block: 12px; }
+  .os-cover-points p { font-size: 14.5px; }
+  .os-cover-ico { width: 40px; height: 40px; border-radius: 12px; }
+  @media (max-height: 760px) {
+    .os-cover-points li { padding-block: 7px; }
+    .os-cover-points p { font-size: 13.5px; }
+    .os-cover-ico { width: 34px; height: 34px; border-radius: 11px; }
+  }
   .os-cover-flash { position: absolute; inset: 0; background: radial-gradient(80% 50% at 50% 0%, rgba(220, 255, 235, 0.35), rgba(220, 255, 235, 0) 70%); opacity: 0; animation: os-cover-flash 900ms ease-out 1.15s both; pointer-events: none; }
   @keyframes os-cover-flash { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
   .os-cover-pitch path, .os-cover-pitch ellipse, .os-cover-pitch line, .os-cover-pitch rect { stroke-dasharray: 1; stroke-dashoffset: 1; animation: os-draw 1600ms var(--ease-out-expo) var(--d, 1.2s) both; }
@@ -652,6 +663,16 @@
   /* Pila di carte dei risultati del triage. */
   .os-card-in { animation: os-card-in 520ms var(--ease-out-expo) both; }
   @keyframes os-card-in { from { opacity: 0; transform: translate3d(0, 26px, 0) scale(0.96); } }
+
+  /* Campo di ricerca (Home: "Cerca: caviglia, menisco…"). */
+  .os-search { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); transition: border-color 200ms ease, background-color 200ms ease, box-shadow 200ms ease; -webkit-appearance: none; appearance: none; }
+  .os-search::placeholder { color: #7F978A; opacity: 1; }
+  .os-search:focus { outline: none; background: rgba(255, 255, 255, 0.07); border-color: rgba(125, 255, 168, 0.55); box-shadow: 0 0 0 4px rgba(52, 201, 122, 0.14); }
+  .os-search::-webkit-search-cancel-button, .os-search::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
+
+  /* Segnaposto mentre un grafico si carica: stessa altezza del grafico, luce che scorre piano. */
+  .os-skel { border-radius: 14px; background: linear-gradient(100deg, rgba(255, 255, 255, 0.03) 30%, rgba(255, 255, 255, 0.075) 50%, rgba(255, 255, 255, 0.03) 70%) 0 0 / 300% 100%; animation: os-skel 1.4s ease-in-out infinite; }
+  @keyframes os-skel { from { background-position: 100% 0; } to { background-position: 0 0; } }
 }
 
 /* ---------------------------------------------------------------- Riduci movimento */
@@ -663,6 +684,7 @@
   .os-gol-text, .os-check-pop, .os-card-in, .os-step-next, .os-step-prev, .os-pane-in-right, .os-pane-in-left, .os-pane-in, .os-screen-in, .os-rise, .os-letter-in, .os-digit-up, .os-session { animation-name: os-fade; animation-duration: 200ms; }
   .os-ball, .os-net, .os-radar-ring, .os-breathe, .os-sheen, .os-ping::after, .os-live::after, .os-scan, .os-floodsweep::before, .os-confetti, .os-gol-rays, .os-gol-flash, .os-check-burst::after, .os-burst-ring, .os-depth, .os-stadium-lines, .os-fill-in, .os-slide-in { animation: none !important; }
   .os-sheen, .os-scan, .os-confetti, .os-gol-rays { display: none; }
+  .os-skel { animation: none; }
   .os-cover-lamp, .os-cover-cone, .os-cover-beam { animation: os-fade 300ms ease both; opacity: 1; }
   .os-cover-flash { display: none; }
   .os-cover-pitch *, .os-logo-draw path { animation: none; stroke-dashoffset: 0; }
@@ -677,8 +699,8 @@
   html, body, #root { background: #FFFFFF !important; }
   body * { visibility: hidden; }
   .os-print-only, .os-print-only * { visibility: visible; }
-  .os-print-only { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 24px; font-family: 'Public Sans', sans-serif; color: #101B26; }
-  .os-print-only h1 { font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; margin-bottom: 16px; }
+  .os-print-only { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 24px; font-family: 'Public Sans Variable', 'Public Sans', sans-serif; color: #101B26; }
+  .os-print-only h1 { font-family: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', sans-serif; font-size: 20px; margin-bottom: 16px; }
   .os-print-only p { font-size: 13px; line-height: 1.5; margin-bottom: 8px; }
   .os-print-only ul { margin: 4px 0 12px 20px; font-size: 13px; }
   .os-print-only table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }

@@ -8,9 +8,10 @@ export function emailConfigured() {
   return !!process.env.RESEND_API_KEY;
 }
 
-export async function sendEmail({ to, subject, html, text }) {
+// from (facoltativo): mittente diverso da quello predefinito, es. per gli avvisi d'errore.
+export async function sendEmail({ to, subject, html, text, from: fromOverride }) {
   if (!emailConfigured()) throw new Error('email_not_configured');
-  const from = process.env.RESEND_FROM || 'Offside Squadre <squadre@myoffside.com>';
+  const from = fromOverride || process.env.RESEND_FROM || 'Offside Squadre <squadre@myoffside.com>';
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {

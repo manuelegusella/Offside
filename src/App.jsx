@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea } from 'recharts';
 import { IS_NATIVE, apiUrl } from './platform.js';
 import { SOURCES, GENERAL_SOURCE_GROUPS, INJURY_SOURCES, SOURCE_KIND_LABELS, SOURCES_CHECKED_ON } from './sources.js';
 import { loadPremiumOffer, hasPremiumEntitlement, buyPremium, restorePremiumPurchases } from './purchases.js';
 import { FREE_PHASES, deriveLegacyInjuries, painZone, painLight, LIGHT_COPY, FLAG_COPY, todayMode, planCounts, MODE_COPY, classifyExercise, LEVELS_COPY, levelsFor } from './premiumPlan.js';
 import { remindersSupported, reminderPermission, scheduleDailyReminder, cancelDailyReminder, REMINDER_COPY } from './notifications.js';
+import { haptic, warmUpHaptics } from './haptics.js';
+import { scheduleBackup } from './storageBackup.js';
+import { setErrorContext } from './errorReporting.js';
+import { maybeAskForReview, noteAppOpen } from './review.js';
+import { initNativeLinks, inviteCodeFromUrl } from './deepLinks.js';
+import { searchInjuries, normalize as normalizeSearch } from './injurySearch.js';
 import { seasonPassOffer, SEASON, TEAM_MONTHLY_EUR } from '../api/_lib/teamPlans.js';
 
 // Payment Link di Stripe per Premium individuale sul sito: 4,99 €/mese dal 23/11/2026.
@@ -14,6 +19,12 @@ const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/5kQdR93wefIbgnv32h7IY03';
 // Prezzo di Premium individuale mostrato nella pagina Premium (biglietto e bottone).
 // Deve restare uguale al prezzo impostato su Stripe (vedi anche api/stripe-webhook.js).
 const PREMIUM_PRICE = { it: '4,99 €', en: '€4.99' };
+// Premium annuale sul sito: 49 € all'anno (Stripe, Payment Link con metadata "premium_individuale_sito_annuale").
+// 49 € invece di 12 × 4,99 € = 59,88 €: 10,88 € in meno, cioè il 18%; 49 / 12 = 4,08 € al mese.
+const STRIPE_ANNUAL_LINK = 'https://buy.stripe.com/14A8wP2sacvZ2wF8mB7IY04';
+const PREMIUM_ANNUAL_PRICE = { it: '49 €', en: '€49' };
+const PREMIUM_ANNUAL_PER_MONTH = { it: '4,08 €', en: '€4.08' };
+const PREMIUM_ANNUAL_SAVING_PCT = 18;
 // Prezzo di riserva dell'app iPhone: quello vero arriva da Apple (App Store Connect).
 const NATIVE_PRICE = { it: '4,99 €', en: '€4.99' };
 
@@ -3212,7 +3223,7 @@ function CookieBanner({ isEN, onChoice }) {
       className="os-sheet fixed bottom-0 left-0 right-0 z-40 px-3 pt-0"
     >
       <div className="os-panel mx-auto max-w-[536px] px-4 pt-4 pb-3.5" style={{ background: 'rgba(10,22,16,0.94)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}>
-        <p style={{ color: colors.ink, fontFamily: "'Public Sans', sans-serif" }} className="text-[12.5px] leading-relaxed mb-3">
+        <p style={{ color: colors.ink, fontFamily: "'Public Sans Variable', 'Public Sans', sans-serif" }} className="text-[12.5px] leading-relaxed mb-3">
           {isEN
             ? 'We use Google Analytics to understand how the app is used. Your recovery diary and personal notes are never included. '
             : 'Usiamo Google Analytics per capire come viene usata l\'app. Il tuo diario di recupero e le tue note personali non vengono mai inclusi. '}
@@ -3415,7 +3426,7 @@ const bodyZones = [
 
 const LED_TEAL = '#72E6F2';
 const BEBAS = "'Bebas Neue', sans-serif";
-const BRICOLAGE = "'Bricolage Grotesque', sans-serif";
+const BRICOLAGE = "'Bricolage Grotesque Variable', 'Bricolage Grotesque', sans-serif";
 // Variante "prevenzione" del campo di notte: stessa luce da riflettore, ma sul verde acqua.
 const PITCH_BG_TEAL = `radial-gradient(130% 90% at 0% 0%, rgba(114,230,242,0.16), rgba(114,230,242,0) 55%), repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0 36px, rgba(255,255,255,0) 36px 72px), #06282D`;
 const GOLD_GRADIENT = 'linear-gradient(135deg, #FBE29A 0%, #F5C451 45%, #C98A0B 100%)';
@@ -3805,6 +3816,99 @@ function FlowSteps({ current, isEN, onStep }) {
   );
 }
 
+// Cose che apposta non sono nei percorsi di Offside, perché vanno valutate dal vivo.
+// Chi le cerca riceve una risposta chiara invece di "nessun risultato".
+const NOT_IN_APP_SEARCHES = [
+  { re: /^(crociat|lca$|acl$)/, it: 'Il legamento crociato', en: 'The cruciate ligament (ACL)' },
+  { re: /^(lussa|disloca)/, it: 'Una lussazione', en: 'A dislocation' },
+  { re: /^(frattur|fractur|broken)/, it: 'Una frattura', en: 'A fracture' },
+];
+
+// Ricerca per nome nella Home: "caviglia", "menisco", "strappo", "pubalgia"… (vedi src/injurySearch.js).
+function InjurySearch({ injuriesData, regions, regionLabels, isEN, liveKeys, onPick, onTriage }) {
+  const [query, setQuery] = useState('');
+  const results = useMemo(() => searchInjuries(query, { injuriesData, regions, regionLabels, limit: 6 }), [query, injuriesData, regions, regionLabels]);
+  const q = normalizeSearch(query);
+  const active = q.replace(/\s/g, '').length >= 2;
+  const notInApp = q.length >= 3 ? NOT_IN_APP_SEARCHES.find((t) => q.split(' ').some((w) => t.re.test(w))) : null;
+  return (
+    <div className="mb-6" data-rv="">
+      <div className="relative flex items-center">
+        <Search size={18} color={active ? LED_GREEN : colors.mutedInk} className="absolute left-4 pointer-events-none" style={{ transition: 'color 200ms ease' }} />
+        <input
+          type="search"
+          inputMode="search"
+          enterKeyHint="search"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          aria-label={isEN ? 'Search an injury by name' : 'Cerca un infortunio per nome'}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+          placeholder={isEN ? 'Search: ankle, meniscus, hamstring…' : 'Cerca: caviglia, menisco, strappo…'}
+          className="os-focus os-search w-full h-[52px] rounded-2xl pl-11 pr-12 text-[16px]"
+          style={{ color: colors.ink }}
+        />
+        {query && (
+          <button type="button" onClick={() => setQuery('')} aria-label={isEN ? 'Clear search' : 'Cancella la ricerca'} className="os-focus absolute right-1.5 w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10">
+            <X size={16} color={colors.mutedInk} />
+          </button>
+        )}
+      </div>
+      {active && (
+        <div className="mt-2.5">
+          <p className="os-sr" aria-live="polite">{results.length ? (isEN ? `${results.length} results` : `${results.length} risultati`) : (isEN ? 'No results' : 'Nessun risultato')}</p>
+          {notInApp && (
+            <div className="os-panel-flat flex items-start gap-3 px-4 py-3.5 mb-2.5" style={{ borderColor: `${colors.orange}55` }}>
+              <Stethoscope size={18} color={colors.orange} className="flex-shrink-0 mt-0.5" />
+              <p style={{ color: colors.ink }} className="text-[13px] leading-snug">
+                {isEN
+                  ? `${notInApp.en} isn't part of Offside's recovery plans: it needs an in-person assessment by a doctor or physiotherapist.`
+                  : `${notInApp.it} non è nei percorsi di Offside: va valutato dal vivo da un medico o da un fisioterapista.`}
+              </p>
+            </div>
+          )}
+          {results.length > 0 ? (
+            <ul className="os-panel overflow-hidden">
+              {results.map((r, i) => {
+                const data = injuriesData[r.key];
+                const Icon = data.icon;
+                const live = liveKeys.includes(r.key);
+                return (
+                  <li key={r.key} style={i ? { borderTop: '1px solid rgba(255,255,255,0.07)' } : undefined}>
+                    <button type="button" onClick={() => { setQuery(''); onPick(r.key); }} className="os-focus os-press [--press:0.985] w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-white/5 transition-colors">
+                      <span className="os-pitch relative flex-shrink-0 w-11 h-11 flex items-center justify-center" style={{ borderRadius: 14 }}>
+                        <Icon size={21} color={LED_GREEN} />
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="block text-[15px] font-bold leading-tight">{data.label}</span>
+                        <span style={{ color: colors.mutedInk }} className="block text-[12.5px] leading-snug mt-0.5 truncate">
+                          {live && <span style={{ color: LED_GREEN }} className="font-bold">{isEN ? 'In progress' : 'In corso'} · </span>}
+                          {regionLabels[r.region]} · {data.subtitle}
+                        </span>
+                      </span>
+                      <ChevronRight size={16} color={colors.mutedInk} className="flex-shrink-0" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : !notInApp && (
+            <div className="os-panel-flat px-4 py-3.5">
+              <p style={{ color: colors.ink }} className="text-[13.5px] font-semibold leading-snug">{isEN ? 'No injury with this name.' : 'Nessun infortunio con questo nome.'}</p>
+              <p style={{ color: colors.mutedInk }} className="text-[12.5px] leading-snug mt-1">{isEN ? 'Try the body area (e.g. knee), or answer 4 quick questions.' : 'Prova con la zona (es. ginocchio) o rispondi a 4 domande veloci.'}</p>
+              <button type="button" onClick={onTriage} style={{ color: LED_GREEN }} className="os-focus mt-2.5 inline-flex items-center gap-1.5 text-[13px] font-bold rounded-lg">
+                {isEN ? 'Not sure what it is?' : 'Non sai cosa hai?'}<ArrowRight size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Intestazione di un passaggio numerato (1, 2…) dentro una schermata guidata.
 function StepHeading({ n, title, hint, done = false }) {
   return (
@@ -3828,16 +3932,23 @@ function durationLabel(days, isEN) {
 }
 
 function InstallBanner({ isEN, onInstallClick, canInstall, onDismiss }) {
-  const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) && !window.MSStream;
+  // Su iPhone e iPad c'è l'app vera su App Store: meglio di "Aggiungi a Home".
+  if (isIOS) {
+    return (
+      <div data-rv="" className="os-panel-flat flex items-center gap-2.5 px-3 py-2.5 mb-5">
+        <span style={{ background: 'rgba(125,255,168,0.12)' }} className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center"><Smartphone size={15} color={LED_GREEN} /></span>
+        <p style={{ color: colors.ink }} className="flex-1 text-[12px] leading-snug">{isEN ? 'Offside is on the App Store: get the free iPhone app' : "Offside è su App Store: scarica gratis l'app per iPhone"}</p>
+        <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('install_banner_appstore_clicked')} className="os-focus os-btn os-btn-primary flex-shrink-0 text-[11px] px-3 py-1.5 rounded-full">{isEN ? 'Get' : 'Scarica'}</a>
+        <button onClick={onDismiss} className="os-focus flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10" aria-label={isEN ? 'Dismiss' : 'Chiudi'}><X size={14} color={colors.mutedInk} /></button>
+      </div>
+    );
+  }
   return (
     <div data-rv="" className="os-panel-flat flex items-center gap-2.5 px-3 py-2.5 mb-5">
       <span style={{ background: 'rgba(125,255,168,0.12)' }} className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center"><Smartphone size={15} color={LED_GREEN} /></span>
-      <p style={{ color: colors.ink }} className="flex-1 text-[12px] leading-snug">
-        {isIOS
-          ? (isEN ? 'Tap Share → "Add to Home Screen" to find Offside instantly' : 'Tocca Condividi → "Aggiungi a Home" per ritrovarla subito')
-          : (isEN ? 'Add Offside to your home screen' : 'Aggiungi Offside alla schermata Home')}
-      </p>
-      {canInstall && !isIOS && (
+      <p style={{ color: colors.ink }} className="flex-1 text-[12px] leading-snug">{isEN ? 'Add Offside to your home screen' : 'Aggiungi Offside alla schermata Home'}</p>
+      {canInstall && (
         <button onClick={onInstallClick} className="os-focus os-btn os-btn-primary flex-shrink-0 text-[11px] px-3 py-1.5 rounded-full">{isEN ? 'Install' : 'Installa'}</button>
       )}
       <button onClick={onDismiss} className="os-focus flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10" aria-label={isEN ? 'Dismiss' : 'Chiudi'}><X size={14} color={colors.mutedInk} /></button>
@@ -3874,6 +3985,50 @@ function GoldButton({ children, onClick, href, full = false }) {
   return href
     ? <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} style={style} className={cls}>{inner}</a>
     : <button type="button" onClick={onClick} style={style} className={cls}>{inner}</button>;
+}
+
+// Scelta del piano Premium (annuale o mensile). Il prezzo che si paga davvero è il numero grande
+// a destra (Apple lo chiede: l'importo addebitato deve essere il più evidente); il "al mese" dell'annuale
+// sta nella riga piccola sotto.
+function PremiumPlanPicker({ plans, value, onChange, isEN }) {
+  return (
+    <div role="radiogroup" aria-label={isEN ? 'Choose your plan' : 'Scegli il piano'} className="space-y-2 mt-5">
+      {plans.map((p) => {
+        const on = value === p.key;
+        return (
+          <button
+            key={p.key}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => { if (!on) { haptic(8); onChange(p.key); } }}
+            className="os-focus os-press [--press:0.985] w-full flex items-center gap-3 rounded-[18px] pl-3.5 pr-4 py-3 text-left"
+            style={{
+              background: on ? 'linear-gradient(180deg, rgba(245,196,81,0.17), rgba(245,196,81,0.05))' : 'rgba(0,0,0,0.3)',
+              border: `1.5px solid ${on ? 'rgba(245,196,81,0.9)' : 'rgba(255,255,255,0.12)'}`,
+              boxShadow: on ? '0 0 0 4px rgba(245,196,81,0.1), 0 14px 30px -18px rgba(245,196,81,0.7)' : 'none',
+              transition: 'background 220ms ease, border-color 220ms ease, box-shadow 220ms ease',
+            }}
+          >
+            <span aria-hidden="true" className="flex-shrink-0 w-[22px] h-[22px] rounded-full flex items-center justify-center" style={{ border: `1.5px solid ${on ? colors.premiumGold : 'rgba(255,255,255,0.3)'}`, background: on ? colors.premiumGold : 'transparent', transition: 'background 200ms ease, border-color 200ms ease' }}>
+              {on && <Check size={12} color="#0B121A" weight="bold" className="os-check-pop" />}
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="flex items-center gap-1.5 flex-wrap">
+                <span style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[15.5px] font-bold leading-tight">{p.title}</span>
+                {p.badge && <span style={{ background: on ? colors.premiumGold : 'rgba(245,196,81,0.18)', color: on ? '#0B121A' : colors.premiumGold, fontFamily: BRICOLAGE, transition: 'background 200ms ease, color 200ms ease' }} className="rounded-full px-1.5 py-[2px] text-[10px] font-extrabold uppercase tracking-wide leading-none">{p.badge}</span>}
+              </span>
+              {p.sub && <span style={{ color: '#B8C4CE' }} className="block text-[12px] leading-snug mt-1">{p.sub}</span>}
+            </span>
+            <span className="flex-shrink-0 text-right">
+              <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="block text-[30px] leading-[0.9] os-tabular">{p.price}</span>
+              <span style={{ color: '#B8C4CE' }} className="block text-[11.5px] font-semibold mt-1">{p.per}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 // Il banner che porta a Premium, in stile "biglietto oro": cornice oro, etichetta PREMIUM e
@@ -4177,22 +4332,20 @@ function ReminderRow({ reminder, busy, note, onToggle, onTime, isEN }) {
   );
 }
 
+// Grafici dell'andamento: la libreria (Recharts) è pesante, quindi sta in src/charts.jsx e si
+// carica solo quando un grafico compare davvero. Nel frattempo c'è un segnaposto della stessa altezza.
+const loadCharts = () => import('./charts.jsx');
+const LazyTrendChart = React.lazy(() => loadCharts().then((m) => ({ default: m.TrendChart })));
+const LazyPainChart = React.lazy(() => loadCharts().then((m) => ({ default: m.PainChart })));
+function ChartPlaceholder({ height }) {
+  return <div aria-hidden="true" className="os-skel w-full" style={{ height }} />;
+}
+function TrendChart(props) {
+  return <React.Suspense fallback={<ChartPlaceholder height={props.height || 180} />}><LazyTrendChart {...props} /></React.Suspense>;
+}
 // Grafico del dolore (0-10) con le tre fasce del semaforo sullo sfondo. Premium.
-function PainChart({ data, isEN, height = 180 }) {
-  return (
-    <ResponsiveContainer width="100%" height={height}>
-      <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-        <ReferenceArea y1={0} y2={3.5} fill={LED_GREEN} fillOpacity={0.07} stroke="none" />
-        <ReferenceArea y1={3.5} y2={5.5} fill={colors.orange} fillOpacity={0.1} stroke="none" />
-        <ReferenceArea y1={5.5} y2={10} fill={colors.red} fillOpacity={0.1} stroke="none" />
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-        <XAxis dataKey="date" tick={{ fontSize: 11, fill: colors.mutedInk }} stroke="rgba(255,255,255,0.15)" />
-        <YAxis domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} tick={{ fontSize: 11, fill: colors.mutedInk }} width={34} stroke="rgba(255,255,255,0.15)" />
-        <Tooltip formatter={(v) => [v, isEN ? 'Pain' : 'Dolore']} isAnimationActive={false} contentStyle={{ background: '#0C1A14', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, color: '#ECF5EF' }} labelStyle={{ color: '#9DB3A7' }} itemStyle={{ color: '#ECF5EF' }} />
-        <Line type="monotone" dataKey="pain" stroke={colors.red} strokeWidth={2.5} dot={{ r: 4, fill: colors.red }} connectNulls animationDuration={900} animationEasing="ease-out" />
-      </LineChart>
-    </ResponsiveContainer>
-  );
+function PainChart(props) {
+  return <React.Suspense fallback={<ChartPlaceholder height={props.height || 180} />}><LazyPainChart {...props} /></React.Suspense>;
 }
 
 function ExerciseHelp({ ex, isEN, levels }) {
@@ -4260,16 +4413,6 @@ function ExerciseHelpBody({ ex, isEN }) {
       )}
     </div>
   );
-}
-
-function loadFontsOnce() {
-  if (typeof document === 'undefined') return;
-  if (document.getElementById('os-fonts')) return;
-  const link = document.createElement('link');
-  link.id = 'os-fonts';
-  link.rel = 'stylesheet';
-  link.href = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Public+Sans:wght@400..700&family=Bebas+Neue&display=swap';
-  document.head.appendChild(link);
 }
 
 function scrollToId(id, opts = {}) {
@@ -5367,7 +5510,7 @@ function MovementCameraOverlay({ test, isEN, onCancel, onComplete }) {
   // displayFont vive normalmente nel componente App (non è un modulo condiviso): essendo
   // questo un componente a parte, viene ridefinito qui identico per restare coerente con il
   // resto dell'app (titoli in Bricolage Grotesque).
-  const displayFont = { fontFamily: "'Bricolage Grotesque', sans-serif" };
+  const displayFont = { fontFamily: "'Bricolage Grotesque Variable', 'Bricolage Grotesque', sans-serif" };
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -5763,11 +5906,6 @@ function formatTodayLabel(isEN) {
 
 function prefersReducedMotion() {
   return typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
-// Vibrazione breve dove il telefono la supporta (Android): conferma tattile delle azioni.
-function haptic(pattern = 10) {
-  try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern); } catch (err) { /* nessuna vibrazione */ }
 }
 
 // Un numero che "corre" fino al valore, come sul tabellone. Parte quando entra in vista; se
@@ -6529,7 +6667,6 @@ export default function Offside() {
   const [teamForgot, setTeamForgot] = useState({ step: 'email', email: '', code: '', password: '', password2: '', status: 'idle', error: '' });
 
   useEffect(() => {
-    loadFontsOnce();
     (async () => {
       let loaded = {};
       try {
@@ -6635,6 +6772,22 @@ export default function Offside() {
       }
     })();
   }, []);
+
+  // App iPhone: link d'invito che aprono l'app, primo giorno d'uso (per la recensione) e vibrazione pronta.
+  useEffect(() => {
+    noteAppOpen();
+    warmUpHaptics();
+    initNativeLinks((url) => {
+      const code = inviteCodeFromUrl(url);
+      if (!code) return;
+      setJoinTeamCode(code);
+      setPendingInvite(code);
+      trackEvent('team_invite_opened', { via: 'app_link' });
+    });
+  }, []);
+
+  // Nei rapporti d'errore: in quale schermata è successo.
+  useEffect(() => { setErrorContext({ screen }); }, [screen]);
 
   useEffect(() => {
     const handler = (e) => { e.preventDefault(); setInstallPromptEvent(e); };
@@ -6764,6 +6917,8 @@ export default function Offside() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       setSaveError(false);
+      // App iPhone: copia anche nella memoria sicura del telefono (vedi storageBackup.js).
+      scheduleBackup();
     } catch (err) {
       setSaveError(true);
     }
@@ -6946,6 +7101,11 @@ export default function Offside() {
   // --- Acquisti in-app (solo app iPhone; sul sito questo blocco non fa nulla) ---
   const [iapOffer, setIapOffer] = useState(null);
   const [iapStatus, setIapStatus] = useState('idle'); // idle | buying | restoring | error | cancelled | notfound
+  // Piano scelto nella pagina Premium: 'annual' (49 € l'anno) o 'monthly'. Si parte dall'annuale,
+  // tranne nell'app quando c'è un'offerta introduttiva sul mensile (es. Black Friday).
+  const [premiumPlanChoice, setPremiumPlanChoice] = useState(null);
+  const annualAvailable = IS_NATIVE ? !!iapOffer?.annual : true;
+  const premiumPlan = !annualAvailable ? 'monthly' : (premiumPlanChoice || (IS_NATIVE && iapOffer?.intro && !iapOffer?.annual?.intro ? 'monthly' : 'annual'));
   const [iapChange, setIapChange] = useState(null); // { on, t }: esito del controllo/acquisto
 
   // Dopo il caricamento dei dati: Premium è attivo su Apple? Se l'abbonamento è scaduto
@@ -7003,13 +7163,13 @@ export default function Offside() {
 
   const iapBuy = async () => {
     if (iapStatus === 'buying' || iapStatus === 'restoring') return;
-    trackEvent('premium_unlock_clicked_native');
+    trackEvent('premium_unlock_clicked_native', { plan: premiumPlan });
     setIapStatus('buying');
     try {
       let offer = iapOffer;
       if (!offer) { offer = await loadPremiumOffer(); setIapOffer(offer); }
       if (!offer) { setIapStatus('error'); return; }
-      const res = await buyPremium(offer.pkg);
+      const res = await buyPremium(premiumPlan === 'annual' && offer.annual ? offer.annual.pkg : offer.pkg);
       if (res.ok) {
         trackEvent('premium_purchased_native');
         setIapChange({ on: true, t: Date.now() });
@@ -7356,7 +7516,8 @@ export default function Offside() {
     }
   };
 
-  const teamInviteLink = (code) => `https://myoffside.com/?squadra=${encodeURIComponent(code || '')}`;
+  // www: è l'indirizzo che risponde direttamente (senza reindirizzamenti), così il link apre l'app se è installata.
+  const teamInviteLink = (code) => `https://www.myoffside.com/?squadra=${encodeURIComponent(code || '')}`;
   const copyTeamInviteLink = async () => {
     const code = (teamDashboardData && teamDashboardData.inviteCode) || (teamAuth && teamAuth.inviteCode);
     if (!code) return;
@@ -7622,7 +7783,7 @@ export default function Offside() {
     persist(snapshot({ warmupLog: next }));
     if (!had) {
       trackEvent('warmup_done');
-      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30);
+      haptic('success');
     }
   };
 
@@ -7650,8 +7811,12 @@ export default function Offside() {
       clearTimeout(golTimerRef.current);
       setCelebration({ streak: computeStreak(nextForInjury).count });
       // la vibrazione arriva quando il pallone entra in rete, non prima
-      setTimeout(() => { try { if (navigator.vibrate) navigator.vibrate([40, 30, 60]); } catch (err) {} }, 220);
+      setTimeout(() => haptic('success'), 220);
       golTimerRef.current = setTimeout(closeCelebration, 2600);
+      // Dalla terza sessione (in giorni diversi) si può chiedere una recensione, a GOL finito.
+      const doneDays = new Set();
+      Object.values(nextLog).forEach((days) => Object.entries(days || {}).forEach(([day, entry]) => { if (entry && entry.done) doneDays.add(day); }));
+      if (doneDays.size >= 3) maybeAskForReview('sessions', 3000);
     }
   };
 
@@ -7819,7 +7984,7 @@ export default function Offside() {
     setScreen('triageResults');
   };
 
-  const bodyFont = { fontFamily: "'Public Sans', sans-serif" };
+  const bodyFont = { fontFamily: "'Public Sans Variable', 'Public Sans', sans-serif" };
 
   const injury = selectedInjury && injuriesData[selectedInjury] ? injuriesData[selectedInjury] : null;
   const severity = injury && selectedInjury ? (injurySeverities[selectedInjury] || 'moderato') : 'moderato';
@@ -7903,7 +8068,7 @@ export default function Offside() {
   if (loading) {
     const browserIsEN = typeof navigator !== 'undefined' && !navigator.language?.toLowerCase().startsWith('it');
     return (
-      <div style={{ background: 'radial-gradient(120% 60% at 50% -10%, #0B2318 0%, #050E0A 55%, #020604 100%)', color: '#9DB3A7', fontFamily: "'Public Sans', sans-serif" }} className="w-full min-h-[100dvh] flex flex-col items-center justify-center gap-4">
+      <div style={{ background: 'radial-gradient(120% 60% at 50% -10%, #0B2318 0%, #050E0A 55%, #020604 100%)', color: '#9DB3A7', fontFamily: "'Public Sans Variable', 'Public Sans', sans-serif" }} className="w-full min-h-[100dvh] flex flex-col items-center justify-center gap-4">
         <LogoMark size={48} color={LED_GREEN} animated delay={0.15} glow />
         <p className="text-sm">{browserIsEN ? 'Loading your data…' : 'Carico i tuoi dati…'}</p>
       </div>
@@ -8067,36 +8232,41 @@ export default function Offside() {
           </svg>
         </div>
 
-        <main className={`relative flex flex-col flex-1 px-6 sm:px-10 ${!cookieChoice ? 'pb-56' : 'pb-8'}`} style={{ paddingTop: 'calc(64px + env(safe-area-inset-top, 0px))' }}>
-          <div className="flex items-center justify-end mb-10 os-rise" style={{ '--d': '1.5s' }}>
-            <Segmented items={languageItems} value={isEN ? 'en' : 'it'} onChange={pickLanguage} role="radiogroup" ariaLabel={isEN ? 'Language' : 'Lingua'} size="sm" className="w-[104px]" />
-          </div>
-
-          <div className="flex-1 flex flex-col justify-center mb-8">
-            <div className="flex items-center gap-3 mb-3">
-              <span style={{ background: 'radial-gradient(circle at 40% 35%, #163B2B, #07140E)', border: `1.5px solid ${LED_GREEN}55`, boxShadow: `0 0 30px ${LED_GREEN}33` }} className="w-14 h-14 rounded-2xl flex items-center justify-center os-rise [--d:1.55s]">
-                <LogoMark size={30} color={LED_GREEN} animated delay={1.75} glow />
+        <main className={`relative flex flex-col flex-1 px-6 sm:px-10 ${!cookieChoice ? 'pb-56' : 'pb-7'}`} style={{ paddingTop: 'calc(58px + env(safe-area-inset-top, 0px))' }}>
+          {/* Marchio e lingua sulla stessa riga: così "Inizia il tuo percorso" si vede senza scorrere
+              anche su un iPhone SE (375×667). */}
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span style={{ background: 'radial-gradient(circle at 40% 35%, #163B2B, #07140E)', border: `1.5px solid ${LED_GREEN}55`, boxShadow: `0 0 26px ${LED_GREEN}33` }} className="flex-shrink-0 w-11 h-11 rounded-[14px] flex items-center justify-center os-rise [--d:1.55s]">
+                <LogoMark size={24} color={LED_GREEN} animated delay={1.75} glow />
               </span>
               <p style={{ fontFamily: BRICOLAGE, color: colors.mutedInk }} className="text-[13px] font-semibold leading-snug os-rise [--d:1.7s]">{isEN ? 'For players and teams' : 'Per giocatori e squadre'}</p>
             </div>
-            <h1 className="os-cond font-extrabold leading-[0.86] text-[86px] min-[380px]:text-[96px] sm:text-[112px]" style={{ letterSpacing: '-0.03em' }} aria-label="Offside">
+            <div className="flex-shrink-0 os-rise" style={{ '--d': '1.5s' }}>
+              <Segmented items={languageItems} value={isEN ? 'en' : 'it'} onChange={pickLanguage} role="radiogroup" ariaLabel={isEN ? 'Language' : 'Lingua'} size="sm" className="w-[104px]" />
+            </div>
+          </div>
+
+          <div className="flex-1 flex flex-col justify-center mb-5">
+            {/* Sempre su una riga: la misura segue sia la larghezza sia l'altezza dello schermo. */}
+            <h1 className="os-cond font-extrabold leading-[0.86] whitespace-nowrap" style={{ letterSpacing: '-0.03em', fontSize: 'clamp(70px, min(25vw, 14vh), 112px)' }} aria-label="Offside">
               {'OFFSIDE'.split('').map((ch, i) => (
                 <span key={i} className="os-letter-in" style={{ '--d': `${1.85 + i * 0.06}s`, color: i < 3 ? '#FFFFFF' : LED_GREEN, textShadow: i < 3 ? '0 0 40px rgba(255,255,255,0.12)' : `0 0 30px ${LED_GREEN}66` }} aria-hidden="true">{ch}</span>
               ))}
             </h1>
           </div>
 
-          <ul className="mb-7">
+          <ul className="os-cover-points mb-5">
             {coverPoints.map((p, i) => (
-              <li key={i} className="os-rise flex items-center gap-3.5 py-3" style={{ '--d': `${2.25 + i * 0.12}s`, borderTop: i ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
-                <span style={{ background: 'rgba(125,255,168,0.1)', border: `1px solid ${LED_GREEN}33` }} className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"><p.icon size={19} color={LED_GREEN} /></span>
-                <p style={{ color: colors.ink }} className="text-[14.5px] leading-snug font-medium">{p.text}</p>
+              <li key={i} className="os-rise flex items-center gap-3.5" style={{ '--d': `${2.25 + i * 0.12}s`, borderTop: i ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+                <span style={{ background: 'rgba(125,255,168,0.1)', border: `1px solid ${LED_GREEN}33` }} className="os-cover-ico flex-shrink-0 flex items-center justify-center"><p.icon size={19} color={LED_GREEN} /></span>
+                <p style={{ color: colors.ink }} className="leading-snug font-medium">{p.text}</p>
               </li>
             ))}
           </ul>
 
           <div className="os-rise" style={{ '--d': '2.6s' }}>
-            <button onClick={() => { setDisclaimerAccepted(!disclaimerAccepted); haptic(8); }} role="checkbox" aria-checked={disclaimerAccepted} className="os-focus w-full flex items-start gap-3 mb-5 text-left rounded-xl">
+            <button onClick={() => { setDisclaimerAccepted(!disclaimerAccepted); haptic(8); }} role="checkbox" aria-checked={disclaimerAccepted} className="os-focus w-full flex items-start gap-3 mb-4 text-left rounded-xl">
               <span style={{ background: disclaimerAccepted ? `radial-gradient(circle at 35% 30%, ${LED_GREEN}, ${colors.accent})` : 'rgba(255,255,255,0.05)', border: `1.5px solid ${disclaimerAccepted ? colors.accent : 'rgba(255,255,255,0.25)'}`, boxShadow: disclaimerAccepted ? `0 0 14px ${LED_GREEN}66` : 'none', transition: 'all 220ms ease' }} className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center mt-0.5">
                 {disclaimerAccepted && <Check size={14} color="#03130A" weight="bold" className="os-check-pop" />}
               </span>
@@ -8320,6 +8490,58 @@ export default function Offside() {
   const todayLabelCap = todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1);
 
   // Titolo della schermata: grande nel contenuto, piccolo nella barra in alto quando scorri.
+  // Piani della pagina Premium. Sito: prezzi di Stripe (costanti in cima al file). App iPhone: prezzi
+  // veri di App Store, letti da RevenueCat; l'annuale compare solo se è nell'offerta di RevenueCat.
+  const premiumPlanOptions = (() => {
+    const offerBadge = isBlackFriday() ? 'Black Friday' : (isEN ? 'Offer' : 'Offerta');
+    if (IS_NATIVE) {
+      const a = iapOffer?.annual;
+      if (!a) return null;
+      const m = iapOffer;
+      const saving = a.price > 0 && m.price > 0 ? Math.round((1 - a.price / (m.price * 12)) * 100) : 0;
+      return [
+        {
+          key: 'annual', title: isEN ? 'Yearly' : 'Annuale',
+          badge: a.intro ? offerBadge : (saving >= 5 ? `−${saving}%` : null),
+          price: a.intro?.priceString || a.priceString, per: isEN ? 'per year' : "all'anno",
+          sub: a.intro
+            ? (isEN ? `${introSpan(a.intro, true)}, then ${a.priceString} per year` : `${introSpan(a.intro, false)}, poi ${a.priceString} all'anno`)
+            : (a.pricePerMonthString ? (isEN ? `${a.pricePerMonthString} a month, one payment a year` : `${a.pricePerMonthString} al mese, un pagamento l'anno`) : ''),
+        },
+        {
+          key: 'monthly', title: isEN ? 'Monthly' : 'Mensile',
+          badge: m.intro ? offerBadge : null,
+          price: m.intro?.priceString || m.priceString || (isEN ? NATIVE_PRICE.en : NATIVE_PRICE.it), per: isEN ? 'per month' : 'al mese',
+          sub: m.intro
+            ? (isEN ? `${introSpan(m.intro, true)}, then ${m.priceString} per month` : `${introSpan(m.intro, false)}, poi ${m.priceString} al mese`)
+            : (isEN ? 'Cancel anytime' : 'Disdici quando vuoi'),
+        },
+      ];
+    }
+    return [
+      {
+        key: 'annual', title: isEN ? 'Yearly' : 'Annuale', badge: `−${PREMIUM_ANNUAL_SAVING_PCT}%`,
+        price: isEN ? PREMIUM_ANNUAL_PRICE.en : PREMIUM_ANNUAL_PRICE.it, per: isEN ? 'per year' : "all'anno",
+        sub: isEN ? `${PREMIUM_ANNUAL_PER_MONTH.en} a month, one payment a year` : `${PREMIUM_ANNUAL_PER_MONTH.it} al mese, un pagamento l'anno`,
+      },
+      {
+        key: 'monthly', title: isEN ? 'Monthly' : 'Mensile', badge: null,
+        price: isEN ? PREMIUM_PRICE.en : PREMIUM_PRICE.it, per: isEN ? 'per month' : 'al mese',
+        sub: isEN ? 'Renews every month' : 'Si rinnova ogni mese',
+      },
+    ];
+  })();
+  // Etichetta del bottone d'acquisto: il prezzo del piano scelto.
+  const premiumCtaPrice = (() => {
+    if (IS_NATIVE) {
+      if (premiumPlan === 'annual' && iapOffer?.annual) return `${iapOffer.annual.intro?.priceString || iapOffer.annual.priceString}${isEN ? '/year' : '/anno'}`;
+      return `${iapOffer?.intro?.priceString || iapOffer?.priceString || (isEN ? NATIVE_PRICE.en : NATIVE_PRICE.it)}${isEN ? '/month' : '/mese'}`;
+    }
+    return premiumPlan === 'annual'
+      ? (isEN ? `${PREMIUM_ANNUAL_PRICE.en}/year` : `${PREMIUM_ANNUAL_PRICE.it}/anno`)
+      : (isEN ? `${PREMIUM_PRICE.en}/month` : `${PREMIUM_PRICE.it}/mese`);
+  })();
+
   const screenTitle = screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Today' : 'Oggi')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'triageResults' ? (isEN ? 'Possible matches' : 'Possibili corrispondenze') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'movementScreen' ? (isEN ? 'Movement screening' : 'Screening del movimento') : screen === 'teamRegister' ? (isEN ? 'Register your team' : 'Registra la squadra') : screen === 'teamLogin' ? (isEN ? 'Team login' : 'Accedi alla squadra') : screen === 'teamForgot' ? (isEN ? 'New password' : 'Nuova password') : screen === 'teamDashboard' ? (teamAuth?.teamName || 'Offside Squadre') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso');
 
   // Sessione guidata aperta: quali esercizi, con quali spunte e cosa succede alla fine.
@@ -8582,7 +8804,8 @@ export default function Offside() {
               </div>
             )}
 
-            {!installDismissed && !(typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches) && (
+            {/* Mai dentro l'app iPhone: lì Offside è già installata. */}
+            {!IS_NATIVE && !installDismissed && !(typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches) && (
               <InstallBanner
                 isEN={isEN}
                 canInstall={!!installPromptEvent}
@@ -8692,6 +8915,15 @@ export default function Offside() {
 
                 <SectionTitle id="sez-trova" title={isEN ? 'Find your injury' : 'Trova il tuo infortunio'} hint={isEN ? 'Four steps to a phase-by-phase plan.' : 'Quattro tappe per avere un percorso fase per fase.'} />
                 <FlowSteps current={0} isEN={isEN} />
+                <InjurySearch
+                  injuriesData={injuriesData}
+                  regions={regions}
+                  regionLabels={regionLabels}
+                  isEN={isEN}
+                  liveKeys={activeInjuryKeys}
+                  onTriage={startTriage}
+                  onPick={(key) => { trackEvent('injury_search_pick', { injury: key }); setSelectedRegion(null); chooseInjury(key); }}
+                />
                 <div className="mb-7" data-rv="">
                   <BodyDiagram
                     onSelectRegion={openRegion}
@@ -8912,27 +9144,36 @@ export default function Offside() {
                       <LogoMark size={15} color={colors.premiumGold} strokeWidth={2.5} />
                       <span style={{ fontFamily: BRICOLAGE, color: 'rgba(245,196,81,0.85)', letterSpacing: '0.18em' }} className="text-[10px] font-bold uppercase">Offside</span>
                     </div>
-                    <p style={{ fontFamily: BEBAS, letterSpacing: '0.02em' }} className="os-gold-text text-[84px] leading-[0.82]" aria-hidden="true">
+                    <p style={{ fontFamily: BEBAS, letterSpacing: '0.02em', fontSize: 'clamp(60px, 21vw, 84px)' }} className="os-gold-text leading-[0.82] whitespace-nowrap" aria-hidden="true">
                       <SplitWords text="PREMIUM" base={80} step={50} />
                     </p>
                     <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="text-[19px] font-bold leading-snug mt-3">{isEN ? 'The whole path, all the way back' : 'Tutto il percorso, fino al rientro'}</p>
                     <p style={{ color: '#B8C4CE' }} className="text-sm leading-relaxed mt-1.5">{isEN ? 'Phases 1 and 2 of every injury are free. Premium unlocks phase 3, a daily plan that adapts to your pain, and levels for every exercise.' : 'Le fasi 1 e 2 di ogni infortunio sono gratis. Con Premium sblocchi la fase 3, il piano di oggi che si adatta al dolore e i livelli per ogni esercizio.'}</p>
-                    {IS_NATIVE && iapOffer?.intro ? (
-                      <div className="mt-4">
-                        <span style={{ background: '#05070A', color: '#FFFFFF', border: '1px solid rgba(245,196,81,0.6)', fontFamily: BRICOLAGE, letterSpacing: '0.16em' }} className="inline-block rounded-full px-2.5 py-1 text-[10px] font-bold uppercase mb-2">{isBlackFriday() ? 'Black Friday' : (isEN ? 'Welcome offer' : 'Offerta di benvenuto')}</span>
-                        <p className="flex items-baseline gap-2 flex-wrap">
-                          <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-[48px] leading-none">{iapOffer.intro.priceString}</span>
-                          {iapOffer.priceString && <span style={{ color: '#B8C4CE' }} className="text-[15px] line-through">{iapOffer.priceString}</span>}
-                          <span style={{ color: '#B8C4CE' }} className="text-sm">{isEN ? 'per month' : 'al mese'}</span>
-                        </p>
-                        <p style={{ color: '#B8C4CE' }} className="text-[12.5px] leading-snug mt-1">{introSpan(iapOffer.intro, isEN)}{iapOffer.priceString ? (isEN ? `, then ${iapOffer.priceString} per month` : `, poi ${iapOffer.priceString} al mese`) : ''}</p>
-                      </div>
-                    ) : (
-                    <p className="flex items-baseline gap-2 mt-4">
-                      <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-[48px] leading-none">{IS_NATIVE ? (iapOffer?.priceString || (isEN ? NATIVE_PRICE.en : NATIVE_PRICE.it)) : (isEN ? PREMIUM_PRICE.en : PREMIUM_PRICE.it)}</span>
-                      <span style={{ color: '#B8C4CE' }} className="text-sm">{isEN ? 'per month' : 'al mese'}</span>
-                    </p>
-                    )}
+                    {premiumPlanOptions ? (
+                      <PremiumPlanPicker
+                        plans={premiumPlanOptions}
+                        value={premiumPlan}
+                        isEN={isEN}
+                        onChange={(k) => { setPremiumPlanChoice(k); trackEvent('premium_plan_selected', { plan: k }); }}
+                      />
+                    ) : (<>
+                      {IS_NATIVE && iapOffer?.intro ? (
+                        <div className="mt-4">
+                          <span style={{ background: '#05070A', color: '#FFFFFF', border: '1px solid rgba(245,196,81,0.6)', fontFamily: BRICOLAGE, letterSpacing: '0.16em' }} className="inline-block rounded-full px-2.5 py-1 text-[10px] font-bold uppercase mb-2">{isBlackFriday() ? 'Black Friday' : (isEN ? 'Welcome offer' : 'Offerta di benvenuto')}</span>
+                          <p className="flex items-baseline gap-2 flex-wrap">
+                            <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-[48px] leading-none">{iapOffer.intro.priceString}</span>
+                            {iapOffer.priceString && <span style={{ color: '#B8C4CE' }} className="text-[15px] line-through">{iapOffer.priceString}</span>}
+                            <span style={{ color: '#B8C4CE' }} className="text-sm">{isEN ? 'per month' : 'al mese'}</span>
+                          </p>
+                          <p style={{ color: '#B8C4CE' }} className="text-[12.5px] leading-snug mt-1">{introSpan(iapOffer.intro, isEN)}{iapOffer.priceString ? (isEN ? `, then ${iapOffer.priceString} per month` : `, poi ${iapOffer.priceString} al mese`) : ''}</p>
+                        </div>
+                      ) : (
+                      <p className="flex items-baseline gap-2 mt-4">
+                        <span style={{ fontFamily: BEBAS, color: '#FFFFFF', letterSpacing: '0.02em' }} className="text-[48px] leading-none">{IS_NATIVE ? (iapOffer?.priceString || (isEN ? NATIVE_PRICE.en : NATIVE_PRICE.it)) : (isEN ? PREMIUM_PRICE.en : PREMIUM_PRICE.it)}</span>
+                        <span style={{ color: '#B8C4CE' }} className="text-sm">{isEN ? 'per month' : 'al mese'}</span>
+                      </p>
+                      )}
+                    </>)}
                   </div>
                   <div className="relative h-5" aria-hidden="true">
                     <span style={{ backgroundColor: colors.night }} className="absolute -left-2.5 top-0 w-5 h-5 rounded-full" />
@@ -8966,19 +9207,28 @@ export default function Offside() {
                   <>
                     <GoldButton full onClick={iapBuy}>
                       <span>
-                        {iapStatus === 'buying' ? '...' : (<>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{iapOffer?.intro?.priceString || iapOffer?.priceString || (isEN ? NATIVE_PRICE.en : NATIVE_PRICE.it)}{isEN ? '/month' : '/mese'}</>)}
+                        {iapStatus === 'buying' ? '...' : (<>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{premiumCtaPrice}</>)}
                       </span><ArrowRight size={16} />
                     </GoldButton>
                     {iapStatus === 'error' && <p role="alert" style={{ color: colors.red }} className="text-xs text-center mt-2">{isEN ? 'Purchase not completed. Please try again in a moment.' : 'Acquisto non completato. Riprova tra poco.'}</p>}
                     {iapStatus === 'cancelled' && <p style={{ color: colors.mutedInk }} className="text-xs text-center mt-2">{isEN ? 'Purchase cancelled.' : 'Acquisto annullato.'}</p>}
                     {iapStatus === 'notfound' && <p style={{ color: colors.mutedInk }} className="text-xs text-center mt-2">{isEN ? 'No purchases to restore for this Apple Account.' : 'Nessun acquisto da ripristinare per questo Apple Account.'}</p>}
                     <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed text-center mt-3">
-                      {iapOffer?.intro && (isEN
-                        ? `Offer for new subscribers: ${iapOffer.intro.priceString} per month ${introSpan(iapOffer.intro, true)}, then ${iapOffer.priceString || NATIVE_PRICE.en} per month. `
-                        : `Offerta per nuovi abbonati: ${iapOffer.intro.priceString} al mese ${introSpan(iapOffer.intro, false)}, poi ${iapOffer.priceString || NATIVE_PRICE.it} al mese. `)}
-                      {isEN
-                        ? `Monthly subscription, ${iapOffer?.priceString || NATIVE_PRICE.en} per month. Payment is charged to your Apple Account at purchase confirmation. The subscription renews automatically every month unless you cancel it at least 24 hours before the end of the period. You can manage or cancel it any time in Settings > your name > Subscriptions. `
-                        : `Abbonamento mensile, ${iapOffer?.priceString || NATIVE_PRICE.it} al mese. Il pagamento viene addebitato sul tuo Apple Account alla conferma dell'acquisto. L'abbonamento si rinnova automaticamente ogni mese, salvo disdetta almeno 24 ore prima della fine del periodo. Puoi gestirlo o annullarlo in qualsiasi momento da Impostazioni > il tuo nome > Abbonamenti. `}
+                      {premiumPlan === 'annual' && iapOffer?.annual ? (<>
+                        {iapOffer.annual.intro && (isEN
+                          ? `Offer for new subscribers: ${iapOffer.annual.intro.priceString} ${introSpan(iapOffer.annual.intro, true)}, then ${iapOffer.annual.priceString} per year. `
+                          : `Offerta per nuovi abbonati: ${iapOffer.annual.intro.priceString} ${introSpan(iapOffer.annual.intro, false)}, poi ${iapOffer.annual.priceString} all'anno. `)}
+                        {isEN
+                          ? `Yearly subscription, ${iapOffer.annual.priceString} per year. Payment is charged to your Apple Account at purchase confirmation. The subscription renews automatically every year unless you cancel it at least 24 hours before the end of the period. You can manage or cancel it any time in Settings > your name > Subscriptions. `
+                          : `Abbonamento annuale, ${iapOffer.annual.priceString} all'anno. Il pagamento viene addebitato sul tuo Apple Account alla conferma dell'acquisto. L'abbonamento si rinnova automaticamente ogni anno, salvo disdetta almeno 24 ore prima della fine del periodo. Puoi gestirlo o annullarlo in qualsiasi momento da Impostazioni > il tuo nome > Abbonamenti. `}
+                      </>) : (<>
+                        {iapOffer?.intro && (isEN
+                          ? `Offer for new subscribers: ${iapOffer.intro.priceString} per month ${introSpan(iapOffer.intro, true)}, then ${iapOffer.priceString || NATIVE_PRICE.en} per month. `
+                          : `Offerta per nuovi abbonati: ${iapOffer.intro.priceString} al mese ${introSpan(iapOffer.intro, false)}, poi ${iapOffer.priceString || NATIVE_PRICE.it} al mese. `)}
+                        {isEN
+                          ? `Monthly subscription, ${iapOffer?.priceString || NATIVE_PRICE.en} per month. Payment is charged to your Apple Account at purchase confirmation. The subscription renews automatically every month unless you cancel it at least 24 hours before the end of the period. You can manage or cancel it any time in Settings > your name > Subscriptions. `
+                          : `Abbonamento mensile, ${iapOffer?.priceString || NATIVE_PRICE.it} al mese. Il pagamento viene addebitato sul tuo Apple Account alla conferma dell'acquisto. L'abbonamento si rinnova automaticamente ogni mese, salvo disdetta almeno 24 ore prima della fine del periodo. Puoi gestirlo o annullarlo in qualsiasi momento da Impostazioni > il tuo nome > Abbonamenti. `}
+                      </>)}
                     </p>
                     <p className="text-xs text-center mt-1.5">
                       <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noopener noreferrer" style={{ color: colors.mutedInk }} className="underline hover:opacity-70">{isEN ? 'Terms of Use (Apple EULA)' : 'Termini d\'uso (EULA Apple)'}</a>
@@ -9009,8 +9259,8 @@ export default function Offside() {
                     <ArrowRight size={16} color={colors.ink} />
                   </a>
                 ))}
-                <GoldButton full href={STRIPE_PAYMENT_LINK} onClick={() => trackEvent('premium_unlock_clicked')}>
-                  <span>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{isEN ? `${PREMIUM_PRICE.en}/month` : `${PREMIUM_PRICE.it}/mese`}</span><ArrowRight size={16} />
+                <GoldButton full href={premiumPlan === 'annual' ? STRIPE_ANNUAL_LINK : STRIPE_PAYMENT_LINK} onClick={() => trackEvent('premium_unlock_clicked', { plan: premiumPlan })}>
+                  <span>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{premiumCtaPrice}</span><ArrowRight size={16} />
                 </GoldButton>
                 <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed text-center mt-3">
                   {isEN ? 'Secure payment with Stripe: after paying you come back here and Premium turns on by itself. ' : 'Pagamento sicuro con Stripe: dopo il pagamento torni qui e Premium si attiva da solo. '}
@@ -9089,7 +9339,6 @@ export default function Offside() {
               const chartData = buildChartData(injuryLog, isEN);
               const feelingLabel = (v) => ({ 3: isEN ? 'Good' : 'Bene', 2: isEN ? 'So-so' : 'Così così', 1: isEN ? 'Bad' : 'Male' }[v] || '');
               const stiffnessLabel = (v) => ({ 3: isEN ? 'None' : 'Nessuna', 2: isEN ? 'A little' : 'Un po\'', 1: isEN ? 'A lot' : 'Tanta' }[v] || '');
-              const tooltipStyle = { contentStyle: { background: '#0C1A14', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, color: '#ECF5EF' }, labelStyle: { color: '#9DB3A7' }, itemStyle: { color: '#ECF5EF' } };
               return (
                 <>
                   {chartData.length === 0 ? (
@@ -9098,15 +9347,7 @@ export default function Offside() {
                     <>
                       <div data-rv="" className="os-panel p-4 mb-4">
                         <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold mb-3">{isEN ? 'How you\'ve been feeling' : 'Come ti sei sentito'}</p>
-                        <ResponsiveContainer width="100%" height={180}>
-                          <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: colors.mutedInk }} stroke="rgba(255,255,255,0.15)" />
-                            <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tickFormatter={feelingLabel} tick={{ fontSize: 11, fill: colors.mutedInk }} width={70} stroke="rgba(255,255,255,0.15)" />
-                            <Tooltip formatter={feelingLabel} isAnimationActive={false} {...tooltipStyle} />
-                            <Line type="monotone" dataKey="feeling" stroke={LED_GREEN} strokeWidth={2.5} dot={{ r: 4, fill: LED_GREEN }} connectNulls animationDuration={900} animationEasing="ease-out" />
-                          </LineChart>
-                        </ResponsiveContainer>
+                        <TrendChart data={chartData} dataKey="feeling" color={LED_GREEN} height={180} formatter={feelingLabel} />
                       </div>
 
                       {chartData.some((d) => d.pain != null) && (
@@ -9119,15 +9360,7 @@ export default function Offside() {
 
                       <div data-rv="" className="os-panel p-4 mb-5">
                         <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold mb-3">{isEN ? 'Stiffness trend' : 'Andamento rigidità'}</p>
-                        <ResponsiveContainer width="100%" height={180}>
-                          <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: colors.mutedInk }} stroke="rgba(255,255,255,0.15)" />
-                            <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tickFormatter={stiffnessLabel} tick={{ fontSize: 11, fill: colors.mutedInk }} width={70} stroke="rgba(255,255,255,0.15)" />
-                            <Tooltip formatter={stiffnessLabel} isAnimationActive={false} {...tooltipStyle} />
-                            <Line type="monotone" dataKey="stiffness" stroke={colors.orange} strokeWidth={2.5} dot={{ r: 4, fill: colors.orange }} connectNulls animationDuration={900} animationEasing="ease-out" />
-                          </LineChart>
-                        </ResponsiveContainer>
+                        <TrendChart data={chartData} dataKey="stiffness" color={colors.orange} height={180} formatter={stiffnessLabel} />
                       </div>
                     </>
                   )}
@@ -10298,15 +10531,7 @@ export default function Offside() {
                     return chartData.length === 0 ? (
                       <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'Log a few daily sessions first, then your chart appears here.' : 'Registra qualche sessione giornaliera, poi il grafico compare qui.'}</p>
                     ) : (
-                      <ResponsiveContainer width="100%" height={140}>
-                        <LineChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: colors.mutedInk }} stroke="rgba(255,255,255,0.15)" />
-                          <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tick={{ fontSize: 10, fill: colors.mutedInk }} width={30} stroke="rgba(255,255,255,0.15)" />
-                          <Tooltip isAnimationActive={false} contentStyle={{ background: '#0C1A14', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, color: '#ECF5EF' }} />
-                          <Line type="monotone" dataKey="feeling" stroke={LED_GREEN} strokeWidth={2.5} dot={{ r: 3, fill: LED_GREEN }} connectNulls animationDuration={700} animationEasing="ease-out" />
-                        </LineChart>
-                      </ResponsiveContainer>
+                      <TrendChart data={chartData} dataKey="feeling" color={LED_GREEN} height={140} yWidth={30} compact animationDuration={700} />
                     );
                   })() : (
                     <div className="relative">
@@ -10670,7 +10895,7 @@ export default function Offside() {
                             <div style={{ background: 'rgba(125,255,168,0.1)', border: `1px solid ${LED_GREEN}44` }} className="rounded-2xl p-3.5 mt-3 os-card-in">
                               <p style={{ color: LED_GREEN }} className="text-sm font-bold mb-2.5">{isEN ? 'Looks like you\'re ready.' : 'Sembra che tu sia pronto.'}</p>
                               {nextLocked && <p style={{ color: colors.mutedInk }} className="text-[12px] leading-snug mb-2.5">{isEN ? `Phase ${nextNo} is included in Premium: you can see the overview, the exercises unlock with Premium.` : `La fase ${nextNo} è inclusa in Premium: la panoramica la vedi, gli esercizi si sbloccano con Premium.`}</p>}
-                              <button onClick={() => { haptic([10, 30, 16]); changePhase(activePhase + 1); }} className="os-focus os-btn os-btn-primary w-full py-3 text-xs uppercase tracking-wide">
+                              <button onClick={() => { haptic([10, 30, 16]); changePhase(activePhase + 1); maybeAskForReview('phase', 1500); }} className="os-focus os-btn os-btn-primary w-full py-3 text-xs uppercase tracking-wide">
                                 {nextLocked && <Lock size={14} weight="fill" />}{isEN ? 'Move to the next phase' : 'Passa alla fase successiva'}<ArrowRight size={14} />
                               </button>
                             </div>
@@ -10759,15 +10984,7 @@ export default function Offside() {
                           <p data-rv="" style={{ color: colors.mutedInk }} className="os-panel-flat text-[13px] leading-relaxed p-4 mb-5">{isEN ? 'Log a few daily sessions first, then your chart appears here.' : 'Registra qualche sessione giornaliera, poi il grafico compare qui.'}</p>
                         ) : (
                           <div data-rv="" className="os-panel p-4 mb-5">
-                            <ResponsiveContainer width="100%" height={170}>
-                              <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                                <XAxis dataKey="date" tick={{ fontSize: 11, fill: colors.mutedInk }} stroke="rgba(255,255,255,0.15)" />
-                                <YAxis domain={[1, 3]} ticks={[1, 2, 3]} tickFormatter={feelingLabel} tick={{ fontSize: 11, fill: colors.mutedInk }} width={70} stroke="rgba(255,255,255,0.15)" />
-                                <Tooltip formatter={feelingLabel} isAnimationActive={false} contentStyle={{ background: '#0C1A14', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, color: '#ECF5EF' }} />
-                                <Line type="monotone" dataKey="feeling" stroke={LED_GREEN} strokeWidth={2.5} dot={{ r: 4, fill: LED_GREEN }} connectNulls animationDuration={900} animationEasing="ease-out" />
-                              </LineChart>
-                            </ResponsiveContainer>
+                            <TrendChart data={chartData} dataKey="feeling" color={LED_GREEN} height={170} formatter={feelingLabel} />
                             {chartData.some((d) => d.pain != null) && (
                               <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                                 <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[14px] font-bold mb-2">{isEN ? 'Pain, from 0 to 10' : 'Dolore, da 0 a 10'}</p>

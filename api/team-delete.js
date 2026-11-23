@@ -17,9 +17,7 @@ import Stripe from 'stripe';
 import bcrypt from 'bcryptjs';
 import { redis } from './_lib/redis.js';
 import { getTeamBySessionToken, normalizeEmail } from './_lib/team.js';
-
-// Stessa soglia di stripe-webhook.js: sopra questa cifra (in centesimi) un abbonamento è "Squadre".
-const TEAM_PLAN_MIN_CENTS = 1000;
+import { isTeamSubscription } from './_lib/teamBilling.js';
 
 // Dopo troppi tentativi di password sbagliata si blocca per un po': evita che qualcuno
 // con un token rubato indovini la password da qui.
@@ -47,15 +45,6 @@ async function findStripeCustomerKeys(email) {
   return matching;
 }
 
-function isTeamPlanSubscription(subscription) {
-  const items = (subscription && subscription.items && subscription.items.data) || [];
-  return items.some((item) => {
-    const unit = item.price && Number.isFinite(item.price.unit_amount) ? item.price.unit_amount : 0;
-    const qty = Number.isFinite(item.quantity) ? item.quantity : 1;
-    return unit * qty >= TEAM_PLAN_MIN_CENTS;
-  });
-}
-
 // Annulla gli abbonamenti Squadre dei clienti indicati. Lancia un errore se qualcosa va storto.
 // Restituisce le chiavi `customer:*` che non servono più (nessun altro abbonamento attivo).
 async function cancelTeamSubscriptions(customerKeys) {
@@ -71,7 +60,7 @@ async function cancelTeamSubscriptions(customerKeys) {
     for (const sub of subs.data) {
       const live = ['active', 'trialing', 'past_due', 'unpaid', 'incomplete'].includes(sub.status);
       if (!live) continue;
-      if (isTeamPlanSubscription(sub)) {
+      if (isTeamSubscription(sub)) {
         await stripe.subscriptions.cancel(sub.id);
       } else {
         stillNeeded = true; // abbonamento Premium individuale: il collegamento cliente->email serve ancora

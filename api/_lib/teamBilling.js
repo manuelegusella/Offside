@@ -17,19 +17,28 @@ import { SEASON } from './teamPlans.js';
 export const TEAM_MONTHLY_PRICE_ID = 'price_1UGg50EKB2kie19iAGtfG7NL'; // OFFSIDE Squadre, 50 €/mese
 export const TEAM_MONTHLY_PRODUCT_ID = 'prod_VHEYwEStwC0OP5';
 export const TEAM_SEASON_PRODUCT_ID = 'prod_VHheSawZCb0Wat'; // OFFSIDE Squadre — Pass Stagionale
+// Premium individuale del sito: un solo prodotto, con il prezzo mensile e quello annuale.
+export const PREMIUM_PRODUCT_ID = 'prod_VFLWguN2BduRWi';
+const PREMIUM_PRICE_IDS = new Set([
+  'price_1UevqOEKB2kie19iPxVWKH9a', // 4,99 €/mese
+  'price_1UezVPEKB2kie19ipdhKW35E', // 49 €/anno
+  'price_1UEqpCEKB2kie19ibGKeDtNQ', // 3,99 €/mese (vecchio, solo abbonati già attivi)
+]);
 
-// Vecchi Payment Link: servono a riconoscere i pagamenti partiti da pagine ancora aperte.
+// Payment Link: servono a riconoscere i pagamenti partiti da pagine ancora aperte.
 const PAYMENT_LINK_KIND = {
   plink_1UGg8SEKB2kie19i3caBsuXR: 'team_monthly',
   plink_1UH8FZEKB2kie19iC3SD0Zr6: 'team_season',
-  plink_1UevqTEKB2kie19i5IVjwK9H: 'premium',
-  plink_1UEqroEKB2kie19i1E2Dj0FA: 'premium',
+  plink_1UevqTEKB2kie19i5IVjwK9H: 'premium', // Premium 4,99 €/mese
+  plink_1UezVYEKB2kie19iukVM04Bp: 'premium', // Premium 49 €/anno
+  plink_1UEqroEKB2kie19i1E2Dj0FA: 'premium', // vecchio Premium 3,99 €/mese
 };
 
 const METADATA_KIND = {
   squadre_mensile: 'team_monthly',
   squadre_stagione: 'team_season',
   premium_individuale_sito: 'premium',
+  premium_individuale_sito_annuale: 'premium',
 };
 
 export function getStripe() {
@@ -42,10 +51,14 @@ export function classifySession(session) {
   const tag = session && session.metadata && session.metadata.offside;
   if (tag && METADATA_KIND[tag]) return METADATA_KIND[tag];
   if (session && session.payment_link && PAYMENT_LINK_KIND[session.payment_link]) return PAYMENT_LINK_KIND[session.payment_link];
-  // Ultima spiaggia (pagamenti molto vecchi): importo e modalità.
+  // Ultima spiaggia (pagamenti senza etichetta né link conosciuto): è della squadra solo se porta
+  // l'ID di una squadra, o se è il vecchio Pass Stagionale (pagamento unico da 200 € in su).
+  // Prima bastava un importo da 10 € in su: un Premium annuale da 49 € sarebbe finito alle squadre.
+  if (session && (session.client_reference_id || (session.metadata && session.metadata.teamId))) {
+    return session.mode === 'payment' ? 'team_season' : 'team_monthly';
+  }
   const amount = (session && session.amount_total) || 0;
   if (session && session.mode === 'payment' && amount >= 20000) return 'team_season';
-  if (amount >= 1000) return 'team_monthly';
   return 'premium';
 }
 
@@ -87,13 +100,29 @@ export function subscriptionRenewsAt(sub) {
   return itemPeriodEnd(sub);
 }
 
+// Abbonamento Premium individuale (mensile o annuale)?
+export function isPremiumSubscription(sub) {
+  if (!sub) return false;
+  const tag = sub.metadata && sub.metadata.offside;
+  if (tag && String(tag).startsWith('premium')) return true;
+  const items = (sub.items && sub.items.data) || [];
+  return items.some((item) => {
+    const price = item.price || {};
+    return price.product === PREMIUM_PRODUCT_ID || PREMIUM_PRICE_IDS.has(price.id);
+  });
+}
+
 export function isTeamSubscription(sub) {
   if (!sub) return false;
   if (sub.metadata && sub.metadata.offside === 'squadre_mensile') return true;
+  if (isPremiumSubscription(sub)) return false;
   const items = (sub.items && sub.items.data) || [];
   return items.some((item) => {
     const price = item.price || {};
     if (price.id === TEAM_MONTHLY_PRICE_ID || price.product === TEAM_MONTHLY_PRODUCT_ID) return true;
+    // Il piano squadre è solo mensile: un abbonamento annuale non è mai "Squadre".
+    if (price.recurring && price.recurring.interval && price.recurring.interval !== 'month') return false;
+    // Ultima spiaggia per abbonamenti molto vecchi: importo da squadra (il Premium mensile costa meno di 10 €).
     const unit = Number.isFinite(price.unit_amount) ? price.unit_amount : 0;
     const qty = Number.isFinite(item.quantity) ? item.quantity : 1;
     return unit * qty >= 1000;

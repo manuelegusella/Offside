@@ -83,7 +83,7 @@
   <header class="doc-header">
     <span class="badge">Privacy Policy</span>
     <h1>Come Offside tratta i tuoi dati</h1>
-    <p>Ultimo aggiornamento: 10 novembre 2026 · Titolare del trattamento: Manuele Gusella</p>
+    <p>Ultimo aggiornamento: 23 novembre 2026 · Titolare del trattamento: Manuele Gusella</p>
   </header>
 
   <section>
@@ -106,7 +106,7 @@
       <li>Dolore di ogni giorno (da 0 a 10) e segnali come gonfiore o cedimento, se li segni nel diario</li>
       <li>Promemoria giornaliero (solo app iPhone, se lo attivi): è una notifica programmata sul telefono. Non passa da nessun server e Offside non riceve alcun dato</li>
     </ul>
-    <div class="highlight-box">Questi dati sono salvati localmente nel browser del tuo dispositivo (localStorage). Offside non li riceve, non li vede e non può recuperarli — se cancelli i dati del browser o cambi dispositivo, vengono persi, non trasferiti altrove.</div>
+    <div class="highlight-box">Questi dati sono salvati localmente nel browser del tuo dispositivo (localStorage). Nell'app iPhone ne teniamo anche una copia di sicurezza nella memoria dell'app, sullo stesso telefono, così iOS non li cancella quando lo spazio scarseggia. Offside non li riceve, non li vede e non può recuperarli — se cancelli i dati del browser, disinstalli l'app o cambi dispositivo, vengono persi, non trasferiti altrove.</div>
   </section>
 
   <section>
@@ -117,13 +117,14 @@
     <p><strong>Sincronizzazione del riepilogo:</strong> se, dopo esserti unito, scegli di condividere lo stato del tuo recupero — nome dell'infortunio, fase, giorni trascorsi, stima di rientro. Non è mai automatica: parte solo se la attivi tu e puoi disattivarla in ogni momento dal tuo profilo. <strong>Il diario giornaliero, le sensazioni e le note personali non vengono mai incluse</strong>, in nessun caso.</p>
     <p><strong>Statistiche di squadra:</strong> i tuoi episodi di infortunio passati contribuiscono a statistiche aggregate e anonime per lo staff (es. infortuni più comuni nel gruppo, tempi medi di recupero). Queste statistiche non riportano mai il tuo nome e non permettono di risalire a un singolo giocatore.</p>
     <p><strong>Pagamenti:</strong> gestiti interamente da Stripe. Offside non vede, non riceve e non conserva mai i dati della tua carta.</p>
+    <p><strong>Rapporti d'errore:</strong> se l'app o il sito si bloccano, ci arriva in automatico un rapporto tecnico: il messaggio d'errore, la schermata in cui è successo, la versione dell'app, il tipo di dispositivo e di browser. Non contiene il tuo nome, la tua email né i dati del tuo diario o dei tuoi infortuni. Ci serve solo a trovare e correggere i problemi.</p>
     <p><strong>Premium dall'app iPhone:</strong> l'acquisto è gestito da Apple (App Store). Per riconoscere l'abbonamento attivo, anche dopo un ripristino o su un nuovo iPhone, usiamo il servizio RevenueCat, che riceve un identificativo anonimo generato dall'app, la ricevuta d'acquisto e lo stato dell'abbonamento. Offside non riceve il tuo nome, i tuoi dati di pagamento né il tuo Apple ID.</p>
   </section>
 
   <section>
     <h2><span class="n">5</span>Dati sanitari e base giuridica</h2>
     <p>Le informazioni su infortuni e recupero condivise con una squadra sono dati relativi alla salute, una categoria particolare di dati secondo l'art. 9 del GDPR. Le trattiamo solo in base al tuo <strong>consenso esplicito</strong>, che puoi revocare in ogni momento con cancellazione immediata dal server (vedi sezione 9).</p>
-    <p>Per la gestione dell'account e dei pagamenti la base giuridica è l'esecuzione del contratto con te. Per le statistiche d'uso anonime, il legittimo interesse a migliorare il servizio.</p>
+    <p>Per la gestione dell'account e dei pagamenti la base giuridica è l'esecuzione del contratto con te. Per le statistiche d'uso anonime e i rapporti d'errore, il legittimo interesse a far funzionare e migliorare il servizio.</p>
   </section>
 
   <section>
@@ -145,7 +146,7 @@
       <div class="provider-row"><span class="provider-name">Stripe, Inc.</span><span class="muted">Pagamenti (certificato PCI-DSS)</span></div>
       <div class="provider-row"><span class="provider-name">Apple Inc.</span><span class="muted">Acquisti in-app dall'App Store (app iPhone)</span></div>
       <div class="provider-row"><span class="provider-name">RevenueCat, Inc.</span><span class="muted">Verifica dell'abbonamento Premium acquistato dall'app iPhone</span></div>
-      <div class="provider-row"><span class="provider-name">Resend</span><span class="muted">Invio email di notifica alla squadra</span></div>
+      <div class="provider-row"><span class="provider-name">Resend</span><span class="muted">Invio delle email (codici per la squadra, avvisi tecnici)</span></div>
       <div class="provider-row"><span class="provider-name">Google LLC (Analytics)</span><span class="muted">Statistiche d'uso anonime</span></div>
       <div class="provider-row"><span class="provider-name">Vercel Analytics</span><span class="muted">Statistiche d'uso, senza cookie né dati identificativi</span></div>
     </div>
@@ -162,6 +163,7 @@
     <ul>
       <li>Dati dell'account (squadra o Premium): finché resta attivo, più il tempo richiesto da eventuali obblighi fiscali sui pagamenti.</li>
       <li>Dati di sincronizzazione di un giocatore: finché non revochi il consenso — la cancellazione è immediata e puoi farlo in ogni momento dal tuo profilo.</li>
+      <li>Rapporti d'errore: teniamo solo gli ultimi 300, i più vecchi si cancellano da soli. L'indirizzo IP serve solo a limitare gli abusi (troppi tentativi o invii) e si cancella entro un'ora.</li>
       <li><strong>Eliminazione dell'account squadra:</strong> il responsabile può farla in qualsiasi momento direttamente dall'app (Premium → Per la squadra → apri la squadra → Elimina account, confermando con la password). La cancellazione dai nostri server è immediata e definitiva: squadra, email, password (hash), codice invito e tutti i giocatori collegati con i dati che avevano condiviso. L'eventuale abbonamento mensile Squadre viene annullato nello stesso momento.</li>
       <li>Restano solo i dati di pagamento presso Stripe, Apple e RevenueCat, conservati per gli obblighi fiscali e contabili. Per qualsiasi altra richiesta di cancellazione ti rispondiamo entro 30 giorni, salvo diversi obblighi di legge.</li>
     </ul>

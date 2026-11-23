@@ -44,29 +44,47 @@ export function initPurchases() {
 const isActive = (customerInfo) =>
   Object.keys(customerInfo?.entitlements?.active || {}).some((k) => k.toLowerCase() === ENTITLEMENT_ID.toLowerCase());
 
-// Il pacchetto mensile di Premium (con prezzo già formattato per il paese dell'utente).
-// intro: l'offerta introduttiva di App Store (es. Black Friday: 3,49 € al mese per i primi 3 mesi),
-// solo se esiste su App Store Connect E l'utente ne ha diritto. Se Apple non sa dirlo (stato
-// "sconosciuto") mostriamo il prezzo pieno, per non promettere uno sconto che poi non arriva.
+// L'offerta introduttiva di App Store di un prodotto (es. Black Friday: 3,99 € al mese per i primi
+// 3 mesi), solo se esiste su App Store Connect E l'utente ne ha diritto. Se Apple non sa dirlo
+// (stato "sconosciuto") mostriamo il prezzo pieno, per non promettere uno sconto che poi non arriva.
+async function introFor(P, product) {
+  const ip = product.introPrice;
+  if (!ip || !ip.priceString || !(ip.price > 0) || !product.identifier) return null;
+  try {
+    const elig = await P.checkTrialOrIntroductoryPriceEligibility({ productIdentifiers: [product.identifier] });
+    if (elig?.[product.identifier]?.status === 2) { // 2 = INTRO_ELIGIBILITY_STATUS_ELIGIBLE
+      return { priceString: ip.priceString, cycles: ip.cycles || 1, periodUnit: ip.periodUnit || '', periodNumberOfUnits: ip.periodNumberOfUnits || 1 };
+    }
+  } catch (err) { /* stato sconosciuto: prezzo pieno */ }
+  return null;
+}
+
+// I pacchetti di Premium dell'offerta "current" di RevenueCat, con i prezzi già formattati per il
+// paese dell'utente:
+//   { pkg, priceString, price, intro }               → il mensile (come prima, per compatibilità)
+//   annual: { pkg, priceString, price, pricePerMonthString, intro } | null → l'annuale, se c'è
+// L'annuale compare nell'app solo quando su RevenueCat è nell'offerta (pacchetto "Annual").
 export async function loadPremiumOffer() {
   await initPurchases();
   const { P } = await getPlugin();
   const offerings = await P.getOfferings();
   const current = offerings?.current;
-  const pkg = current?.monthly || current?.availablePackages?.[0] || null;
+  const pkg = current?.monthly || current?.availablePackages?.find((p) => p?.product?.subscriptionPeriod === 'P1M') || current?.availablePackages?.[0] || null;
   if (!pkg) return null;
   const product = pkg.product || {};
-  let intro = null;
-  const ip = product.introPrice;
-  if (ip && ip.priceString && ip.price > 0 && product.identifier) {
-    try {
-      const elig = await P.checkTrialOrIntroductoryPriceEligibility({ productIdentifiers: [product.identifier] });
-      if (elig?.[product.identifier]?.status === 2) { // 2 = INTRO_ELIGIBILITY_STATUS_ELIGIBLE
-        intro = { priceString: ip.priceString, cycles: ip.cycles || 1, periodUnit: ip.periodUnit || '', periodNumberOfUnits: ip.periodNumberOfUnits || 1 };
-      }
-    } catch (err) {}
+  const annualPkg = current?.annual && current.annual !== pkg ? current.annual : null;
+  let annual = null;
+  if (annualPkg) {
+    const ap = annualPkg.product || {};
+    annual = {
+      pkg: annualPkg,
+      priceString: ap.priceString || '',
+      price: Number(ap.price) || 0,
+      pricePerMonthString: ap.pricePerMonthString || '',
+      intro: await introFor(P, ap),
+    };
   }
-  return { pkg, priceString: product.priceString || '', intro };
+  return { pkg, priceString: product.priceString || '', price: Number(product.price) || 0, intro: await introFor(P, product), annual };
 }
 
 // true se Premium è attivo adesso (RevenueCat controlla anche la scadenza).

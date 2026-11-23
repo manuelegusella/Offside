@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["CJL92KVK8S.com.myoffside.app"],
+        "components": [
+          { "/": "/*", "?": { "premium": "*" }, "exclude": true, "comment": "Ritorno dai pagamenti Premium del sito: resta sul sito" },
+          { "/": "/*", "?": { "premium_session": "*" }, "exclude": true, "comment": "Ritorno dai pagamenti Premium del sito: resta sul sito" },
+          { "/": "/*", "?": { "team": "*" }, "exclude": true, "comment": "Pagamenti di Offside Squadre: restano sul sito" },
+          { "/": "/", "?": { "squadra": "?*" }, "comment": "Invito di una squadra: apre l'app con il codice gia' scritto" }
+        ]
+      }
+    ]
+  }
+}
