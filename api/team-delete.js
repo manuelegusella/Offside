@@ -10,7 +10,7 @@
 //   3. cancella da Redis tutti i dati della squadra: scheda squadra, email, codice invito,
 //      tutti i giocatori collegati (nickname, stato, storico, benessere), sessione.
 //
-// Il Premium individuale (3,99 €/mese, anche se con la stessa email) NON viene toccato.
+// Il Premium individuale (anche se con la stessa email) NON viene toccato.
 // Le ricevute e i dati di fatturazione restano presso Stripe per gli obblighi fiscali.
 
 import Stripe from 'stripe';
@@ -118,6 +118,15 @@ export default async function handler(req, res) {
     // 1) Stripe: prima di cancellare qualsiasi dato.
     let removableCustomerKeys = [];
     try {
+      // L'abbonamento collegato alla squadra (anche se l'ha pagato qualcuno con un'altra email).
+      if (team.stripeSubscriptionId) {
+        if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY mancante');
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+        const sub = await stripe.subscriptions.retrieve(team.stripeSubscriptionId);
+        if (['active', 'trialing', 'past_due', 'unpaid', 'incomplete'].includes(sub.status)) {
+          await stripe.subscriptions.cancel(sub.id);
+        }
+      }
       const customerKeys = await findStripeCustomerKeys(email);
       removableCustomerKeys = await cancelTeamSubscriptions(customerKeys);
     } catch (err) {
@@ -131,6 +140,8 @@ export default async function handler(req, res) {
     const playerIds = (await redis.smembers(`teamplayers:${team.teamId}`)) || [];
     for (const playerId of playerIds) {
       await redis.del(`player:${playerId}`);
+      // Solo il motivo e il nome della squadra, per avvisare il giocatore nell'app. Sparisce da solo.
+      await redis.set(`playergone:${playerId}`, { reason: 'team_deleted', teamName: team.teamName, at: new Date().toISOString() }, { ex: 60 * 60 * 24 * 90 });
     }
 
     const keysToDelete = [
@@ -139,8 +150,11 @@ export default async function handler(req, res) {
       `teamsession:${token}`,
       `team:${team.teamId}`,
       failKey,
+      `teamreset:${team.teamId}`,
       ...removableCustomerKeys,
     ];
+    if (team.stripeSubscriptionId) keysToDelete.push(`teamsub:${team.stripeSubscriptionId}`);
+    if (team.stripeCustomerId) keysToDelete.push(`teamcustomer:${team.stripeCustomerId}`);
     if (team.inviteCode) keysToDelete.push(`teamcode:${team.inviteCode}`);
     for (const key of keysToDelete) {
       await redis.del(key);

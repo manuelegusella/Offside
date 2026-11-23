@@ -4,7 +4,9 @@
 // responsabile della squadra. Qui arriva SOLO dopo che il consenso è stato dato in app.
 
 import { redis } from './_lib/redis.js';
-import { generateId, parseJsonMaybe } from './_lib/team.js';
+import { clientIp, countAttempt, generateId, getTeam, underLimit } from './_lib/team.js';
+
+const WINDOW_SECONDS = 15 * 60;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -24,17 +26,20 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Serve il tuo consenso esplicito per continuare' });
   }
 
-  const normalizedCode = inviteCode.trim().toUpperCase();
+  const normalizedCode = inviteCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const ipKey = `teamjoinfail:ip:${clientIp(req)}`;
 
   try {
-    const teamId = await redis.get(`teamcode:${normalizedCode}`);
-    if (!teamId) {
-      return res.status(404).json({ error: 'Codice non valido. Controlla con il tuo fisio/preparatore.' });
+    // Limite ai codici sbagliati per rete: nessuno può indovinare i codici a forza di tentativi.
+    if (!(await underLimit(ipKey, 20))) {
+      return res.status(429).json({ error: 'Troppi codici sbagliati. Riprova tra 15 minuti.' });
     }
 
-    const team = parseJsonMaybe(await redis.get(`team:${teamId}`));
+    const teamId = await redis.get(`teamcode:${normalizedCode}`);
+    const team = teamId ? await getTeam(teamId) : null;
     if (!team) {
-      return res.status(404).json({ error: 'Squadra non trovata' });
+      await countAttempt(ipKey, WINDOW_SECONDS);
+      return res.status(404).json({ error: 'Codice non valido. Controlla con il tuo fisio/preparatore.' });
     }
 
     const playerId = generateId();
@@ -43,6 +48,7 @@ export default async function handler(req, res) {
       teamId,
       name: playerName.trim().slice(0, 40),
       consentedAt: new Date().toISOString(),
+      lastSyncAt: new Date().toISOString(),
       status: null,
     };
 

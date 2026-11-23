@@ -4,7 +4,10 @@
 
 import bcrypt from 'bcryptjs';
 import { redis } from './_lib/redis.js';
-import { computeTeamAccess, generateId, generateInviteCode, generateSessionToken, normalizeEmail, TEAM_SESSION_TTL_SECONDS, TEAM_TRIAL_DAYS } from './_lib/team.js';
+import {
+  clientIp, countAttempt, createTeamSession, generateId, generateInviteCode, normalizeEmail,
+  teamLoginPayload, TEAM_TRIAL_DAYS, underLimit,
+} from './_lib/team.js';
 
 const ALLOWED_ROLES = ['fisioterapista', 'preparatore', 'allenatore', 'altro'];
 
@@ -25,7 +28,7 @@ export default async function handler(req, res) {
   if (!ALLOWED_ROLES.includes(responsibleRole)) {
     return res.status(400).json({ error: 'Ruolo non valido' });
   }
-  if (!email || typeof email !== 'string' || !email.includes('@')) {
+  if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
     return res.status(400).json({ error: 'Email non valida' });
   }
   if (!password || typeof password !== 'string' || password.length < 8) {
@@ -36,11 +39,16 @@ export default async function handler(req, res) {
   }
 
   const normalizedEmail = normalizeEmail(email);
+  const ipKey = `teamregister:ip:${clientIp(req)}`;
 
   try {
+    if (!(await underLimit(ipKey, 10))) {
+      return res.status(429).json({ error: 'Troppe registrazioni da questa rete. Riprova tra un\'ora.' });
+    }
+
     const existing = await redis.get(`teamemail:${normalizedEmail}`);
     if (existing) {
-      return res.status(409).json({ error: 'Esiste già una squadra registrata con questa email' });
+      return res.status(409).json({ error: 'Esiste già una squadra registrata con questa email. Accedi, o usa "Password dimenticata".' });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -56,8 +64,8 @@ export default async function handler(req, res) {
 
     const team = {
       teamId,
-      teamName: teamName.trim(),
-      responsibleName: responsibleName.trim(),
+      teamName: teamName.trim().slice(0, 60),
+      responsibleName: responsibleName.trim().slice(0, 60),
       responsibleRole,
       email: normalizedEmail,
       passwordHash,
@@ -66,30 +74,17 @@ export default async function handler(req, res) {
       trialEndsAt: new Date(Date.now() + TEAM_TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
       minorConsentAttested: true,
       minorConsentAttestedAt: new Date().toISOString(),
+      sessionEpoch: 0,
       createdAt: new Date().toISOString(),
     };
 
     await redis.set(`team:${teamId}`, team);
     await redis.set(`teamemail:${normalizedEmail}`, teamId);
     await redis.set(`teamcode:${inviteCode}`, teamId);
+    await countAttempt(ipKey, 60 * 60);
 
-    const token = generateSessionToken();
-    await redis.set(`teamsession:${token}`, teamId, { ex: TEAM_SESSION_TTL_SECONDS });
-
-    const access = computeTeamAccess(team);
-
-    return res.status(200).json({
-      token,
-      teamId,
-      teamName: team.teamName,
-      inviteCode,
-      subscriptionActive: access.hasAccess,
-      isPaid: access.isPaid,
-      seasonPassActive: access.seasonPassActive,
-      paidUntil: access.paidUntil,
-      trialActive: access.trialActive,
-      trialDaysLeft: access.trialDaysLeft,
-    });
+    const token = await createTeamSession(team);
+    return res.status(200).json(teamLoginPayload(team, token));
   } catch (err) {
     console.error('Errore nella registrazione squadra:', err);
     return res.status(500).json({ error: 'Errore del server, riprova tra poco' });

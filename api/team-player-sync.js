@@ -78,20 +78,23 @@ export default async function handler(req, res) {
   try {
     const player = parseJsonMaybe(await redis.get(`player:${playerId}`));
     if (!player) {
-      // Il consenso è stato revocato (o non è mai esistito): non fare nulla.
-      return res.status(404).json({ error: 'not_found' });
+      // Non più collegato: consenso revocato, tolto dalla rosa dallo staff o squadra eliminata.
+      // L'app del giocatore usa "reason" per spiegargli cosa è successo.
+      const gone = parseJsonMaybe(await redis.get(`playergone:${playerId}`));
+      return res.status(404).json({ error: 'not_found', reason: gone ? gone.reason : null, teamName: gone ? gone.teamName : null });
     }
 
     const clean = sanitizeStatus(status);
     const injuryHistory = updateInjuryHistory(player.injuryHistory, player.status, clean);
     const cleanWellness = sanitizeWellness(wellness);
-    const updated = { ...player, status: clean, injuryHistory };
+    const updated = { ...player, status: clean, injuryHistory, lastSyncAt: new Date().toISOString() };
     // Il giocatore potrebbe non usare (ancora) il check-in: in quel caso non manda "wellness"
     // affatto, e non tocchiamo il campo esistente invece di cancellarlo per errore.
     if (cleanWellness) updated.wellness = cleanWellness;
     await redis.set(`player:${playerId}`, updated);
 
-    return res.status(200).json({ ok: true });
+    const team = parseJsonMaybe(await redis.get(`team:${player.teamId}`));
+    return res.status(200).json({ ok: true, teamName: team ? team.teamName : null });
   } catch (err) {
     console.error('Errore nel sync del giocatore:', err);
     return res.status(500).json({ error: 'Errore del server, riprova tra poco' });

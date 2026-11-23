@@ -1,9 +1,15 @@
 // /api/team-login.js
 // Login del responsabile della squadra (email + password vera, con hash bcrypt).
+// Dopo 5 password sbagliate sulla stessa email si blocca per 15 minuti (e c'è un limite anche per rete),
+// così nessuno può provare migliaia di password.
 
 import bcrypt from 'bcryptjs';
 import { redis } from './_lib/redis.js';
-import { computeTeamAccess, generateSessionToken, normalizeEmail, parseJsonMaybe, TEAM_SESSION_TTL_SECONDS } from './_lib/team.js';
+import { clientIp, countAttempt, createTeamSession, getTeam, normalizeEmail, teamLoginPayload, underLimit } from './_lib/team.js';
+
+const WINDOW_SECONDS = 15 * 60;
+const MAX_FAILS_PER_EMAIL = 5;
+const MAX_FAILS_PER_IP = 30;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -18,42 +24,32 @@ export default async function handler(req, res) {
   }
 
   const normalizedEmail = normalizeEmail(email);
+  const emailKey = `teamloginfail:${normalizedEmail}`;
+  const ipKey = `teamloginfail:ip:${clientIp(req)}`;
 
   try {
-    const teamId = await redis.get(`teamemail:${normalizedEmail}`);
-    if (!teamId) {
-      return res.status(401).json({ error: 'Email o password non corretti' });
+    if (!(await underLimit(emailKey, MAX_FAILS_PER_EMAIL)) || !(await underLimit(ipKey, MAX_FAILS_PER_IP))) {
+      return res.status(429).json({ error: 'Troppi tentativi. Riprova tra 15 minuti, o usa "Password dimenticata".' });
     }
 
-    const team = parseJsonMaybe(await redis.get(`team:${teamId}`));
-    if (!team) {
+    const failed = async () => {
+      await countAttempt(emailKey, WINDOW_SECONDS);
+      await countAttempt(ipKey, WINDOW_SECONDS);
       return res.status(401).json({ error: 'Email o password non corretti' });
-    }
+    };
+
+    const teamId = await redis.get(`teamemail:${normalizedEmail}`);
+    if (!teamId) return failed();
+
+    const team = await getTeam(teamId);
+    if (!team) return failed();
 
     const passwordOk = await bcrypt.compare(password, team.passwordHash);
-    if (!passwordOk) {
-      return res.status(401).json({ error: 'Email o password non corretti' });
-    }
+    if (!passwordOk) return failed();
 
-    const token = generateSessionToken();
-    await redis.set(`teamsession:${token}`, teamId, { ex: TEAM_SESSION_TTL_SECONDS });
-
-    const access = computeTeamAccess(team);
-
-    return res.status(200).json({
-      token,
-      teamId,
-      teamName: team.teamName,
-      responsibleName: team.responsibleName,
-      responsibleRole: team.responsibleRole,
-      inviteCode: team.inviteCode,
-      subscriptionActive: access.hasAccess,
-      isPaid: access.isPaid,
-      seasonPassActive: access.seasonPassActive,
-      paidUntil: access.paidUntil,
-      trialActive: access.trialActive,
-      trialDaysLeft: access.trialDaysLeft,
-    });
+    await redis.del(emailKey);
+    const token = await createTeamSession(team);
+    return res.status(200).json(teamLoginPayload(team, token));
   } catch (err) {
     console.error('Errore nel login squadra:', err);
     return res.status(500).json({ error: 'Errore del server, riprova tra poco' });

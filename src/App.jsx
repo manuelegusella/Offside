@@ -6,6 +6,7 @@ import { SOURCES, GENERAL_SOURCE_GROUPS, INJURY_SOURCES, SOURCE_KIND_LABELS, SOU
 import { loadPremiumOffer, hasPremiumEntitlement, buyPremium, restorePremiumPurchases } from './purchases.js';
 import { FREE_PHASES, deriveLegacyInjuries, painZone, painLight, LIGHT_COPY, FLAG_COPY, todayMode, planCounts, MODE_COPY, classifyExercise, LEVELS_COPY, levelsFor } from './premiumPlan.js';
 import { remindersSupported, reminderPermission, scheduleDailyReminder, cancelDailyReminder, REMINDER_COPY } from './notifications.js';
+import { seasonPassOffer, SEASON, TEAM_MONTHLY_EUR } from '../api/_lib/teamPlans.js';
 
 // Payment Link di Stripe per Premium individuale sul sito: 4,99 €/mese dal 23/11/2026.
 // Chi si è abbonato col vecchio link da 3,99 € continua a pagare 3,99 €: Stripe non cambia gli abbonamenti già attivi.
@@ -29,21 +30,10 @@ const IS_IOS_WEB = !IS_NATIVE && typeof navigator !== 'undefined' && (/iPhone|iP
 const introMonths = (intro) => { if (!intro) return 0; const unit = intro.periodUnit === 'MONTH' ? 1 : intro.periodUnit === 'YEAR' ? 12 : 0; return unit * (intro.periodNumberOfUnits || 1) * (intro.cycles || 1); };
 const introSpan = (intro, isEN) => { const m = introMonths(intro); if (!m) return isEN ? 'for a limited time' : 'per un periodo limitato'; return isEN ? `for the first ${m} months` : `per i primi ${m} mesi`; };
 
-// Payment Link per l'abbonamento "Offside Squadre" (50€/mese) — da creare su Stripe come
-// prodotto separato e incollare qui. Finché resta questo placeholder, il bottone di
-// attivazione nella schermata Squadre non farà nulla di reale.
-const STRIPE_TEAM_PAYMENT_LINK = 'https://buy.stripe.com/dRm8wP9UC3Zt1sB1Yd7IY01';
+// Offside Squadre: i pagamenti partono dal server (api/team.js, legati alla squadra e non all'email)
+// e i prezzi stanno in un posto solo, api/_lib/teamPlans.js, condiviso con il server.
 
-// Payment Link per il "Pass Stagionale" Squadre — pagamento UNICO (non ricorrente, non mensile)
-// da creare su Stripe come prodotto a parte, valido fino a fine stagione. Finché resta questo
-// placeholder, il bottone del Pass Stagionale non farà nulla di reale.
-const STRIPE_TEAM_SEASON_PAYMENT_LINK = 'https://buy.stripe.com/14A5kDc2KcvZ2wFdGV7IY02';
-// Prezzo pieno = mesi rimanenti fino a fine stagione x 50€/mese. Prezzo Pass Stagionale = scontato.
-// Aggiorna questi due numeri (e il Payment Link sopra) se cambi l'offerta o l'anno.
-const TEAM_SEASON_FULL_PRICE = 450;
-const TEAM_SEASON_PASS_PRICE = 350;
-
-const TEAM_SCREENS = ['teamRegister', 'teamLogin', 'teamDashboard'];
+const TEAM_SCREENS = ['teamRegister', 'teamLogin', 'teamForgot', 'teamDashboard'];
 const TEAM_ROLE_OPTIONS = [
   { key: 'fisioterapista', labelIT: 'Fisioterapista', labelEN: 'Physiotherapist' },
   { key: 'preparatore', labelIT: 'Preparatore atletico', labelEN: 'Athletic trainer' },
@@ -69,8 +59,9 @@ import {
   Aperture, Camera, PersonSimple as PersonStanding, Ruler, Plant as Sprout, ArrowClockwise as RotateCw, CircleDashed, ShieldWarning as ShieldAlert,
   Snowflake, Bandaids as Bandage, ArrowUp, Trophy, Video, Lock, Download, CalendarPlus, DeviceMobile as Smartphone,
   User, Hand, DotsSixVertical as Grip, MapPin, Phone, Envelope as Mail, Stethoscope, ArrowSquareOut as ExternalLink, MagnifyingGlass as Search,
-  Users, SignOut as LogOut, Copy, UserPlus, Buildings as Building2, Eye, EyeSlash as EyeOff, Trash, BookOpen,
-  Play, Heartbeat, ChartLineUp, Siren, FirstAid, Bell, Stairs, TrafficSignal, ArrowDown, Tag
+  Users, SignOut as LogOut, UserPlus, Buildings as Building2, Eye, EyeSlash as EyeOff, Trash, BookOpen,
+  Play, Heartbeat, ChartLineUp, Siren, FirstAid, Bell, Stairs, TrafficSignal, ArrowDown, Tag,
+  UserMinus, Gift, CreditCard, LinkSimple, ArrowsClockwise, ChartBar, Key as KeyIcon
 } from '@phosphor-icons/react';
 
 // Palette "Notte allo stadio": tutta l'app vive su un campo di notte sotto i riflettori.
@@ -4332,6 +4323,790 @@ function classifyPlayerAvailability(player) {
   }
   return 'out';
 }
+
+// ---------------------------------------------------------------------------------------
+// Offside Squadre: i pezzi della dashboard dello staff.
+// Tutto qui sotto lavora sui dati che il server manda già "puliti" (mai il diario dei
+// giocatori) e li proietta a oggi: se un giocatore non apre l'app da qualche giorno, il suo
+// giorno di recupero va avanti lo stesso, e la dashboard dice da quanto non si aggiorna.
+// ---------------------------------------------------------------------------------------
+const TEAM_DAY_MS = 24 * 60 * 60 * 1000;
+const TEAM_STALE_DAYS = 7;
+const TEAM_AVAIL = {
+  out: { it: 'Fuori', en: 'Out', color: '#FF6B5E' },
+  doubtful: { it: 'In dubbio', en: 'Doubtful', color: '#FFB25C' },
+  available: { it: 'Disponibili', en: 'Available', color: LED_GREEN },
+};
+const TEAM_PHASE_COLORS = ['#FF6B5E', '#FFB25C', LED_GREEN, LED_TEAL];
+const TEAM_AVAIL_ORDER = { out: 0, doubtful: 1, available: 2 };
+
+function teamShortDate(ts, isEN) {
+  return new Date(ts).toLocaleDateString(isEN ? 'en-GB' : 'it-IT', { day: 'numeric', month: 'short' }).replace('.', '');
+}
+function teamLongDate(ts, isEN) {
+  return new Date(ts).toLocaleDateString(isEN ? 'en-GB' : 'it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+function teamAgo(days, isEN) {
+  if (days <= 0) return isEN ? 'today' : 'oggi';
+  if (days === 1) return isEN ? 'yesterday' : 'ieri';
+  return isEN ? `${days} days ago` : `${days} giorni fa`;
+}
+function teamEuro(n, isEN) {
+  return isEN ? `€${n}` : `${n} €`;
+}
+
+// Un giocatore come lo vede lo staff oggi: disponibilità, giorno di recupero proiettato,
+// fasi, rientro stimato e da quanto non aggiorna i dati.
+function teamPlayerView(p, injuries, now) {
+  const s = p.status || null;
+  const lastTs = new Date(p.lastSyncAt || (s && s.lastUpdated) || p.consentedAt || now).getTime();
+  const staleDays = Number.isFinite(lastTs) ? Math.max(0, Math.floor((now - lastTs) / TEAM_DAY_MS)) : 0;
+  const base = { id: p.playerId, name: p.name, consentedAt: p.consentedAt, wellness: p.wellness || null, staleDays, stale: staleDays >= TEAM_STALE_DAYS };
+  if (!s || !s.injuryLabel) return { ...base, injured: false, availability: 'available' };
+  const inj = s.injuryKey && injuries ? injuries[s.injuryKey] : null;
+  const sev = inj && inj.severityData ? inj.severityData[s.severity] || null : null;
+  const totalPhases = s.totalPhases || (inj && inj.phases ? inj.phases.length : 3);
+  const phaseIndex = Number.isFinite(s.phaseIndex) ? Math.min(Math.max(0, s.phaseIndex), totalPhases - 1) : 0;
+  const day = Number.isFinite(s.dayOfRecovery) ? Math.max(1, s.dayOfRecovery + staleDays) : null;
+  const estimate = Number.isFinite(s.estimateDays) ? s.estimateDays : (sev ? sev.totalEstimateDays : null);
+  const thresholds = sev && Array.isArray(sev.dayThresholds) ? sev.dayThresholds.filter((n) => Number.isFinite(n)) : [];
+  const startAt = day ? now - (day - 1) * TEAM_DAY_MS : null;
+  const etaAt = day && estimate ? now + Math.max(0, estimate - day) * TEAM_DAY_MS : null;
+  const overdueDays = day && estimate ? Math.max(0, day - estimate) : 0;
+  const phase = inj && inj.phases ? inj.phases[phaseIndex] || null : null;
+  return {
+    ...base,
+    injured: true,
+    availability: classifyPlayerAvailability({ status: { ...s, phaseIndex, totalPhases } }),
+    injuryLabel: s.injuryLabel,
+    phaseIndex,
+    totalPhases,
+    phaseLabel: s.phaseLabel || (phase ? phase.name : null),
+    phase,
+    day,
+    estimate,
+    thresholds,
+    startAt,
+    etaAt,
+    overdueDays,
+  };
+}
+
+// Banda di stato in cima: un tassello per giocatore, nell'ordine fuori → in dubbio → disponibili.
+function TeamSquadStrip({ views, isEN, filter, onFilter }) {
+  const counts = { out: 0, doubtful: 0, available: 0 };
+  views.forEach((v) => { counts[v.availability]++; });
+  const sorted = [...views].sort((a, b) => TEAM_AVAIL_ORDER[a.availability] - TEAM_AVAIL_ORDER[b.availability] || a.name.localeCompare(b.name, 'it'));
+  const staleCount = views.filter((v) => v.stale).length;
+  return (
+    <section className="os-panel p-5 sm:p-6" aria-labelledby="team-avail-title">
+      <div className="flex items-start justify-between gap-4">
+        <h2 id="team-avail-title" style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[17px] font-bold leading-tight">
+          {isEN ? 'Available for the next match' : 'Disponibili per la prossima partita'}
+        </h2>
+        <p className="flex-shrink-0 leading-none os-tabular" aria-label={isEN ? `${counts.available} of ${views.length}` : `${counts.available} su ${views.length}`}>
+          <span style={{ fontFamily: BEBAS, color: LED_GREEN, letterSpacing: '0.01em' }} className="text-[44px] align-baseline">{counts.available}</span>
+          <span style={{ fontFamily: BEBAS, color: colors.faint }} className="text-[24px] align-baseline"> / {views.length}</span>
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-[3px] mt-4" aria-hidden="true">
+        {sorted.map((v) => (
+          <span
+            key={v.id}
+            title={`${v.name} · ${isEN ? TEAM_AVAIL[v.availability].en : TEAM_AVAIL[v.availability].it}`}
+            className="h-8 grow basis-[9px] max-w-[26px] rounded-[4px] transition-opacity duration-200"
+            style={{
+              background: TEAM_AVAIL[v.availability].color,
+              opacity: filter === 'all' || filter === v.availability || (filter === 'watch' && (v.stale || (v.wellness && (v.wellness.level === 'rosso' || v.wellness.level === 'giallo')))) ? (v.stale ? 0.45 : 1) : 0.16,
+              boxShadow: v.availability === 'available' ? 'none' : `0 0 10px -2px ${TEAM_AVAIL[v.availability].color}`,
+            }}
+          />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2 mt-4" role="group" aria-label={isEN ? 'Filter the roster' : 'Filtra la rosa'}>
+        {['out', 'doubtful', 'available'].map((k) => {
+          const on = filter === k;
+          return (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onFilter(on ? 'all' : k)}
+              className="os-focus os-press inline-flex items-center gap-2 rounded-full pl-2.5 pr-3 py-1.5 text-[13px] font-semibold"
+              style={{ background: on ? `${TEAM_AVAIL[k].color}22` : 'rgba(255,255,255,0.04)', border: `1px solid ${on ? `${TEAM_AVAIL[k].color}88` : 'rgba(255,255,255,0.1)'}`, color: colors.ink }}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ background: TEAM_AVAIL[k].color }} />
+              {isEN ? TEAM_AVAIL[k].en : TEAM_AVAIL[k].it}
+              <span style={{ fontFamily: BEBAS, color: TEAM_AVAIL[k].color }} className="text-[16px] leading-none os-tabular">{counts[k]}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p style={{ color: colors.faint }} className="text-[12px] leading-snug mt-3.5">
+        {staleCount > 0
+          ? (isEN ? `${staleCount} ${staleCount === 1 ? 'player hasn\'t' : 'players haven\'t'} updated in over a week: worth a message. ` : `${staleCount} ${staleCount === 1 ? 'giocatore non aggiorna' : 'giocatori non aggiornano'} da più di una settimana: vale un messaggio. `)
+          : ''}
+        {isEN ? 'Indicative only — the medical staff always makes the final call.' : 'Solo indicativo: la decisione finale spetta sempre allo staff medico.'}
+      </p>
+    </section>
+  );
+}
+
+// Calendario dei rientri: ogni infortunio è una barra dall'inizio al rientro stimato,
+// divisa nelle sue fasi, con la linea di oggi. Il tratto già fatto è pieno, quello che manca è tratteggiato.
+function TeamReturnsTimeline({ views, isEN, now, demo = false }) {
+  const injured = views.filter((v) => v.injured && v.startAt).sort((a, b) => (a.etaAt || Infinity) - (b.etaAt || Infinity));
+  if (!injured.length) {
+    return (
+      <section className="os-panel p-5 sm:p-6" aria-labelledby="team-returns-title">
+        <h2 id="team-returns-title" style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[17px] font-bold">{isEN ? 'Returns' : 'Rientri'}</h2>
+        <p className="flex items-center gap-2.5 mt-3 text-[14px]" style={{ color: colors.mutedInk }}>
+          <CheckCircle2 size={18} color={LED_GREEN} weight="fill" />
+          {isEN ? 'No open injuries: the whole squad is available.' : 'Nessun infortunio aperto: tutta la rosa è a disposizione.'}
+        </p>
+      </section>
+    );
+  }
+  let lo = Math.min(now - 10 * TEAM_DAY_MS, ...injured.map((v) => v.startAt));
+  let hi = Math.max(now + 21 * TEAM_DAY_MS, ...injured.map((v) => (v.etaAt || now) + 22 * TEAM_DAY_MS));
+  lo = Math.max(lo, now - 70 * TEAM_DAY_MS);
+  hi = Math.min(hi, now + 120 * TEAM_DAY_MS);
+  const span = hi - lo;
+  const pct = (t) => `${Math.min(100, Math.max(0, ((t - lo) / span) * 100))}%`;
+  const todayPct = pct(now);
+  // Segni di inizio mese sull'asse.
+  const months = [];
+  const m = new Date(lo); m.setDate(1); m.setHours(0, 0, 0, 0); m.setMonth(m.getMonth() + 1);
+  while (m.getTime() < hi) {
+    const t = m.getTime();
+    if (Math.abs((t - now) / span) > 0.13) months.push(t); // niente etichetta del mese sotto "Oggi"
+    m.setMonth(m.getMonth() + 1);
+  }
+
+  return (
+    <section className="os-panel p-5 sm:p-6" aria-labelledby="team-returns-title">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 id="team-returns-title" style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[17px] font-bold">{isEN ? 'Returns' : 'Rientri'}</h2>
+        <p style={{ color: colors.faint }} className="text-[12px]">{demo ? (isEN ? 'Example data' : 'Dati di esempio') : (isEN ? 'Estimated from typical cases' : 'Stime basate su casi tipici')}</p>
+      </div>
+      <div className="relative mt-4">
+        {/* Asse dei mesi */}
+        <div className="relative h-5 ml-0 sm:ml-[164px]" aria-hidden="true">
+          <span className="absolute top-0 -translate-x-1/2 text-[10.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md z-10" style={{ left: todayPct, background: '#ECF5EF', color: '#06120D' }}>{isEN ? 'Today' : 'Oggi'}</span>
+          {months.map((t) => (
+            <span key={t} className="absolute top-0 text-[11px] font-semibold uppercase tracking-wide -translate-x-1/2" style={{ left: pct(t), color: colors.faint }}>
+              {new Date(t).toLocaleDateString(isEN ? 'en-GB' : 'it-IT', { month: 'short' }).replace('.', '')}
+            </span>
+          ))}
+        </div>
+        <ul className="relative">
+          {injured.map((v) => {
+            const est = v.estimate || v.day || 1;
+            const bounds = [0, ...v.thresholds.filter((d) => d < est), est];
+            const segs = [];
+            for (let i = 0; i < bounds.length - 1; i++) {
+              const from = v.startAt + bounds[i] * TEAM_DAY_MS;
+              const to = v.startAt + bounds[i + 1] * TEAM_DAY_MS;
+              segs.push({ i, from, to });
+            }
+            const end = Math.max(v.etaAt || now, v.overdueDays ? now : 0);
+            const statusColor = TEAM_AVAIL[v.availability].color;
+            return (
+              <li key={v.id} className="sm:flex sm:items-center py-2.5 border-t first:border-t-0" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                <div className="sm:w-[164px] sm:pr-3 flex items-baseline justify-between sm:block gap-3 mb-1.5 sm:mb-0 min-w-0">
+                  <p className="text-[14px] font-semibold truncate" style={{ color: colors.ink }}>
+                    <span className="inline-block w-2 h-2 rounded-full mr-2 align-middle" style={{ background: statusColor }} aria-hidden="true" />
+                    {v.name}
+                  </p>
+                  <p className="text-[12px] truncate sm:mt-0.5" style={{ color: colors.mutedInk }}>{v.injuryLabel}</p>
+                </div>
+                <div className="relative flex-1 h-7" role="img" aria-label={isEN
+                  ? `${v.name}: day ${v.day}${v.estimate ? ` of about ${v.estimate}` : ''}${v.etaAt ? `, expected back around ${teamShortDate(v.etaAt, true)}` : ''}`
+                  : `${v.name}: giorno ${v.day}${v.estimate ? ` su circa ${v.estimate}` : ''}${v.etaAt ? `, rientro stimato verso il ${teamShortDate(v.etaAt, false)}` : ''}`}>
+                  <div className="absolute inset-y-[9px] left-0 right-0 rounded-full" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                  <span className="sm:hidden absolute -top-1 -bottom-1 w-px z-[1]" style={{ left: todayPct, background: 'rgba(255,255,255,0.7)' }} />
+                  {segs.map((sg) => {
+                    const col = TEAM_PHASE_COLORS[Math.min(sg.i, TEAM_PHASE_COLORS.length - 1)];
+                    const doneTo = Math.min(sg.to, now);
+                    return (
+                      <React.Fragment key={sg.i}>
+                        {doneTo > sg.from && (
+                          <span className="absolute inset-y-[7px]" style={{ left: pct(sg.from), width: `calc(${pct(doneTo)} - ${pct(sg.from)})`, background: col, borderRadius: sg.i === 0 ? '999px 0 0 999px' : 0, opacity: 0.92 }} />
+                        )}
+                        {sg.to > now && (
+                          <span className="absolute inset-y-[7px]" style={{ left: pct(Math.max(sg.from, now)), width: `calc(${pct(sg.to)} - ${pct(Math.max(sg.from, now))})`, background: `repeating-linear-gradient(135deg, ${col}55 0 4px, ${col}22 4px 8px)`, borderRadius: sg.i === segs.length - 1 ? '0 999px 999px 0' : 0 }} />
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                  {v.overdueDays > 0 && (
+                    <span className="absolute inset-y-[7px]" style={{ left: pct(v.startAt + est * TEAM_DAY_MS), width: `calc(${pct(now)} - ${pct(v.startAt + est * TEAM_DAY_MS)})`, background: `repeating-linear-gradient(135deg, ${colors.red} 0 3px, ${colors.red}44 3px 6px)`, borderRadius: '0 999px 999px 0' }} />
+                  )}
+                  <span className="absolute top-1/2 whitespace-nowrap text-[11.5px] font-semibold os-tabular px-1.5" style={{ left: pct(end), color: v.overdueDays ? colors.red : colors.ink, transform: `translate(${((end - lo) / span) > 0.9 ? 'calc(-100% - 4px)' : '2px'}, -50%)` }}>
+                    {v.overdueDays
+                      ? (isEN ? `+${v.overdueDays} d over` : `+${v.overdueDays} g oltre`)
+                      : v.etaAt ? `~${teamShortDate(v.etaAt, isEN)}` : ''}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        {/* Linea di oggi, sopra le barre */}
+        <div className="hidden sm:block pointer-events-none absolute top-5 bottom-0 left-[164px] right-0" aria-hidden="true">
+          <span className="absolute top-0 bottom-0 w-px" style={{ left: todayPct, background: 'rgba(255,255,255,0.75)', boxShadow: '0 0 12px rgba(255,255,255,0.45)' }} />
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-4 text-[11.5px]" style={{ color: colors.mutedInk }}>
+        {[isEN ? 'Phase 1' : 'Fase 1', isEN ? 'Phase 2' : 'Fase 2', isEN ? 'Phase 3' : 'Fase 3'].map((l, i) => (
+          <span key={l} className="inline-flex items-center gap-1.5"><span className="w-3 h-1.5 rounded-full" style={{ background: TEAM_PHASE_COLORS[i] }} />{l}</span>
+        ))}
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-1.5 rounded-full" style={{ background: `repeating-linear-gradient(135deg, ${LED_GREEN}88 0 3px, ${LED_GREEN}22 3px 6px)` }} />{isEN ? 'still to go' : 'ancora da fare'}</span>
+      </div>
+    </section>
+  );
+}
+
+function TeamPlayerRow({ v, isEN, expanded, onToggle, confirmingRemove, onAskRemove, onCancelRemove, onRemove, removing }) {
+  const statusColor = TEAM_AVAIL[v.availability].color;
+  const wellnessFlag = v.wellness && (v.wellness.level === 'rosso' || v.wellness.level === 'giallo') ? v.wellness.level : null;
+  const panelId = `team-player-${v.id}`;
+  return (
+    <li className="border-t first:border-t-0" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        className="os-focus w-full flex items-center gap-3.5 px-4 sm:px-5 py-3.5 text-left transition-colors duration-150 hover:bg-white/[0.03]"
+      >
+        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: statusColor, boxShadow: `0 0 10px ${statusColor}` }} aria-hidden="true" />
+        <span className="flex-1 min-w-0">
+          <span className="block text-[15px] font-semibold truncate" style={{ color: colors.ink }}>{v.name}</span>
+          <span className="block text-[13px] truncate mt-0.5" style={{ color: colors.mutedInk }}>
+            {wellnessFlag && (
+              <span className="font-semibold" style={{ color: wellnessFlag === 'rosso' ? colors.red : colors.orange }}>
+                <Gauge size={12} className="inline-block align-[-2px] mr-1" />{isEN ? 'Check in' : 'Da sentire'}{' · '}
+              </span>
+            )}
+            {v.injured
+              ? `${v.injuryLabel} · ${isEN ? 'phase' : 'fase'} ${v.phaseIndex + 1}${isEN ? ' of ' : ' di '}${v.totalPhases}`
+              : (isEN ? 'No active injury' : 'Nessun infortunio attivo')}
+          </span>
+        </span>
+        <span className="flex-shrink-0 text-right">
+          {v.injured && (
+            <span className="block text-[13px] font-semibold os-tabular" style={{ color: v.overdueDays ? colors.red : colors.ink }}>
+              {v.overdueDays ? (isEN ? 'Taking longer' : 'Recupero lungo') : v.etaAt ? `~${teamShortDate(v.etaAt, isEN)}` : ''}
+            </span>
+          )}
+          {v.staleDays >= 2 && (
+            <span className="block text-[11.5px] mt-0.5" style={{ color: v.stale ? colors.orange : colors.faint }}>
+              {isEN ? 'updated ' : 'agg. '}{teamAgo(v.staleDays, isEN)}
+            </span>
+          )}
+        </span>
+        <ChevronDown size={15} color={colors.faint} className="flex-shrink-0 transition-transform duration-200" style={{ transform: expanded ? 'rotate(180deg)' : 'none' }} />
+      </button>
+      <Accordion open={expanded}>
+        <div id={panelId} className="px-4 sm:px-5 pb-4 pl-[38px] sm:pl-[42px]">
+          {v.injured ? (
+            <>
+              <p className="text-[13px] os-tabular" style={{ color: colors.ink }}>
+                {isEN ? 'Day' : 'Giorno'} {v.day}{v.estimate ? `${isEN ? ' of about ' : ' su circa '}${v.estimate}` : ''}
+                {v.phaseLabel ? ` · ${v.phaseLabel}` : ''}
+              </p>
+              {v.phase && v.phase.why && <p className="text-[13px] leading-relaxed mt-1.5 max-w-[62ch]" style={{ color: colors.mutedInk }}>{v.phase.why}</p>}
+              {v.phase && Array.isArray(v.phase.exercises) && v.phase.exercises.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {v.phase.exercises.slice(0, 2).map((ex, i) => (
+                    <li key={i} className="flex gap-2 text-[12.5px] leading-snug" style={{ color: colors.mutedInk }}>
+                      <span className="w-1 h-1 rounded-full mt-[7px] flex-shrink-0" style={{ background: LED_TEAL }} />{ex.text}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            <p className="text-[13px]" style={{ color: colors.mutedInk }}>{isEN ? 'Available. Their injuries show up here as soon as they log one in the app.' : 'Disponibile. Se si fa male e lo segna nell\'app, lo vedi qui.'}</p>
+          )}
+          {v.stale && (
+            <p className="text-[12.5px] mt-2" style={{ color: colors.orange }}>
+              {isEN ? `No update for ${v.staleDays} days: the day count is projected, the phase may be out of date.` : `Nessun aggiornamento da ${v.staleDays} giorni: il giorno è calcolato, la fase potrebbe non essere aggiornata.`}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
+            <p className="text-[12px]" style={{ color: colors.faint }}>
+              {isEN ? 'Sharing since ' : 'Condivide dal '}{v.consentedAt ? teamShortDate(v.consentedAt, isEN) : '—'}
+            </p>
+            {!confirmingRemove ? (
+              <button type="button" onClick={onAskRemove} className="os-focus inline-flex items-center gap-1.5 text-[12.5px] font-semibold underline-offset-4 hover:underline" style={{ color: colors.mutedInk }}>
+                <UserMinus size={14} />{isEN ? 'Remove from roster' : 'Togli dalla rosa'}
+              </button>
+            ) : (
+              <span className="inline-flex items-center gap-2 os-fadein">
+                <span className="text-[12.5px]" style={{ color: colors.ink }}>{isEN ? 'Remove and stop sharing?' : 'Togliere e interrompere la condivisione?'}</span>
+                <button type="button" onClick={onRemove} disabled={removing} className="os-focus os-btn px-3 py-1.5 text-[12.5px]" style={{ background: 'rgba(255,107,94,0.16)', color: colors.red, border: '1px solid rgba(255,107,94,0.4)' }}>
+                  {removing ? '...' : (isEN ? 'Remove' : 'Togli')}
+                </button>
+                <button type="button" onClick={onCancelRemove} className="os-focus text-[12.5px] font-semibold" style={{ color: colors.mutedInk }}>{isEN ? 'Cancel' : 'Annulla'}</button>
+              </span>
+            )}
+          </div>
+        </div>
+      </Accordion>
+    </li>
+  );
+}
+
+// Le due formule di pagamento, affiancate. "offer" arriva da seasonPassOffer() (stessi numeri del server).
+function TeamPlanOptions({ offer, isEN, onPick, busyPlan, monthlyNote, stacked = false }) {
+  const seasonEnd = offer && offer.seasonEnd ? teamLongDate(offer.seasonEnd, isEN) : '';
+  return (
+    <div className={`grid gap-3 ${offer && offer.available && !stacked ? 'sm:grid-cols-2' : ''}`}>
+      {offer && offer.available && (
+        <div className="rounded-[18px] p-5 flex flex-col" style={{ background: 'linear-gradient(180deg, rgba(114,230,242,0.13), rgba(114,230,242,0.04))', border: `1px solid ${LED_TEAL}77` }}>
+          <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold">{isEN ? 'Season Pass' : 'Pass Stagionale'}</p>
+          <p className="mt-2 leading-none os-tabular">
+            <span style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[46px]">{teamEuro(offer.price, isEN)}</span>
+            <span className="text-[13px] ml-2" style={{ color: colors.mutedInk }}>{isEN ? 'one payment' : 'una volta sola'}</span>
+          </p>
+          <p className="text-[13px] leading-snug mt-2" style={{ color: colors.mutedInk }}>
+            {isEN ? `Covers the whole team until ${seasonEnd}.` : `Copre tutta la squadra fino al ${seasonEnd}.`}
+            {offer.savings > 0 && (isEN
+              ? ` Month by month it would be ${teamEuro(offer.monthlyTotal, true)}: you save ${teamEuro(offer.savings, true)}.`
+              : ` Mese per mese sarebbero ${teamEuro(offer.monthlyTotal, false)}: risparmi ${teamEuro(offer.savings, false)}.`)}
+          </p>
+          <p className="text-[12px] leading-snug mt-1.5" style={{ color: colors.faint }}>{isEN ? 'The price drops by €50 every month of the season.' : 'Il prezzo scende di 50 € ogni mese che passa.'}</p>
+          {onPick && (
+            <div className="mt-auto pt-4">
+              <button type="button" onClick={() => onPick('season')} disabled={!!busyPlan} className="os-focus os-btn os-btn-teal w-full py-3 text-[14px]">
+                {busyPlan === 'season' ? (isEN ? 'Opening secure payment…' : 'Apro il pagamento sicuro…') : (isEN ? `Get the Pass · ${teamEuro(offer.price, true)}` : `Attiva il Pass · ${teamEuro(offer.price, false)}`)}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      <div className="rounded-[18px] p-5 flex flex-col" style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.12)' }}>
+        <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold">{isEN ? 'Monthly' : 'Mensile'}</p>
+        <p className="mt-2 leading-none os-tabular">
+          <span style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[46px]">{teamEuro(TEAM_MONTHLY_EUR, isEN)}</span>
+          <span className="text-[13px] ml-2" style={{ color: colors.mutedInk }}>{isEN ? 'a month per team' : 'al mese a squadra'}</span>
+        </p>
+        <p className="text-[13px] leading-snug mt-2" style={{ color: colors.mutedInk }}>{monthlyNote || (isEN ? 'Cancel any time, from here.' : 'Disdici quando vuoi, da qui.')}</p>
+        {onPick && (
+          <div className="mt-auto pt-4">
+            <button type="button" onClick={() => onPick('monthly')} disabled={!!busyPlan} className="os-focus os-btn os-btn-ghost w-full py-3 text-[14px]">
+              {busyPlan === 'monthly' ? (isEN ? 'Opening secure payment…' : 'Apro il pagamento sicuro…') : (isEN ? 'Go monthly' : 'Attiva il mensile')}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Dati finti per l'anteprima nella pagina "Per la squadra" (sempre etichettati come esempio).
+function teamDemoViews(now) {
+  const mk = (id, name, injuryLabel, day, estimate, thresholds, phaseIndex) => ({
+    id, name, injured: true, injuryLabel, day, estimate, thresholds, phaseIndex, totalPhases: 3,
+    availability: phaseIndex >= 2 ? 'doubtful' : 'out', startAt: now - (day - 1) * TEAM_DAY_MS,
+    etaAt: now + Math.max(0, estimate - day) * TEAM_DAY_MS, overdueDays: Math.max(0, day - estimate), stale: false, staleDays: 0,
+  });
+  return [
+    mk('d1', 'Rossi', 'Distorsione di caviglia', 12, 42, [7, 21], 1),
+    mk('d2', 'Bianchi', 'Stiramento hamstring', 6, 49, [10, 28], 0),
+    mk('d3', 'Esposito', 'Contusione muscolare', 10, 14, [3, 7], 2),
+    mk('d4', 'Ferrari', 'Distorsione collaterale mediale', 24, 35, [10, 21], 2),
+  ];
+}
+
+function TeamNotice({ notice, onDismiss, isEN }) {
+  if (!notice) return null;
+  const tone = notice.tone === 'error' ? colors.red : notice.tone === 'warn' ? colors.orange : LED_GREEN;
+  const Icon = notice.tone === 'error' ? AlertTriangle : notice.tone === 'warn' ? Info : CheckCircle2;
+  return (
+    <div role={notice.tone === 'error' ? 'alert' : 'status'} className="os-fadein flex items-start gap-3 rounded-[16px] px-4 py-3.5 mb-4" style={{ background: `${tone}14`, border: `1px solid ${tone}55` }}>
+      <Icon size={18} color={tone} weight="fill" className="flex-shrink-0 mt-0.5" />
+      <p className="flex-1 text-[14px] leading-snug" style={{ color: colors.ink }}>{notice.text}</p>
+      <button type="button" onClick={onDismiss} className="os-focus flex-shrink-0 -m-1 p-1 rounded-md" aria-label={isEN ? 'Dismiss' : 'Chiudi'}>
+        <X size={15} color={colors.mutedInk} />
+      </button>
+    </div>
+  );
+}
+
+function TeamGiftCode({ gift, isEN, onOpen, onChange, onSubmit }) {
+  if (!gift.open) {
+    return (
+      <button type="button" onClick={onOpen} className="os-focus inline-flex items-center gap-1.5 text-[13px] font-semibold underline-offset-4 hover:underline" style={{ color: colors.mutedInk }}>
+        <Gift size={15} />{isEN ? 'Have a gift code?' : 'Hai un codice omaggio?'}
+      </button>
+    );
+  }
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="os-fadein">
+      <label htmlFor="team-gift" className="os-label block mb-1.5" style={{ color: colors.mutedInk }}>{isEN ? 'Gift code' : 'Codice omaggio'}</label>
+      <div className="flex gap-2">
+        <input
+          id="team-gift"
+          value={gift.code}
+          onChange={(e) => onChange(e.target.value.toUpperCase())}
+          autoCapitalize="characters"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="OFFSIDE-XXXX-XXXX"
+          className="os-focus flex-1 min-w-0 rounded-xl px-3.5 py-2.5 text-[15px] tracking-[0.08em] os-tabular"
+          style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.14)', color: colors.ink }}
+        />
+        <button type="submit" disabled={gift.busy || gift.code.replace(/[^A-Z0-9]/g, '').length < 8} className="os-focus os-btn os-btn-teal px-4 text-[13.5px] disabled:opacity-50">
+          {gift.busy ? '...' : (isEN ? 'Apply' : 'Attiva')}
+        </button>
+      </div>
+      {gift.error && <p role="alert" className="text-[12.5px] mt-2" style={{ color: colors.red }}>{gift.error}</p>}
+    </form>
+  );
+}
+
+function TeamBillingPanel({ data, isEN, checkout, onCheckout, renewal, onRenewal, gift, onGiftOpen, onGiftChange, onGiftSubmit }) {
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const b = data.billing || {};
+  const offer = data.offer || null;
+  const date = (iso) => (iso ? teamLongDate(iso, isEN) : '');
+  let title; let line;
+  if (b.plan === 'gift') { title = isEN ? 'Gift access' : 'Omaggio attivo'; line = isEN ? `Covered until ${date(b.paidUntil)}. Nothing to pay.` : `Coperti fino al ${date(b.paidUntil)}. Niente da pagare.`; }
+  else if (b.plan === 'season') { title = isEN ? 'Season Pass active' : 'Pass Stagionale attivo'; line = isEN ? `Covered until ${date(b.paidUntil)}. No renewals, nothing to do.` : `Coperti fino al ${date(b.paidUntil)}. Nessun rinnovo, nessuna azione da fare.`; }
+  else if (b.plan === 'monthly') {
+    title = isEN ? `Monthly · ${teamEuro(TEAM_MONTHLY_EUR, true)}/month` : `Mensile · ${teamEuro(TEAM_MONTHLY_EUR, false)}/mese`;
+    line = b.cancelAtPeriodEnd
+      ? (isEN ? `Cancelled: active until ${date(b.renewsAt)}, then it stops.` : `Disdetto: attivo fino al ${date(b.renewsAt)}, poi si ferma.`)
+      : (b.renewsAt ? (isEN ? `Renews on ${date(b.renewsAt)}.` : `Si rinnova il ${date(b.renewsAt)}.`) : (isEN ? 'Active.' : 'Attivo.'));
+  } else {
+    title = isEN ? 'Free trial' : 'Prova gratuita';
+    line = data.trialActive
+      ? (isEN ? `${data.trialDaysLeft} ${data.trialDaysLeft === 1 ? 'day' : 'days'} left · until ${date(b.trialEndsAt)}.` : `${data.trialDaysLeft} ${data.trialDaysLeft === 1 ? 'giorno rimasto' : 'giorni rimasti'} · fino al ${date(b.trialEndsAt)}.`)
+      : '';
+  }
+  return (
+    <section className="os-panel p-5" aria-labelledby="team-billing-title">
+      <h2 id="team-billing-title" style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[16px] font-bold flex items-center gap-2">
+        <CreditCard size={17} color={LED_TEAL} />{title}
+      </h2>
+      {line && <p className="text-[13.5px] leading-snug mt-1.5" style={{ color: colors.mutedInk }}>{line}</p>}
+      {!IS_NATIVE && b.plan === 'trial' && (
+        <div className="mt-4">
+          <p className="text-[13px] mb-3" style={{ color: colors.ink }}>{isEN ? 'Choose how to continue: the first charge only comes when the trial ends.' : 'Scegli come continuare: il mensile parte solo a fine prova.'}</p>
+          <TeamPlanOptions stacked offer={offer} isEN={isEN} onPick={onCheckout} busyPlan={checkout.busy} monthlyNote={isEN ? 'First charge when the trial ends. Cancel any time.' : 'Primo addebito a fine prova. Disdici quando vuoi.'} />
+        </div>
+      )}
+      {!IS_NATIVE && b.plan === 'monthly' && (
+        <div className="mt-3.5 space-y-3">
+          {b.hasSubscription && (b.cancelAtPeriodEnd ? (
+            <button type="button" onClick={() => onRenewal(false)} disabled={renewal.busy} className="os-focus os-btn os-btn-ghost px-4 py-2 text-[13px]">
+              {renewal.busy ? '...' : (isEN ? 'Turn renewal back on' : 'Riattiva il rinnovo')}
+            </button>
+          ) : !confirmCancel ? (
+            <button type="button" onClick={() => setConfirmCancel(true)} className="os-focus text-[13px] font-semibold underline-offset-4 hover:underline" style={{ color: colors.mutedInk }}>
+              {isEN ? 'Cancel renewal' : 'Disdici il rinnovo'}
+            </button>
+          ) : (
+            <div className="os-fadein">
+              <p className="text-[13px]" style={{ color: colors.ink }}>{isEN ? `The dashboard stays open until ${date(b.renewsAt)}.` : `La dashboard resta aperta fino al ${date(b.renewsAt)}.`}</p>
+              <div className="flex items-center gap-3 mt-2">
+                <button type="button" onClick={() => { onRenewal(true); setConfirmCancel(false); }} disabled={renewal.busy} className="os-focus os-btn px-3.5 py-2 text-[13px]" style={{ background: 'rgba(255,107,94,0.14)', color: colors.red, border: '1px solid rgba(255,107,94,0.4)' }}>
+                  {isEN ? 'Yes, cancel' : 'Sì, disdici'}
+                </button>
+                <button type="button" onClick={() => setConfirmCancel(false)} className="os-focus text-[13px] font-semibold" style={{ color: colors.mutedInk }}>{isEN ? 'Keep it' : 'Lascia attivo'}</button>
+              </div>
+            </div>
+          ))}
+          {offer && offer.available && (
+            <button type="button" onClick={() => onCheckout('season')} disabled={!!checkout.busy} className="os-focus block text-left text-[13px] font-semibold underline-offset-4 hover:underline" style={{ color: LED_TEAL }}>
+              {checkout.busy === 'season' ? (isEN ? 'Opening secure payment…' : 'Apro il pagamento sicuro…') : (isEN ? `Switch to the Season Pass: ${teamEuro(offer.price, true)} until May, no more monthly charges` : `Passa al Pass Stagionale: ${teamEuro(offer.price, false)} fino a maggio, niente più addebiti mensili`)}
+            </button>
+          )}
+        </div>
+      )}
+      {(checkout.error || renewal.error) && <p role="alert" className="text-[12.5px] mt-3" style={{ color: colors.red }}>{checkout.error || renewal.error}</p>}
+      {!IS_NATIVE && (b.plan === 'trial' || b.plan === 'monthly') && (
+        <div className="mt-4 pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+          <TeamGiftCode gift={gift} isEN={isEN} onOpen={onGiftOpen} onChange={onGiftChange} onSubmit={onGiftSubmit} />
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TeamInvitePanel({ code, isEN, copied, onCopyLink, onShare, rotate, onAskRotate, onCancelRotate, onRotate, embedded = false }) {
+  const inner = (
+    <>
+      <p className="text-[13px] leading-snug" style={{ color: colors.mutedInk }}>
+        {isEN ? 'Send the link to the squad group chat. Each player opens it, sees exactly what gets shared and chooses to join.' : 'Manda il link nel gruppo della squadra. Ogni giocatore lo apre, vede cosa condivide e sceglie se aderire.'}
+      </p>
+      <div className="mt-4 rounded-[14px] px-4 py-3.5" style={{ background: 'rgba(0,0,0,0.28)', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <span className="os-label block mb-1.5" style={{ color: colors.faint }}>{isEN ? 'Team code' : 'Codice squadra'}</span>
+        <span style={{ fontFamily: BEBAS, color: LED_TEAL, letterSpacing: '0.22em', textShadow: `0 0 14px ${LED_TEAL}55` }} className="block text-[34px] leading-none os-tabular select-all">{code}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5 mt-3">
+        <button type="button" onClick={onCopyLink} className="os-focus os-btn os-btn-teal whitespace-nowrap px-4 py-2.5 text-[13.5px]" aria-live="polite">
+          {copied ? <Check size={15} weight="bold" /> : <LinkSimple size={15} />}{copied ? (isEN ? 'Link copied' : 'Link copiato') : (isEN ? 'Copy invite link' : 'Copia il link di invito')}
+        </button>
+        {typeof navigator !== 'undefined' && navigator.share && (
+          <button type="button" onClick={onShare} className="os-focus inline-flex items-center gap-1.5 text-[13px] font-semibold underline-offset-4 hover:underline" style={{ color: colors.ink }}>
+            <Share2 size={14} />{isEN ? 'Share' : 'Condividi'}
+          </button>
+        )}
+        {!rotate.confirm ? (
+          <button type="button" onClick={onAskRotate} className="os-focus inline-flex items-center gap-1.5 text-[13px] font-semibold underline-offset-4 hover:underline" style={{ color: colors.mutedInk }}>
+            <ArrowsClockwise size={14} />{isEN ? 'New code' : 'Cambia codice'}
+          </button>
+        ) : null}
+      </div>
+      {rotate.confirm && (
+        <div className="os-fadein mt-3 rounded-[14px] p-3.5" style={{ background: 'rgba(255,178,92,0.08)', border: '1px solid rgba(255,178,92,0.3)' }}>
+          <p className="text-[13px] leading-snug" style={{ color: colors.ink }}>{isEN ? 'The old code and link stop working. Players already connected stay connected.' : 'Il codice e il link vecchi smettono di funzionare. I giocatori già collegati restano collegati.'}</p>
+          <div className="flex items-center gap-3 mt-2.5">
+            <button type="button" onClick={onRotate} disabled={rotate.busy} className="os-focus os-btn os-btn-ghost px-3.5 py-2 text-[13px]">{rotate.busy ? '...' : (isEN ? 'Yes, new code' : 'Sì, cambia codice')}</button>
+            <button type="button" onClick={onCancelRotate} className="os-focus text-[13px] font-semibold" style={{ color: colors.mutedInk }}>{isEN ? 'Cancel' : 'Annulla'}</button>
+          </div>
+        </div>
+      )}
+      {rotate.error && <p role="alert" className="text-[12.5px] mt-2" style={{ color: colors.red }}>{rotate.error}</p>}
+    </>
+  );
+  if (embedded) return inner;
+  return (
+    <section className="os-panel p-5" aria-labelledby="team-invite-title">
+      <h2 id="team-invite-title" style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[16px] font-bold flex items-center gap-2 mb-1.5"><UserPlus size={17} color={LED_TEAL} />{isEN ? 'Invite players' : 'Invita i giocatori'}</h2>
+      {inner}
+    </section>
+  );
+}
+
+function TeamStatsPanel({ stats, isEN, seasonLabel }) {
+  if (!stats || !stats.totalEpisodes) return null;
+  const max = Math.max(1, ...stats.topInjuries.map((it) => it.count));
+  const kpis = [
+    { v: stats.daysLostSeason ?? 0, l: isEN ? 'days out' : 'giorni di stop' },
+    { v: stats.totalEpisodes, l: stats.totalEpisodes === 1 ? (isEN ? 'injury' : 'infortunio') : (isEN ? 'injuries' : 'infortuni') },
+    { v: stats.avgResolvedDays != null ? stats.avgResolvedDays : '—', l: isEN ? 'avg. days to recover' : 'giorni medi di recupero' },
+  ];
+  return (
+    <section className="os-panel p-5" aria-labelledby="team-stats-title">
+      <h2 id="team-stats-title" style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[16px] font-bold flex items-center gap-2"><ChartBar size={17} color={LED_TEAL} />{isEN ? `Season ${seasonLabel}` : `Stagione ${seasonLabel}`}</h2>
+      <dl className="grid grid-cols-3 gap-2 mt-4">
+        {kpis.map((k) => (
+          <div key={k.l} className="min-w-0">
+            <dd style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[30px] leading-none os-tabular">{k.v}</dd>
+            <dt className="text-[11.5px] leading-tight mt-1" style={{ color: colors.mutedInk }}>{k.l}</dt>
+          </div>
+        ))}
+      </dl>
+      <h3 className="text-[13px] font-semibold mt-5 mb-2.5" style={{ color: colors.ink }}>{isEN ? 'Most frequent' : 'Gli infortuni più frequenti'}</h3>
+      <ul className="space-y-2.5">
+        {stats.topInjuries.map((it) => (
+          <li key={it.label}>
+            <div className="flex items-baseline justify-between gap-3 text-[12.5px]">
+              <span className="truncate" style={{ color: colors.mutedInk }}>{it.label}</span>
+              <span className="os-tabular font-semibold" style={{ color: colors.ink }}>{it.count}</span>
+            </div>
+            <div className="h-1.5 rounded-full mt-1" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              <div className="h-full rounded-full" style={{ width: `${(it.count / max) * 100}%`, background: LED_TEAL }} />
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className="text-[11.5px] leading-snug mt-4" style={{ color: colors.faint }}>{isEN ? 'Anonymous team totals, never attributed to a name.' : 'Totali anonimi della squadra, mai attribuiti a un nome.'}</p>
+    </section>
+  );
+}
+
+function TeamWellnessPanel({ summary, toWatch, isEN }) {
+  if (!summary || (summary.rosso + summary.giallo + summary.verde) === 0) return null;
+  const rows = [
+    { v: summary.rosso, l: isEN ? 'To watch' : 'Da monitorare', c: colors.red },
+    { v: summary.giallo, l: isEN ? 'Attention' : 'Attenzione', c: colors.orange },
+    { v: summary.verde, l: 'OK', c: LED_GREEN },
+  ];
+  return (
+    <section className="os-panel p-5" aria-labelledby="team-well-title">
+      <h2 id="team-well-title" style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[16px] font-bold flex items-center gap-2"><Gauge size={17} color={LED_GREEN} />{isEN ? 'Weekly wellness' : 'Benessere della settimana'}</h2>
+      <div className="flex gap-5 mt-3">
+        {rows.map((r) => (
+          <p key={r.l} className="leading-none">
+            <span style={{ fontFamily: BEBAS, color: r.c }} className="text-[28px] os-tabular">{r.v}</span>
+            <span className="block text-[11.5px] mt-1" style={{ color: colors.mutedInk }}>{r.l}</span>
+          </p>
+        ))}
+      </div>
+      {toWatch.length > 0 && (
+        <p className="text-[13px] leading-snug mt-3.5" style={{ color: colors.ink }}>
+          {isEN ? 'Worth checking in with: ' : 'Vale la pena chiedere come stanno a: '}<strong>{toWatch.map((p) => p.name).join(', ')}</strong>
+        </p>
+      )}
+      <p className="text-[11.5px] leading-snug mt-3" style={{ color: colors.faint }}>
+        {isEN ? 'From each player\'s optional check-in (sleep, soreness, load): a reason to ask, never a diagnosis.' : 'Dal check-in facoltativo di ognuno (sonno, indolenzimento, carico): un motivo per chiedere, mai una diagnosi.'}
+      </p>
+    </section>
+  );
+}
+
+function TeamAccountPanel({ email, isEN, onLogout, onDelete }) {
+  return (
+    <section className="os-panel-flat p-5" aria-labelledby="team-account-title">
+      <h2 id="team-account-title" className="os-label" style={{ color: colors.mutedInk }}>{isEN ? 'Account' : 'Account'}</h2>
+      {email && <p className="text-[13.5px] mt-2 truncate" style={{ color: colors.ink }}>{email}</p>}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-3">
+        <button type="button" onClick={onLogout} className="os-focus inline-flex items-center gap-1.5 text-[13px] font-semibold underline-offset-4 hover:underline" style={{ color: colors.ink }}>
+          <LogOut size={14} />{isEN ? 'Log out' : 'Esci'}
+        </button>
+        <button type="button" onClick={onDelete} className="os-focus inline-flex items-center gap-1.5 text-[13px] font-semibold underline-offset-4 hover:underline" style={{ color: colors.red }}>
+          <Trash size={14} />{isEN ? 'Delete account' : 'Elimina account'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+const TEAM_FILTERS = ['all', 'out', 'doubtful', 'available', 'watch'];
+
+function TeamDashboardView(props) {
+  const { data, isEN, now, injuries, filter, onFilter } = props;
+  const views = (data.players || []).map((p) => teamPlayerView(p, injuries, now));
+  const watchList = views.filter((v) => v.stale || (v.wellness && (v.wellness.level === 'rosso' || v.wellness.level === 'giallo')));
+  const counts = { all: views.length, out: 0, doubtful: 0, available: 0, watch: watchList.length };
+  views.forEach((v) => { counts[v.availability]++; });
+  const shown = (filter === 'all' ? views : filter === 'watch' ? watchList : views.filter((v) => v.availability === filter))
+    .slice()
+    .sort((a, b) => TEAM_AVAIL_ORDER[a.availability] - TEAM_AVAIL_ORDER[b.availability] || (a.etaAt || Infinity) - (b.etaAt || Infinity) || a.name.localeCompare(b.name, 'it'));
+  const wellnessToWatch = views.filter((v) => v.wellness && (v.wellness.level === 'rosso' || v.wellness.level === 'giallo'))
+    .sort((a, b) => (a.wellness.level === 'rosso' ? 0 : 1) - (b.wellness.level === 'rosso' ? 0 : 1));
+  const filterLabels = {
+    all: isEN ? 'All' : 'Tutti', out: isEN ? 'Out' : 'Fuori', doubtful: isEN ? 'Doubtful' : 'In dubbio',
+    available: isEN ? 'Available' : 'Disponibili', watch: isEN ? 'Check in' : 'Da sentire',
+  };
+  const invite = (
+    <TeamInvitePanel code={data.inviteCode} isEN={isEN} copied={props.copied} onCopyLink={props.onCopyLink} onShare={props.onShare}
+      rotate={props.rotate} onAskRotate={props.onAskRotate} onCancelRotate={props.onCancelRotate} onRotate={props.onRotate} />
+  );
+  const billing = (
+    <TeamBillingPanel data={data} isEN={isEN} checkout={props.checkout} onCheckout={props.onCheckout} renewal={props.renewal} onRenewal={props.onRenewal}
+      gift={props.gift} onGiftOpen={props.onGiftOpen} onGiftChange={props.onGiftChange} onGiftSubmit={props.onGiftSubmit} />
+  );
+  const account = <TeamAccountPanel email={props.email} isEN={isEN} onLogout={props.onLogout} onDelete={props.onDelete} />;
+
+  if (!data.subscriptionActive) {
+    const count = Number.isFinite(data.playerCount) ? data.playerCount : null;
+    const hadPlan = data.billing && data.billing.hasSubscription;
+    return (
+      <div className="max-w-[720px] space-y-4">
+        <section className="os-panel p-5 sm:p-7" aria-labelledby="team-locked-title">
+          <h2 id="team-locked-title" style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[22px] font-bold leading-tight">
+            {hadPlan ? (isEN ? 'The plan has ended' : 'Il piano è terminato') : (isEN ? 'Your free trial has ended' : 'La prova gratuita è finita')}
+          </h2>
+          <p className="text-[14px] leading-relaxed mt-2" style={{ color: colors.mutedInk }}>
+            {isEN
+              ? `${count ? `The ${count} connected ${count === 1 ? 'player' : 'players'} and ` : ''}the code ${data.inviteCode} are safe: the dashboard reopens as soon as a plan is active.`
+              : `${count ? `${count === 1 ? 'Il giocatore collegato' : `I ${count} giocatori collegati`} e ` : ''}il codice ${data.inviteCode} restano al sicuro: la dashboard si riapre appena attivi un piano.`}
+          </p>
+          {!IS_NATIVE ? (
+            <>
+              <div className="mt-5"><TeamPlanOptions offer={data.offer} isEN={isEN} onPick={props.onCheckout} busyPlan={props.checkout.busy} /></div>
+              {props.checkout.error && <p role="alert" className="text-[13px] mt-3" style={{ color: colors.red }}>{props.checkout.error}</p>}
+              <div className="flex flex-wrap items-center justify-between gap-3 mt-5">
+                <TeamGiftCode gift={props.gift} isEN={isEN} onOpen={props.onGiftOpen} onChange={props.onGiftChange} onSubmit={props.onGiftSubmit} />
+                {!props.gift.open && (
+                  <button type="button" onClick={props.onRefresh} className="os-focus text-[13px] font-semibold underline-offset-4 hover:underline" style={{ color: colors.mutedInk }}>{isEN ? 'Already paid? Refresh' : 'Hai già pagato? Aggiorna'}</button>
+                )}
+              </div>
+              <p className="text-[12px] mt-4" style={{ color: colors.faint }}>{isEN ? 'Secure payment on Stripe. You can pay with a different email from the team\'s: the plan still goes to this team.' : 'Pagamento sicuro su Stripe. Puoi pagare anche con un\'email diversa da quella della squadra: il piano va comunque a questa squadra.'}</p>
+            </>
+          ) : (
+            <button type="button" onClick={props.onRefresh} className="os-focus os-btn os-btn-ghost px-4 py-2.5 text-[13.5px] mt-4">{isEN ? 'Refresh' : 'Aggiorna'}</button>
+          )}
+        </section>
+        {account}
+      </div>
+    );
+  }
+
+  return (
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 lg:items-start">
+      <div className="space-y-4 min-w-0">
+        {views.length === 0 ? (
+          <section className="os-panel p-5 sm:p-7" aria-labelledby="team-empty-title">
+            <h2 id="team-empty-title" style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[22px] font-bold leading-tight">{isEN ? 'Bring the squad in' : 'Porta dentro la squadra'}</h2>
+            <ol className="mt-4 space-y-3">
+              {(isEN
+                ? ['Send the link below to the squad group chat.', 'Each player opens it and chooses to share: never their journal.', 'Here you see who is available, who is out and when they are back.']
+                : ['Manda il link qui sotto nel gruppo della squadra.', 'Ogni giocatore lo apre e sceglie di condividere: mai il suo diario.', 'Qui vedi chi è disponibile, chi è fuori e quando rientra.']
+              ).map((t, i) => (
+                <li key={i} className="flex gap-3 text-[14px] leading-snug" style={{ color: colors.ink }}>
+                  <span style={{ fontFamily: BEBAS, color: LED_TEAL }} className="text-[20px] leading-none w-4 flex-shrink-0">{i + 1}</span>{t}
+                </li>
+              ))}
+            </ol>
+            <div className="mt-5">
+              <TeamInvitePanel embedded code={data.inviteCode} isEN={isEN} copied={props.copied} onCopyLink={props.onCopyLink} onShare={props.onShare}
+                rotate={props.rotate} onAskRotate={props.onAskRotate} onCancelRotate={props.onCancelRotate} onRotate={props.onRotate} />
+            </div>
+          </section>
+        ) : (
+          <>
+            <TeamSquadStrip views={views} isEN={isEN} filter={filter} onFilter={onFilter} />
+            <TeamReturnsTimeline views={views} isEN={isEN} now={now} />
+            <section className="os-panel overflow-hidden" aria-labelledby="team-roster-title">
+              <div className="px-4 sm:px-5 pt-5 pb-3">
+                <h2 id="team-roster-title" style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[17px] font-bold">{isEN ? 'Squad' : 'Rosa'}</h2>
+                <div className="flex flex-wrap gap-1.5 mt-3" role="group" aria-label={isEN ? 'Filter' : 'Filtro'}>
+                  {TEAM_FILTERS.map((k) => {
+                    const on = filter === k;
+                    return (
+                      <button key={k} type="button" aria-pressed={on} onClick={() => onFilter(k)}
+                        className="os-focus os-press flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-semibold"
+                        style={{ background: on ? 'rgba(114,230,242,0.16)' : 'transparent', border: `1px solid ${on ? `${LED_TEAL}77` : 'rgba(255,255,255,0.1)'}`, color: on ? '#FFFFFF' : colors.mutedInk }}>
+                        {filterLabels[k]}<span className="os-tabular" style={{ color: on ? LED_TEAL : colors.faint }}>{counts[k]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {shown.length === 0 ? (
+                <p className="px-5 pb-5 text-[13.5px]" style={{ color: colors.mutedInk }}>
+                  {filter === 'watch' ? (isEN ? 'Nobody to chase: everyone is up to date and feeling fine.' : 'Nessuno da sentire: tutti aggiornati e senza segnali.') : (isEN ? 'Nobody in this group right now.' : 'Nessuno in questo gruppo, adesso.')}
+                </p>
+              ) : (
+                <ul>
+                  {shown.map((v) => (
+                    <TeamPlayerRow key={v.id} v={v} isEN={isEN}
+                      expanded={props.expandedId === v.id}
+                      onToggle={() => props.onToggleExpand(v.id)}
+                      confirmingRemove={props.confirmRemoveId === v.id}
+                      onAskRemove={() => props.onAskRemove(v.id)}
+                      onCancelRemove={props.onCancelRemove}
+                      onRemove={() => props.onRemove(v.id)}
+                      removing={props.removingId === v.id} />
+                  ))}
+                </ul>
+              )}
+              {props.removeError && <p role="alert" className="px-5 pb-4 text-[12.5px]" style={{ color: colors.red }}>{props.removeError}</p>}
+            </section>
+            <p className="text-[12px] leading-snug px-1" style={{ color: colors.faint }}>
+              {isEN ? 'Recovery times are estimates based on typical cases, not a promise: every body heals at its own pace. Players\' journals and check-in answers are never visible here.' : 'I tempi di recupero sono stime su casi tipici, non una promessa: ogni corpo guarisce a modo suo. Il diario dei giocatori e le risposte del check-in qui non si vedono mai.'}
+            </p>
+          </>
+        )}
+      </div>
+      <aside className="space-y-4 mt-4 lg:mt-0" aria-label={isEN ? 'Team tools' : 'Strumenti della squadra'}>
+        {views.length > 0 && invite}
+        <TeamWellnessPanel summary={data.wellnessSummary} toWatch={wellnessToWatch} isEN={isEN} />
+        <TeamStatsPanel stats={data.teamStats} isEN={isEN} seasonLabel={(data.season && data.season.label) || SEASON.label} />
+        {billing}
+        {account}
+      </aside>
+    </div>
+  );
+}
 function phaseRangeLabel(index, thresholds, isEN) {
   if (index === 0) return isEN ? `Day 1 – ${thresholds[0]}` : `Giorno 1 – ${thresholds[0]}`;
   if (index === 1) return isEN ? `Day ${thresholds[0] + 1} – ${thresholds[1]}` : `Giorno ${thresholds[0] + 1} – ${thresholds[1]}`;
@@ -5733,18 +6508,25 @@ export default function Offside() {
   const [joinTeamPlayerName, setJoinTeamPlayerName] = useState('');
   const [joinTeamConsent, setJoinTeamConsent] = useState(false);
   const [joinTeamStatus, setJoinTeamStatus] = useState('idle'); // idle | submitting | error | notfound
+  const [joinTeamError, setJoinTeamError] = useState('');
+  const [pendingInvite, setPendingInvite] = useState(null); // codice arrivato da un link myoffside.com/?squadra=...
+  // Avviso per il giocatore che non è più collegato (tolto dallo staff o squadra eliminata).
+  const [teamGoneNotice, setTeamGoneNotice] = useState(() => { try { return JSON.parse(localStorage.getItem('offside_team_gone') || 'null'); } catch (err) { return null; } });
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('premium') === 'unlocked') {
-      setPremiumUnlocked(true);
-      persist(snapshot({ premiumUnlocked: true }));
-      trackEvent('premium_unlocked_via_redirect');
-      params.delete('premium');
-      const cleanUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '') + window.location.hash;
-      window.history.replaceState(window.history.state, '', cleanUrl);
-    }
-  }, []);
+  // --- Offside Squadre: dashboard dello staff ---
+  const [teamNotice, setTeamNotice] = useState(null); // { tone: 'success' | 'warn' | 'error', text }
+  const [teamFilter, setTeamFilter] = useState('all');
+  const [teamExpandedId, setTeamExpandedId] = useState(null);
+  const [teamConfirmRemoveId, setTeamConfirmRemoveId] = useState(null);
+  const [teamRemovingId, setTeamRemovingId] = useState(null);
+  const [teamRemoveError, setTeamRemoveError] = useState('');
+  const [teamRotate, setTeamRotate] = useState({ confirm: false, busy: false, error: '' });
+  const [teamCheckout, setTeamCheckout] = useState({ busy: null, error: '' });
+  const [teamRenewal, setTeamRenewal] = useState({ busy: false, error: '' });
+  const [teamGift, setTeamGift] = useState({ open: false, code: '', busy: false, error: '' });
+  const [teamReloadKey, setTeamReloadKey] = useState(0);
+  const [teamNow, setTeamNow] = useState(() => Date.now());
+  const [teamForgot, setTeamForgot] = useState({ step: 'email', email: '', code: '', password: '', password2: '', status: 'idle', error: '' });
 
   useEffect(() => {
     loadFontsOnce();
@@ -5805,24 +6587,49 @@ export default function Offside() {
         setLoading(false);
       }
 
-      // Ritorno da un pagamento Stripe riuscito: sblocca e salva, poi pulisci l'URL
+      // Parametri dell'indirizzo: ritorno dai pagamenti e link di invito. Si leggono una volta e si tolgono.
       const params = new URLSearchParams(window.location.search);
-      if (params.get('premium') === 'unlocked') {
-        setPremiumUnlocked(true);
-        const next = { ...loaded, premiumUnlocked: true };
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        } catch (err) {}
-        window.history.replaceState(window.history.state, '', window.location.pathname);
+      let urlChanged = false;
+
+      // Premium sul sito: si sblocca SOLO se Stripe conferma il pagamento (prima bastava
+      // aprire il sito con "?premium=unlocked"). Senza un pagamento verificabile si apre il
+      // ripristino con l'email usata per pagare.
+      const premiumSession = params.get('premium_session');
+      if (params.has('premium') || premiumSession) {
+        params.delete('premium'); params.delete('premium_session'); urlChanged = true;
+        if (premiumSession && /^cs_(live|test)_[A-Za-z0-9]+$/.test(premiumSession)) {
+          verifyPremiumPayment(premiumSession);
+        } else if (!loaded.premiumUnlocked) {
+          setScreen('premium');
+          setShowRestoreBox(true);
+        }
       }
 
-      // Ritorno da un pagamento Squadre riuscito (mensile o Pass Stagionale): torna dritti alla
-      // dashboard, che si aggiorna da sola non appena "screen" e "teamAuth" sono pronti (vedi
-      // l'useEffect più sotto che chiama loadTeamDashboard quando entrambi sono impostati).
-      if (params.get('team') === 'activated' && loaded.teamAuth) {
-        trackEvent('team_payment_redirect');
-        setScreen('teamDashboard');
-        params.delete('team');
+      // Ritorno da un pagamento Squadre: si conferma subito col server (senza aspettare il webhook).
+      const teamParam = params.get('team');
+      if (teamParam === 'activated' || teamParam === 'checkout_cancel') {
+        const sessionId = params.get('session_id');
+        params.delete('team'); params.delete('session_id'); urlChanged = true;
+        if (loaded.teamAuth) {
+          setScreen('teamDashboard');
+          if (teamParam === 'checkout_cancel') {
+            setTeamNotice({ tone: 'warn', text: isEN ? 'Payment cancelled: nothing was charged.' : 'Pagamento annullato: nessun addebito.' });
+          } else if (sessionId) {
+            trackEvent('team_payment_redirect');
+            confirmTeamPayment(loaded.teamAuth, sessionId);
+          }
+        }
+      }
+
+      // Invito di una squadra: myoffside.com/?squadra=CODICE apre l'adesione con il codice già scritto.
+      const invite = params.get('squadra');
+      if (invite) {
+        params.delete('squadra'); urlChanged = true;
+        const code = invite.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+        if (code) { setJoinTeamCode(code); setPendingInvite(code); trackEvent('team_invite_opened'); }
+      }
+
+      if (urlChanged) {
         const cleanUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '') + window.location.hash;
         window.history.replaceState(window.history.state, '', cleanUrl);
       }
@@ -6062,6 +6869,7 @@ export default function Offside() {
     else if (screen === 'physios') setScreen('regions');
     else if (screen === 'teamRegister') setScreen('premium');
     else if (screen === 'teamLogin') setScreen('premium');
+    else if (screen === 'teamForgot') setScreen('teamLogin');
     else if (screen === 'teamDashboard') setScreen('premium');
     else if (screen === 'regions') setScreen('cover');
   };
@@ -6263,20 +7071,31 @@ export default function Offside() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inviteCode: joinTeamCode.trim(), playerName: joinTeamPlayerName.trim(), consent: true }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.playerId) {
         const membership = { playerId: data.playerId, teamId: data.teamId, teamName: data.teamName, playerName: joinTeamPlayerName.trim(), consentedAt: new Date().toISOString() };
         setMyTeamMembership(membership);
         persist(snapshot({ myTeamMembership: membership }));
         trackEvent('team_joined');
         setJoinTeamStatus('idle');
+        setJoinTeamError('');
+        dismissTeamGoneNotice();
         setJoinTeamCode(''); setJoinTeamPlayerName(''); setJoinTeamConsent(false); setShowJoinTeamBox(false);
-      } else {
+      } else if (res.status === 404) {
         setJoinTeamStatus('notfound');
+      } else {
+        setJoinTeamStatus('failed');
+        setJoinTeamError(data.error || (isEN ? 'Something went wrong, try again.' : 'Qualcosa è andato storto, riprova.'));
       }
     } catch (err) {
-      setJoinTeamStatus('error');
+      setJoinTeamStatus('failed');
+      setJoinTeamError(isEN ? 'No connection. Check your internet and try again.' : 'Nessuna connessione. Controlla internet e riprova.');
     }
+  };
+
+  const dismissTeamGoneNotice = () => {
+    setTeamGoneNotice(null);
+    try { localStorage.removeItem('offside_team_gone'); } catch (err) {}
   };
 
   const revokeTeamConsent = async () => {
@@ -6324,11 +7143,20 @@ export default function Offside() {
       const wellnessPayload = computeWellnessRisk(wellnessCheckins);
 
       try {
-        await fetch(apiUrl('/api/team-player-sync'), {
+        const res = await fetch(apiUrl('/api/team-player-sync'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ playerId: myTeamMembership.playerId, status: statusPayload, wellness: wellnessPayload }),
         });
+        if (res.status === 404) {
+          // Non più collegato: lo staff lo ha tolto dalla rosa o la squadra non esiste più.
+          const data = await res.json().catch(() => ({}));
+          const notice = { reason: data.reason || 'gone', teamName: data.teamName || myTeamMembership.teamName, at: new Date().toISOString() };
+          setMyTeamMembership(null);
+          persist(snapshot({ myTeamMembership: null }));
+          setTeamGoneNotice(notice);
+          try { localStorage.setItem('offside_team_gone', JSON.stringify(notice)); } catch (err) {}
+        }
       } catch (err) {
         // Sync silenzioso: se fallisce ora, riparte al prossimo cambiamento rilevante.
       }
@@ -6415,24 +7243,205 @@ export default function Offside() {
     }
   };
 
-  const shareTeamInviteCode = async () => {
-    if (!teamAuth) return;
-    const text = isEN
-      ? `Join our team on Offside to share your injury updates: code ${teamAuth.inviteCode} — myoffside.com`
-      : `Unisciti alla nostra squadra su Offside per condividere gli aggiornamenti sui tuoi infortuni: codice ${teamAuth.inviteCode} — myoffside.com`;
+  // --- Offside Squadre: azioni dello staff (un solo endpoint, /api/team) ---
+  const callTeamApi = async (action, body = {}, auth = teamAuth) => {
     try {
-      if (navigator.share) {
-        await navigator.share({ text });
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(teamAuth.inviteCode);
-        setTeamInviteCopied(true);
-        setTimeout(() => setTeamInviteCopied(false), 2000);
+      const res = await fetch(apiUrl('/api/team'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, token: auth ? auth.token : undefined, ...body }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401 && auth) {
+        setTeamAuth(null);
+        persist(snapshot({ teamAuth: null }));
+        setScreen('teamLogin');
       }
-    } catch (err) {}
+      return { ok: res.ok, status: res.status, data };
+    } catch (err) {
+      return { ok: false, status: 0, data: { error: isEN ? 'No connection. Check your internet and try again.' : 'Nessuna connessione. Controlla internet e riprova.' } };
+    }
+  };
+
+  const teamPlanName = (plan) => {
+    if (plan === 'season') return isEN ? 'Season Pass active: the team is covered until the end of May.' : 'Pass Stagionale attivo: la squadra è coperta fino a fine maggio.';
+    if (plan === 'monthly') return isEN ? 'Monthly plan active. Thanks!' : 'Mensile attivo. Grazie!';
+    if (plan === 'gift') return isEN ? 'Gift code applied: free until the end of the season.' : 'Codice omaggio attivato: gratis fino a fine stagione.';
+    return isEN ? 'Payment received.' : 'Pagamento ricevuto.';
+  };
+
+  const confirmTeamPayment = async (auth, sessionId) => {
+    setTeamNotice({ tone: 'warn', text: isEN ? 'Confirming the payment…' : 'Sto confermando il pagamento…' });
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const r = await callTeamApi('confirm', { sessionId }, auth);
+      if (r.ok && r.data.activated) {
+        setTeamNotice({ tone: 'success', text: teamPlanName(r.data.plan) });
+        trackEvent('team_payment_confirmed', { plan: r.data.plan });
+        setTeamReloadKey((k) => k + 1);
+        return;
+      }
+      if (r.status === 401 || r.status === 403) break;
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    setTeamNotice({ tone: 'warn', text: isEN ? 'Payment received by Stripe: the plan will show up in a moment. Refresh in a minute.' : 'Stripe ha ricevuto il pagamento: il piano compare tra poco. Aggiorna tra un minuto.' });
+    setTeamReloadKey((k) => k + 1);
+  };
+
+  const startTeamCheckout = async (plan) => {
+    if (!teamAuth || teamCheckout.busy) return;
+    setTeamCheckout({ busy: plan, error: '' });
+    trackEvent(plan === 'season' ? 'team_season_pass_clicked' : 'team_subscribe_clicked');
+    const r = await callTeamApi('checkout', { plan });
+    if (r.ok && r.data.url) {
+      window.location.href = r.data.url;
+      return;
+    }
+    setTeamCheckout({ busy: null, error: r.data.error || (isEN ? 'The payment did not start. Try again.' : 'Il pagamento non è partito. Riprova.') });
+  };
+
+  const setTeamRenewalOn = async (cancel) => {
+    setTeamRenewal({ busy: true, error: '' });
+    const r = await callTeamApi(cancel ? 'cancel-renewal' : 'resume-renewal');
+    if (r.ok) {
+      setTeamRenewal({ busy: false, error: '' });
+      setTeamNotice({ tone: 'success', text: cancel ? (isEN ? 'Renewal cancelled: the dashboard stays open until the end of the period you paid for.' : 'Rinnovo disdetto: la dashboard resta aperta fino alla fine del periodo pagato.') : (isEN ? 'Renewal is back on.' : 'Rinnovo riattivato.') });
+      trackEvent(cancel ? 'team_renewal_cancelled' : 'team_renewal_resumed');
+      setTeamReloadKey((k) => k + 1);
+    } else {
+      setTeamRenewal({ busy: false, error: r.data.error || (isEN ? 'Something went wrong, try again.' : 'Qualcosa è andato storto, riprova.') });
+    }
+  };
+
+  const removeTeamPlayer = async (playerId) => {
+    setTeamRemovingId(playerId);
+    setTeamRemoveError('');
+    const r = await callTeamApi('remove-player', { playerId });
+    setTeamRemovingId(null);
+    setTeamConfirmRemoveId(null);
+    if (r.ok) {
+      trackEvent('team_player_removed');
+      setTeamExpandedId(null);
+      setTeamDashboardData((d) => (d && d.players ? { ...d, players: d.players.filter((p) => p.playerId !== playerId) } : d));
+    } else {
+      setTeamRemoveError(r.data.error || (isEN ? 'Could not remove the player, try again.' : 'Non sono riuscito a togliere il giocatore, riprova.'));
+    }
+  };
+
+  const rotateTeamCode = async () => {
+    setTeamRotate({ confirm: true, busy: true, error: '' });
+    const r = await callTeamApi('rotate-code');
+    if (r.ok && r.data.inviteCode) {
+      const nextAuth = { ...teamAuth, inviteCode: r.data.inviteCode };
+      setTeamAuth(nextAuth);
+      persist(snapshot({ teamAuth: nextAuth }));
+      setTeamDashboardData((d) => (d ? { ...d, inviteCode: r.data.inviteCode } : d));
+      setTeamRotate({ confirm: false, busy: false, error: '' });
+      setTeamNotice({ tone: 'success', text: isEN ? `New code: ${r.data.inviteCode}. The old one no longer works.` : `Nuovo codice: ${r.data.inviteCode}. Quello vecchio non funziona più.` });
+      trackEvent('team_code_rotated');
+    } else {
+      setTeamRotate({ confirm: true, busy: false, error: r.data.error || (isEN ? 'Something went wrong, try again.' : 'Qualcosa è andato storto, riprova.') });
+    }
+  };
+
+  const redeemTeamGift = async () => {
+    setTeamGift((g) => ({ ...g, busy: true, error: '' }));
+    const r = await callTeamApi('redeem', { code: teamGift.code });
+    if (r.ok) {
+      setTeamGift({ open: false, code: '', busy: false, error: '' });
+      setTeamNotice({ tone: 'success', text: teamPlanName('gift') });
+      trackEvent('team_gift_redeemed');
+      setTeamReloadKey((k) => k + 1);
+    } else {
+      setTeamGift((g) => ({ ...g, busy: false, error: r.data.error || (isEN ? 'Something went wrong, try again.' : 'Qualcosa è andato storto, riprova.') }));
+    }
+  };
+
+  const teamInviteLink = (code) => `https://myoffside.com/?squadra=${encodeURIComponent(code || '')}`;
+  const copyTeamInviteLink = async () => {
+    const code = (teamDashboardData && teamDashboardData.inviteCode) || (teamAuth && teamAuth.inviteCode);
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(teamInviteLink(code));
+      setTeamInviteCopied(true);
+      setTimeout(() => setTeamInviteCopied(false), 2000);
+      trackEvent('team_invite_link_copied');
+    } catch (err) {
+      setTeamNotice({ tone: 'warn', text: isEN ? `Copy this link: ${teamInviteLink(code)}` : `Copia questo link: ${teamInviteLink(code)}` });
+    }
+  };
+  const shareTeamInvite = async () => {
+    const code = (teamDashboardData && teamDashboardData.inviteCode) || (teamAuth && teamAuth.inviteCode);
+    const teamName = (teamDashboardData && teamDashboardData.teamName) || (teamAuth && teamAuth.teamName) || '';
+    if (!code || !navigator.share) return;
+    const text = isEN
+      ? `${teamName} is on Offside: open the link, see what you share and join (code ${code}).`
+      : `${teamName} è su Offside: apri il link, guarda cosa condividi e aderisci (codice ${code}).`;
+    try { await navigator.share({ text, url: teamInviteLink(code) }); trackEvent('team_invite_shared'); } catch (err) {}
+  };
+
+  // Password dimenticata: codice di 6 cifre via email, poi nuova password e accesso.
+  const submitTeamForgot = async () => {
+    const f = teamForgot;
+    if (f.step === 'email') {
+      if (!f.email.includes('@')) { setTeamForgot({ ...f, status: 'error', error: isEN ? 'Enter the team email.' : 'Inserisci l\'email della squadra.' }); return; }
+      setTeamForgot({ ...f, status: 'submitting', error: '' });
+      const r = await callTeamApi('forgot', { email: f.email.trim() }, null);
+      if (r.ok) { setTeamForgot({ ...f, step: 'code', status: 'idle', error: '' }); trackEvent('team_password_code_requested'); return; }
+      const error = r.status === 503
+        ? (isEN ? 'Email recovery isn\'t switched on yet. Write to privacy@myoffside.com from the team email and we\'ll help you get back in.' : 'Il recupero via email non è ancora attivo. Scrivi a privacy@myoffside.com dall\'email della squadra e ti aiutiamo a rientrare.')
+        : (r.data.error || (isEN ? 'Something went wrong, try again.' : 'Qualcosa è andato storto, riprova.'));
+      setTeamForgot({ ...f, status: 'error', error });
+      return;
+    }
+    if (f.code.replace(/\D/g, '').length !== 6) { setTeamForgot({ ...f, status: 'error', error: isEN ? 'Enter the 6-digit code from the email.' : 'Inserisci il codice di 6 cifre dell\'email.' }); return; }
+    if (f.password.length < 8) { setTeamForgot({ ...f, status: 'error', error: isEN ? 'The password needs at least 8 characters.' : 'La password deve avere almeno 8 caratteri.' }); return; }
+    if (f.password !== f.password2) { setTeamForgot({ ...f, status: 'error', error: isEN ? "Passwords don't match." : 'Le due password non coincidono.' }); return; }
+    setTeamForgot({ ...f, status: 'submitting', error: '' });
+    const r = await callTeamApi('reset', { email: f.email.trim(), code: f.code, password: f.password }, null);
+    if (r.ok && r.data.token) {
+      const d = r.data;
+      const auth = { token: d.token, teamId: d.teamId, teamName: d.teamName, responsibleName: d.responsibleName, responsibleRole: d.responsibleRole, email: f.email.trim(), inviteCode: d.inviteCode, subscriptionActive: !!d.subscriptionActive };
+      setTeamAuth(auth);
+      persist(snapshot({ teamAuth: auth }));
+      setTeamForgot({ step: 'email', email: '', code: '', password: '', password2: '', status: 'idle', error: '' });
+      setTeamNotice({ tone: 'success', text: isEN ? 'New password saved. You are logged in.' : 'Nuova password salvata. Sei dentro.' });
+      trackEvent('team_password_reset');
+      setScreen('teamDashboard');
+      return;
+    }
+    setTeamForgot({ ...f, status: 'error', error: r.data.error || (isEN ? 'Something went wrong, try again.' : 'Qualcosa è andato storto, riprova.') });
+  };
+
+  // Premium sul sito dopo il pagamento: conferma con il server, poi salva.
+  const verifyPremiumPayment = async (sessionId) => {
+    try {
+      const res = await fetch(apiUrl('/api/verify-premium'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.premium) {
+        setPremiumUnlocked(true);
+        try {
+          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...saved, premiumUnlocked: true }));
+        } catch (err) {}
+        trackEvent('premium_unlocked_via_redirect');
+      } else {
+        setScreen('premium');
+        setShowRestoreBox(true);
+      }
+    } catch (err) {
+      setScreen('premium');
+      setShowRestoreBox(true);
+    }
   };
 
   const logoutTeam = () => {
     persist(snapshot({ teamAuth: null }));
+    setTeamNotice(null);
+    setTeamFilter('all');
     setScreen('premium', () => { setTeamAuth(null); setTeamDashboardData(null); });
   };
 
@@ -6511,6 +7520,7 @@ export default function Offside() {
       });
       const data = await res.json();
       if (res.ok) {
+        setTeamNow(Date.now());
         setTeamDashboardData(data);
         if (data.subscriptionActive !== teamAuth.subscriptionActive) {
           const nextAuth = { ...teamAuth, subscriptionActive: data.subscriptionActive };
@@ -6534,7 +7544,19 @@ export default function Offside() {
       loadTeamDashboard();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen]);
+  }, [screen, teamReloadKey]);
+
+  // Link di invito aperto da un giocatore: appena l'app è pronta (avviso letto, profilo fatto)
+  // si apre il Profilo con l'adesione alla squadra e il codice già scritto.
+  useEffect(() => {
+    if (!pendingInvite || loading || !disclaimerAccepted || !onboardingProfileDone) return;
+    setPendingInvite(null);
+    if (myTeamMembership) return;
+    setJoinTeamCode(pendingInvite);
+    setShowJoinTeamBox(true);
+    setScreen('profile');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingInvite, loading, disclaimerAccepted, onboardingProfileDone]);
 
   const renderRestoreBox = () => (
     <div className="mt-3">
@@ -7183,20 +8205,6 @@ export default function Offside() {
   const activeInjuryKeys = Object.keys(injuryDates).filter((k) => injuryDates[k] && injuriesData[k]);
 
   // Riepilogo disponibilità per la dashboard squadra: quanti giocatori disponibili / in dubbio / fuori.
-  const teamAvailabilityCounts = (teamDashboardData && teamDashboardData.players)
-    ? teamDashboardData.players.reduce((acc, p) => {
-        acc[classifyPlayerAvailability(p)]++;
-        return acc;
-      }, { available: 0, doubtful: 0, out: 0 })
-    : { available: 0, doubtful: 0, out: 0 };
-
-  // Giocatori da segnalare allo staff per il check-in di benessere: rosso prima, poi giallo.
-  const wellnessOrder = { rosso: 0, giallo: 1 };
-  const wellnessToWatch = (teamDashboardData && teamDashboardData.players)
-    ? teamDashboardData.players
-        .filter((p) => p.wellness && (p.wellness.level === 'rosso' || p.wellness.level === 'giallo'))
-        .sort((a, b) => wellnessOrder[a.wellness.level] - wellnessOrder[b.wellness.level])
-    : [];
 
   const handleBottomNav = (key) => {
     navKindRef.current = 'tab';
@@ -7312,7 +8320,7 @@ export default function Offside() {
   const todayLabelCap = todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1);
 
   // Titolo della schermata: grande nel contenuto, piccolo nella barra in alto quando scorri.
-  const screenTitle = screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Today' : 'Oggi')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'triageResults' ? (isEN ? 'Possible matches' : 'Possibili corrispondenze') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'movementScreen' ? (isEN ? 'Movement screening' : 'Screening del movimento') : screen === 'teamRegister' ? (isEN ? 'Register your team' : 'Registra la squadra') : screen === 'teamLogin' ? (isEN ? 'Team login' : 'Accedi alla squadra') : screen === 'teamDashboard' ? (teamAuth?.teamName || 'Offside Squadre') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso');
+  const screenTitle = screen === 'regions' ? (regionsTab === 'prevention' ? (isEN ? 'Prevention' : 'Prevenzione') : (isEN ? 'Today' : 'Oggi')) : screen === 'triage' ? (isEN ? 'Not sure what it is?' : 'Non sai cosa hai?') : screen === 'triageResults' ? (isEN ? 'Possible matches' : 'Possibili corrispondenze') : screen === 'firstaid' ? (isEN ? 'First aid' : 'Primi soccorsi') : screen === 'premium' ? 'Premium' : screen === 'profile' ? (isEN ? 'Your profile' : 'Il tuo profilo') : screen === 'physios' ? (isEN ? 'Physiotherapists' : 'Fisioterapisti') : screen === 'movementScreen' ? (isEN ? 'Movement screening' : 'Screening del movimento') : screen === 'teamRegister' ? (isEN ? 'Register your team' : 'Registra la squadra') : screen === 'teamLogin' ? (isEN ? 'Team login' : 'Accedi alla squadra') : screen === 'teamForgot' ? (isEN ? 'New password' : 'Nuova password') : screen === 'teamDashboard' ? (teamAuth?.teamName || 'Offside Squadre') : screen === 'injuries' ? (selectedRegion && regionLabels[selectedRegion] ? regionLabels[selectedRegion] : (isEN ? 'Injuries' : 'Infortuni')) : (isEN ? 'Your recovery' : 'Il tuo percorso');
 
   // Sessione guidata aperta: quali esercizi, con quali spunte e cosa succede alla fine.
   const sessionCfg = (() => {
@@ -8202,57 +9210,59 @@ export default function Offside() {
                     </button>
                   </>
                 ) : (
-                  <>
-                    <div data-rv="" className="os-pitch-teal os-floodsweep p-6 mb-5">
-                      <PitchArc size={200} />
-                      <div className="relative flex items-center gap-2 mb-3">
-                        <div style={{ backgroundColor: 'rgba(114,230,242,0.14)', border: '1px solid rgba(114,230,242,0.35)' }} className="w-10 h-10 rounded-xl flex items-center justify-center"><Users size={19} color={LED_TEAL} /></div>
-                        <span style={{ fontFamily: BRICOLAGE, color: LED_TEAL, letterSpacing: '0.16em' }} className="text-[10px] font-bold uppercase">{isEN ? 'For staff' : 'Per lo staff'}</span>
-                      </div>
-                      <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="relative text-[52px] leading-[0.85]">Offside <span style={{ color: LED_TEAL, textShadow: `0 0 18px ${LED_TEAL}77` }}>{isEN ? 'Teams' : 'Squadre'}</span></p>
-                      <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[18px] font-bold mt-3 mb-1.5">{isEN ? 'One dashboard for the whole squad' : 'Una dashboard per tutta la squadra'}</p>
-                      <p style={{ color: 'rgba(255,255,255,0.78)' }} className="relative text-sm leading-relaxed">{isEN ? 'See every consenting player\'s injury, recovery phase and indicative return time — all in one place.' : 'Vedi infortunio, fase di recupero e rientro indicativo di ogni giocatore che ha dato il consenso — tutto in un posto.'}</p>
+                  <div className="space-y-4">
+                    <section data-rv="" className="os-panel p-5 sm:p-7 relative overflow-hidden">
+                      <PitchArc size={220} />
+                      <h2 style={{ fontFamily: BRICOLAGE, color: colors.ink, letterSpacing: '-0.025em' }} className="relative text-[30px] sm:text-[36px] font-bold leading-[1.02]">
+                        Offside <span style={{ color: LED_TEAL, textShadow: `0 0 18px ${LED_TEAL}77` }}>{isEN ? 'Teams' : 'Squadre'}</span>
+                      </h2>
+                      <p className="relative text-[15px] leading-relaxed mt-3 max-w-[44ch]" style={{ color: colors.mutedInk }}>
+                        {isEN
+                          ? 'For the physio, the fitness coach and the gaffer: who is available, who is out and when each one is back. Before every match, at a glance.'
+                          : 'Per il fisio, il preparatore e il mister: chi è disponibile, chi è fuori e quando rientra ognuno. Prima di ogni partita, a colpo d\'occhio.'}
+                      </p>
+                    </section>
+                    <div data-rv="">
+                      <TeamReturnsTimeline views={teamDemoViews(teamNow)} isEN={isEN} now={teamNow} demo />
                     </div>
-                    <div className="os-panel p-4 mb-6 space-y-3.5" data-rv="">
-                      {[
-                        isEN ? 'Real injury name and indicative recovery time for every player who joins' : 'Nome vero dell\'infortunio e tempi di recupero indicativi di ogni giocatore che aderisce',
-                        isEN ? 'Who\'s available, doubtful or out for your next match, at a glance' : 'Chi è disponibile, in dubbio o fuori per la prossima partita, a colpo d\'occhio',
-                        isEN ? 'A weekly wellness signal (sleep, soreness, training load) flagging who\'s worth checking in with — before an injury happens, not after' : 'Un segnale settimanale di benessere (sonno, indolenzimento, carico) che segnala a chi vale la pena chiedere come sta — prima che si faccia male, non dopo',
-                        isEN ? 'Team-wide stats: where your squad gets injured most, over time' : 'Statistiche di squadra: dove si infortuna di più il gruppo nel tempo',
-                        isEN ? 'A clear signal when a player\'s recovery is taking longer than typical' : 'Un segnale chiaro quando il recupero di un giocatore richiede più tempo del previsto',
-                        isEN ? 'Players decide themselves whether to share, and can revoke consent any time' : 'Sono i giocatori a scegliere se condividere, e possono revocare il consenso quando vogliono',
-                        isEN ? 'Their daily journal and personal notes are never visible to the team' : 'Il loro diario giornaliero e le note personali non sono mai visibili alla squadra',
-                      ].map((text, i) => (
-                        <div key={i} className="flex gap-3 items-start">
-                          <span style={{ background: 'rgba(114,230,242,0.14)' }} className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-px"><Check size={13} color={LED_TEAL} weight="bold" /></span>
-                          <p style={{ color: colors.ink }} className="text-[13.5px] leading-snug">{text}</p>
-                        </div>
-                      ))}
-                    </div>
+                    <section data-rv="" className="os-panel-flat p-5 sm:p-6" aria-label={isEN ? 'What you get' : 'Cosa ottieni'}>
+                      <ul className="space-y-4">
+                        {[
+                          { icon: Users, t: isEN ? 'The squad at a glance' : 'La rosa a colpo d\'occhio', d: isEN ? 'Available, doubtful or out, updated by the players themselves from the app.' : 'Disponibili, in dubbio o fuori, aggiornati dai giocatori stessi dall\'app.' },
+                          { icon: CalendarPlus, t: isEN ? 'The returns calendar' : 'Il calendario dei rientri', d: isEN ? 'Every injury with its phases and an estimated return date, next to today.' : 'Ogni infortunio con le sue fasi e una data di rientro stimata, accanto a oggi.' },
+                          { icon: Gauge, t: isEN ? 'Wellness before injuries' : 'Il benessere prima degli infortuni', d: isEN ? 'Who slept badly, feels sore or is overloaded this week: a reason to ask before it becomes an injury.' : 'Chi ha dormito poco, è indolenzito o ha carichi alti questa settimana: un motivo per chiedere prima che diventi un infortunio.' },
+                          { icon: ChartBar, t: isEN ? 'Season stats' : 'Le statistiche della stagione', d: isEN ? 'Days out and the most frequent injuries in your squad, anonymous.' : 'Giorni di stop e infortuni più frequenti della squadra, in forma anonima.' },
+                          { icon: ShieldCheck, t: isEN ? 'Privacy first' : 'Prima la privacy', d: isEN ? 'Each player chooses to share and can stop any time. Their journal never leaves their phone.' : 'Ogni giocatore sceglie se condividere e può smettere quando vuole. Il suo diario non lascia mai il telefono.' },
+                        ].map((it) => {
+                          const Icon = it.icon;
+                          return (
+                            <li key={it.t} className="flex gap-3.5">
+                              <Icon size={19} color={LED_TEAL} className="flex-shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-[14.5px] font-semibold" style={{ color: colors.ink }}>{it.t}</p>
+                                <p className="text-[13.5px] leading-snug mt-0.5" style={{ color: colors.mutedInk }}>{it.d}</p>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </section>
                     {!IS_NATIVE && (
-                    <div className="space-y-2.5 mb-6">
-                      <div data-rv="" style={{ background: 'linear-gradient(180deg, rgba(114,230,242,0.14), rgba(114,230,242,0.04))', border: `1.5px solid ${LED_TEAL}88`, boxShadow: `0 0 30px -14px ${LED_TEAL}` }} className="rounded-[22px] p-4 pt-6 text-center relative">
-                        <span style={{ background: LED_TEAL, color: '#021316' }} className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase px-3 py-1 rounded-full whitespace-nowrap shadow-lg">{isEN ? `Save €${TEAM_SEASON_FULL_PRICE - TEAM_SEASON_PASS_PRICE}` : `Risparmi ${TEAM_SEASON_FULL_PRICE - TEAM_SEASON_PASS_PRICE}€`}</span>
-                        <p style={{ color: colors.mutedInk }} className="text-[11.5px] font-medium mb-1">{isEN ? 'Season Pass — one payment' : 'Pass Stagionale — un pagamento unico'}</p>
-                        <p style={{ fontFamily: BEBAS, color: '#FFFFFF' }} className="text-[46px] leading-none">
-                          <span style={{ textDecoration: 'line-through', color: colors.mutedInk }} className="text-[24px] mr-2">{TEAM_SEASON_FULL_PRICE}€</span>{TEAM_SEASON_PASS_PRICE}€
-                        </p>
-                        <p style={{ color: LED_TEAL }} className="text-xs font-semibold mt-1">{isEN ? 'Valid until end of season (May)' : 'Valido fino a fine stagione (maggio)'}</p>
-                      </div>
-                      <div data-rv="" className="os-panel-flat p-3.5 text-center">
-                        <p style={{ fontFamily: BEBAS, color: colors.ink }} className="text-[30px] leading-none">50€<span style={{ color: colors.mutedInk, fontFamily: "'Public Sans', sans-serif" }} className="text-xs font-medium">/{isEN ? 'month per team' : 'mese a squadra'}</span></p>
-                        <p style={{ color: colors.mutedInk }} className="text-[11.5px] mt-1">{isEN ? 'or pay month by month' : 'oppure paga mese per mese'}</p>
-                      </div>
-                      <p style={{ color: LED_TEAL }} className="text-xs font-semibold text-center pt-1">{isEN ? 'First month free for new teams, either way' : 'Primo mese gratis per le nuove squadre, in entrambi i casi'}</p>
-                    </div>
+                      <section data-rv="" aria-labelledby="team-prices-title">
+                        <h2 id="team-prices-title" style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[19px] font-bold">{isEN ? 'Prices' : 'Prezzi'}</h2>
+                        <p className="text-[13.5px] mt-1 mb-3" style={{ color: colors.mutedInk }}>{isEN ? 'The first month is free for every new team, no card needed. You choose afterwards.' : 'Il primo mese è gratis per ogni squadra nuova, senza carta. Scegli dopo.'}</p>
+                        <TeamPlanOptions offer={seasonPassOffer(new Date(teamNow))} isEN={isEN} />
+                      </section>
                     )}
-                    <button onClick={() => { trackEvent('team_register_clicked'); setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamRegister'); }} className="os-focus os-btn os-btn-teal w-full py-4 text-[14px] uppercase tracking-wide mb-3">
-                      <Building2 size={17} />{isEN ? 'Register your team' : 'Registra la tua squadra'}
-                    </button>
-                    <button onClick={() => { setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamLogin'); }} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">
-                      {isEN ? 'Already have an account? Log in' : 'Hai già un account? Accedi'}
-                    </button>
-                  </>
+                    <div data-rv="" className="pt-1">
+                      <button onClick={() => { trackEvent('team_register_clicked'); setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamRegister'); }} className="os-focus os-btn os-btn-teal w-full py-4 text-[15px]">
+                        <Building2 size={17} />{IS_NATIVE ? (isEN ? 'Register your team' : 'Registra la squadra') : (isEN ? 'Register your team · first month free' : 'Registra la squadra · primo mese gratis')}
+                      </button>
+                      <button onClick={() => { setTeamFormStatus('idle'); setTeamFormError(''); setScreen('teamLogin'); }} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-[13px] underline underline-offset-4 hover:opacity-80 mt-3">
+                        {isEN ? 'Already have an account? Log in' : 'Hai già un account? Accedi'}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </>
             )}
@@ -8290,7 +9300,7 @@ export default function Offside() {
 
             <label htmlFor="tr-email" style={{ color: colors.mutedInk }} className={labelCls}>Email</label>
             <input id="tr-email" autoComplete="email" type="email" value={teamForm.email} onChange={(e) => setTeamForm({ ...teamForm, email: e.target.value })} placeholder="email@esempio.com" style={inputStyle} className={`${inputCls} mb-1.5`} />
-            <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed mb-4">{isEN ? 'Use the same email when you pay, so the subscription activates automatically.' : 'Usa la stessa email al momento del pagamento, così l\'abbonamento si attiva in automatico.'}</p>
+            <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed mb-4">{isEN ? 'We use it to log you in and to send you a code if you forget the password.' : 'Serve per accedere e per mandarti un codice se dimentichi la password.'}</p>
 
             <label htmlFor="tr-password" style={{ color: colors.mutedInk }} className={labelCls}>Password</label>
             <div className="relative mb-4">
@@ -8349,6 +9359,10 @@ export default function Offside() {
             </div>
             </div>
 
+            <button type="button" onClick={() => { setTeamForgot({ step: 'email', email: teamForm.email.trim(), code: '', password: '', password2: '', status: 'idle', error: '' }); setScreen('teamForgot'); }} style={{ color: LED_TEAL }} className="os-focus text-[13px] font-semibold underline-offset-4 hover:underline mt-3">
+              {isEN ? 'Forgot your password?' : 'Password dimenticata?'}
+            </button>
+
             {teamFormStatus === 'error' && <p role="alert" style={{ color: colors.red }} className="text-[13px] font-medium mt-4 os-fadein">{teamFormError}</p>}
 
             <button onClick={submitTeamLogin} disabled={teamFormStatus === 'submitting'} className="os-focus os-btn os-btn-teal w-full py-4 text-[14px] uppercase tracking-wide mt-5 mb-3">
@@ -8361,239 +9375,115 @@ export default function Offside() {
           );
         })()}
 
+        {screen === 'teamForgot' && (() => {
+          const inputStyle = { backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', color: colors.ink };
+          const f = teamForgot;
+          const setF = (patch) => setTeamForgot({ ...f, ...patch, status: f.status === 'error' ? 'idle' : f.status, error: '' });
+          return (
+          <div className="max-w-[520px]">
+            <PageTitle
+              title={isEN ? 'New password' : 'Nuova password'}
+              sub={f.step === 'email'
+                ? (isEN ? 'We email a 6-digit code to the team address.' : 'Mandiamo un codice di 6 cifre all\'email della squadra.')
+                : (isEN ? `If ${f.email} is a team account, the code is on its way. Check spam too.` : `Se ${f.email} è l'email di una squadra, il codice sta arrivando. Guarda anche nello spam.`)}
+            />
+            <form className="os-panel p-4 sm:p-5" data-rv="" onSubmit={(e) => { e.preventDefault(); submitTeamForgot(); }}>
+              {f.step === 'email' ? (
+                <>
+                  <label htmlFor="tf-email" style={{ color: colors.mutedInk }} className="os-label block mb-1.5">{isEN ? 'Team email' : 'Email della squadra'}</label>
+                  <input id="tf-email" autoComplete="email" type="email" value={f.email} onChange={(e) => setF({ email: e.target.value })} placeholder="email@esempio.com" style={inputStyle} className="os-focus w-full rounded-xl px-3.5 py-3 text-base" />
+                </>
+              ) : (
+                <>
+                  <label htmlFor="tf-code" style={{ color: colors.mutedInk }} className="os-label block mb-1.5">{isEN ? 'Code from the email' : 'Codice dell\'email'}</label>
+                  <input id="tf-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={f.code} onChange={(e) => setF({ code: e.target.value.replace(/\D/g, '').slice(0, 6) })} placeholder="123456" style={{ ...inputStyle, letterSpacing: '0.3em' }} className="os-focus w-full rounded-xl px-3.5 py-3 text-[20px] os-tabular mb-4" />
+                  <label htmlFor="tf-pass" style={{ color: colors.mutedInk }} className="os-label block mb-1.5">{isEN ? 'New password' : 'Nuova password'}</label>
+                  <input id="tf-pass" autoComplete="new-password" type={showTeamPassword ? 'text' : 'password'} value={f.password} onChange={(e) => setF({ password: e.target.value })} placeholder={isEN ? 'At least 8 characters' : 'Almeno 8 caratteri'} style={inputStyle} className="os-focus w-full rounded-xl px-3.5 py-3 text-base mb-4" />
+                  <label htmlFor="tf-pass2" style={{ color: colors.mutedInk }} className="os-label block mb-1.5">{isEN ? 'Repeat it' : 'Ripetila'}</label>
+                  <input id="tf-pass2" autoComplete="new-password" type={showTeamPassword ? 'text' : 'password'} value={f.password2} onChange={(e) => setF({ password2: e.target.value })} style={inputStyle} className="os-focus w-full rounded-xl px-3.5 py-3 text-base" />
+                  <button type="button" onClick={() => setShowTeamPassword(!showTeamPassword)} className="os-focus inline-flex items-center gap-1.5 text-[12.5px] font-semibold mt-2.5" style={{ color: colors.mutedInk }}>
+                    {showTeamPassword ? <EyeOff size={14} /> : <Eye size={14} />}{showTeamPassword ? (isEN ? 'Hide' : 'Nascondi') : (isEN ? 'Show' : 'Mostra')}
+                  </button>
+                </>
+              )}
+              {f.status === 'error' && f.error && <p role="alert" style={{ color: colors.red }} className="text-[13px] font-medium mt-4 os-fadein">{f.error}</p>}
+              <button type="submit" disabled={f.status === 'submitting'} className="os-focus os-btn os-btn-teal w-full py-4 text-[14px] mt-5">
+                <KeyIcon size={16} />
+                {f.status === 'submitting' ? '...' : f.step === 'email' ? (isEN ? 'Send me the code' : 'Mandami il codice') : (isEN ? 'Save and log in' : 'Salva e accedi')}
+              </button>
+            </form>
+            {f.step === 'code' && (
+              <button type="button" onClick={() => setTeamForgot({ ...f, step: 'email', code: '', status: 'idle', error: '' })} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-[13px] underline underline-offset-4 hover:opacity-80 mt-4">
+                {isEN ? 'No email? Send a new code' : 'Non è arrivata? Manda un nuovo codice'}
+              </button>
+            )}
+          </div>
+          );
+        })()}
+
         {screen === 'teamDashboard' && (
           <div>
-            <PageTitle title={teamAuth?.teamName || 'Offside Squadre'} sub={isEN ? 'Team dashboard' : 'Dashboard squadra'} />
+            <PageTitle
+              title={teamAuth?.teamName || (teamDashboardData && teamDashboardData.teamName) || 'Offside Squadre'}
+              sub={[teamAuth?.responsibleName, (TEAM_ROLE_OPTIONS.find((o) => o.key === (teamAuth?.responsibleRole || (teamDashboardData && teamDashboardData.responsibleRole))) || {})[isEN ? 'labelEN' : 'labelIT'], (teamDashboardData && teamDashboardData.season) ? `${isEN ? 'Season' : 'Stagione'} ${teamDashboardData.season.label}` : null].filter(Boolean).join(' · ')}
+              right={teamDashboardData ? (
+                <button type="button" onClick={loadTeamDashboard} disabled={teamDashboardLoading} className="os-focus os-icon-btn rounded-full" aria-label={isEN ? 'Refresh' : 'Aggiorna'} title={isEN ? 'Refresh' : 'Aggiorna'}>
+                  <ArrowsClockwise size={17} className={teamDashboardLoading ? 'animate-spin' : ''} />
+                </button>
+              ) : null}
+            />
+            <TeamNotice notice={teamNotice} isEN={isEN} onDismiss={() => setTeamNotice(null)} />
             {teamDashboardLoading && !teamDashboardData ? (
-              <div className="space-y-3" aria-busy="true" aria-label={isEN ? 'Loading...' : 'Caricamento...'}>
-                {[0, 1, 2].map((i) => <div key={i} className="os-panel h-24 overflow-hidden relative"><span className="os-sheen" style={{ animationIterationCount: 'infinite', animationDuration: '1.6s' }} /></div>)}
-                <p style={{ color: colors.mutedInk }} className="text-sm text-center py-2">{isEN ? 'Loading...' : 'Caricamento...'}</p>
+              <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6" aria-busy="true" aria-label={isEN ? 'Loading...' : 'Caricamento...'}>
+                <div className="space-y-4">
+                  {[148, 220, 300].map((h) => <div key={h} className="os-panel animate-pulse" style={{ height: h, opacity: 0.6 }} />)}
+                </div>
+                <div className="space-y-4 mt-4 lg:mt-0">
+                  {[170, 210].map((h) => <div key={h} className="os-panel animate-pulse" style={{ height: h, opacity: 0.6 }} />)}
+                </div>
               </div>
             ) : !teamDashboardData ? (
-              <p style={{ color: colors.mutedInk }} className="text-sm text-center py-10">{isEN ? 'Something went wrong loading the dashboard.' : 'Qualcosa è andato storto nel caricare la dashboard.'}</p>
-            ) : !teamDashboardData.subscriptionActive ? (
-              <div className="max-w-[560px]">
-                <div data-rv="" className="os-panel p-4 mb-5">
-                  <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-sm font-semibold mb-1">{isEN ? 'Team code' : 'Codice squadra'}</p>
-                  <p style={{ fontFamily: BEBAS, color: LED_TEAL, letterSpacing: '0.15em', textShadow: `0 0 12px ${LED_TEAL}66` }} className="text-[34px] leading-none mb-1.5">{teamDashboardData.inviteCode}</p>
-                  <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">{isEN ? 'Your code and players are safe — the roster becomes visible again as soon as you activate.' : 'Il codice e i giocatori restano al sicuro — la rubrica torna visibile appena riattivi l\'abbonamento.'}</p>
-                </div>
-                <div data-rv="" className="os-pitch-teal p-5 text-center mb-4">
-                  <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[17px] font-bold mb-2">{isEN ? 'Your free trial has ended' : 'Il mese di prova è terminato'}</p>
-                  <p style={{ color: '#BFE9E3' }} className="relative text-xs leading-relaxed mb-4">{IS_NATIVE ? (isEN ? 'This team has no active subscription.' : 'Questa squadra non ha un abbonamento attivo.') : isEN ? `Activate to keep using the dashboard. Pay with the same email you registered with (${teamAuth?.email}) so it activates automatically.` : `Attiva per continuare a usare la dashboard. Paga con la stessa email della registrazione (${teamAuth?.email}) così si attiva in automatico.`}</p>
-                  {!IS_NATIVE && (<a href={STRIPE_TEAM_SEASON_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_season_pass_clicked')} style={{ background: GOLD_GRADIENT, color: '#101B26' }} className="os-focus os-press relative w-full flex flex-col items-center justify-center gap-0.5 rounded-2xl py-3 font-medium shadow-lg mb-2.5">
-                    <span style={{ fontFamily: BRICOLAGE }} className="uppercase tracking-wide text-sm font-bold">{isEN ? `Season Pass — ${TEAM_SEASON_PASS_PRICE}€` : `Pass Stagionale — ${TEAM_SEASON_PASS_PRICE}€`}</span>
-                    <span className="text-[10.5px] font-medium opacity-80">{isEN ? `instead of ${TEAM_SEASON_FULL_PRICE}€ — valid until end of season` : `invece di ${TEAM_SEASON_FULL_PRICE}€ — valido fino a fine stagione`}</span>
-                  </a>)}
-                  {!IS_NATIVE && (<a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked')} className="os-focus os-btn os-btn-dark relative w-full py-3 text-xs uppercase tracking-wide">
-                    {isEN ? 'Or pay monthly — €50/month' : 'Oppure mese per mese — 50€/mese'}
-                  </a>)}
-                  {!IS_NATIVE && (<p style={{ color: 'rgba(255,255,255,0.6)' }} className="relative text-[10.5px] text-center mt-2.5">
-                    {isEN ? 'Payments handled securely by Stripe. ' : 'Pagamenti gestiti in sicurezza da Stripe. '}
-                    <a href="/privacy.html" style={{ color: 'rgba(255,255,255,0.85)' }} className="underline hover:opacity-100">{isEN ? 'Privacy Policy' : 'Informativa sulla Privacy'}</a>
-                  </p>)}
-                </div>
-                <button onClick={loadTeamDashboard} style={{ color: colors.mutedInk }} className="os-focus w-full text-center text-xs underline hover:opacity-70">{IS_NATIVE ? (isEN ? 'Refresh' : 'Aggiorna') : (isEN ? 'I already paid — refresh' : 'Ho già pagato — aggiorna')}</button>
+              <div className="os-panel p-6 max-w-[520px]">
+                <p className="text-[14.5px]" style={{ color: colors.ink }}>{isEN ? 'The dashboard did not load.' : 'La dashboard non si è caricata.'}</p>
+                <p className="text-[13.5px] mt-1" style={{ color: colors.mutedInk }}>{isEN ? 'Check your connection and try again.' : 'Controlla la connessione e riprova.'}</p>
+                <button type="button" onClick={loadTeamDashboard} className="os-focus os-btn os-btn-ghost px-4 py-2.5 text-[13.5px] mt-4">{isEN ? 'Try again' : 'Riprova'}</button>
               </div>
             ) : (
-              <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] md:items-start">
-                <div>
-                <div data-rv="" className="os-panel p-4 mb-5 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="os-label mb-1" style={{ color: colors.mutedInk }}>{isEN ? 'Invite code' : 'Codice invito'}</p>
-                    <p style={{ fontFamily: BEBAS, color: LED_TEAL, letterSpacing: '0.15em', textShadow: `0 0 12px ${LED_TEAL}66` }} className="text-[30px] leading-none">{teamDashboardData.inviteCode}</p>
-                  </div>
-                  <button onClick={shareTeamInviteCode} className="os-focus os-btn flex-shrink-0 px-3.5 py-2.5 text-xs" style={{ background: 'rgba(114,230,242,0.14)', color: LED_TEAL, border: `1px solid ${LED_TEAL}44` }}>
-                    {teamInviteCopied ? <Check size={13} weight="bold" /> : <Copy size={13} />}{teamInviteCopied ? (isEN ? 'Copied' : 'Copiato') : (isEN ? 'Share' : 'Condividi')}
-                  </button>
-                </div>
-
-                {teamDashboardData.players && teamDashboardData.players.length > 0 && (
-                  <div data-rv="" className="os-pitch-teal p-4 mb-5">
-                    <p style={{ fontFamily: BRICOLAGE, color: '#FFFFFF' }} className="relative text-[14px] font-bold mb-3">{isEN ? 'Availability for the next match' : 'Disponibilità per la prossima partita'}</p>
-                    <div className="relative grid grid-cols-3 gap-2 mb-2.5">
-                      {[
-                        { v: teamAvailabilityCounts.available, l: isEN ? 'Available' : 'Disponibili', c: LED_TEAL },
-                        { v: teamAvailabilityCounts.doubtful, l: isEN ? 'Doubtful' : 'In dubbio', c: colors.orange },
-                        { v: teamAvailabilityCounts.out, l: isEN ? 'Out' : 'Fuori', c: colors.red },
-                      ].map((s) => (
-                        <div key={s.l} className="os-well text-center py-2.5">
-                          <p style={{ fontFamily: BEBAS, color: s.c, textShadow: `0 0 12px ${s.c}66` }} className="text-[40px] leading-none os-tabular"><CountUp value={s.v} /></p>
-                          <p style={{ color: 'rgba(255,255,255,0.7)' }} className="text-[10px] uppercase font-semibold mt-1">{s.l}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <p style={{ color: 'rgba(255,255,255,0.65)' }} className="relative text-[11.5px] leading-relaxed">{isEN ? 'Indicative only — the medical staff always makes the final call.' : 'Solo indicativo — la decisione finale spetta sempre allo staff medico.'}</p>
-                  </div>
-                )}
-
-                {teamDashboardData.wellnessSummary && (teamDashboardData.wellnessSummary.rosso + teamDashboardData.wellnessSummary.giallo + teamDashboardData.wellnessSummary.verde) > 0 && (
-                  <div data-rv="" className="os-panel p-4 mb-5">
-                    <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-1.5 text-[14px] font-bold mb-3"><Gauge size={15} color={LED_GREEN} />{isEN ? 'Weekly wellness signal' : 'Monitoraggio settimanale'}</p>
-                    <div className="grid grid-cols-3 gap-2 mb-3">
-                      {[
-                        { v: teamDashboardData.wellnessSummary.rosso, l: isEN ? 'To watch' : 'Da monitorare', c: colors.red },
-                        { v: teamDashboardData.wellnessSummary.giallo, l: isEN ? 'Attention' : 'Attenzione', c: colors.orange },
-                        { v: teamDashboardData.wellnessSummary.verde, l: 'OK', c: LED_GREEN },
-                      ].map((s) => (
-                        <div key={s.l} className="os-well text-center py-2.5">
-                          <p style={{ fontFamily: BEBAS, color: s.c, textShadow: `0 0 12px ${s.c}55` }} className="text-[36px] leading-none os-tabular"><CountUp value={s.v} /></p>
-                          <p style={{ color: colors.mutedInk }} className="text-[10px] uppercase font-semibold mt-1">{s.l}</p>
-                        </div>
-                      ))}
-                    </div>
-                    {wellnessToWatch.length > 0 && (
-                      <div className="os-well p-2.5 mb-2.5">
-                        <p style={{ color: colors.ink }} className="text-xs leading-relaxed">
-                          {isEN ? 'Worth checking in with: ' : 'Vale la pena chiedere come stanno a: '}
-                          <strong>{wellnessToWatch.map((p) => p.name).join(', ')}</strong>
-                        </p>
-                      </div>
-                    )}
-                    <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed">
-                      {isEN
-                        ? 'Based on each player\'s optional daily check-in (sleep, soreness, training load) — a signal to ask how someone is doing, never a diagnosis.'
-                        : 'Basato sul check-in giornaliero facoltativo di ognuno (sonno, indolenzimento, carico) — un segnale per chiedere come sta qualcuno, mai una diagnosi.'}
-                    </p>
-                  </div>
-                )}
-
-                {teamDashboardData.trialActive && !teamDashboardData.isPaid && (
-                  <div data-rv="" className="os-panel-flat p-3.5 mb-5" style={{ borderColor: `${LED_TEAL}44` }}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p style={{ fontFamily: BRICOLAGE, color: LED_TEAL }} className="text-xs font-bold mb-0.5">{isEN ? 'Free trial' : 'Mese di prova'}</p>
-                        <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">
-                          {isEN
-                            ? `${teamDashboardData.trialDaysLeft} ${teamDashboardData.trialDaysLeft === 1 ? 'day' : 'days'} left${IS_NATIVE ? '.' : ', then €50/month.'}`
-                            : `${teamDashboardData.trialDaysLeft} ${teamDashboardData.trialDaysLeft === 1 ? 'giorno rimasto' : 'giorni rimasti'}${IS_NATIVE ? '.' : ', poi 50€/mese.'}`}
-                        </p>
-                      </div>
-                      {!IS_NATIVE && (<a href={STRIPE_TEAM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_subscribe_clicked_early')} style={{ color: LED_TEAL }} className="os-focus flex-shrink-0 text-xs font-semibold underline hover:opacity-70">
-                        {isEN ? 'Activate now' : 'Attiva ora'}
-                      </a>)}
-                    </div>
-                    {!IS_NATIVE && (<a href={STRIPE_TEAM_SEASON_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('team_season_pass_clicked_early')} style={{ color: LED_TEAL }} className="os-focus block mt-1.5 text-[11.5px] font-semibold underline hover:opacity-70">
-                      {isEN ? `Or save with the Season Pass — ${TEAM_SEASON_PASS_PRICE}€ instead of ${TEAM_SEASON_FULL_PRICE}€` : `Oppure risparmia col Pass Stagionale — ${TEAM_SEASON_PASS_PRICE}€ invece di ${TEAM_SEASON_FULL_PRICE}€`}
-                    </a>)}
-                  </div>
-                )}
-
-                {teamDashboardData.seasonPassActive && (
-                  <div data-rv="" className="os-panel-flat p-3.5 mb-5" style={{ borderColor: `${LED_TEAL}44` }}>
-                    <p style={{ fontFamily: BRICOLAGE, color: LED_TEAL }} className="text-xs font-bold mb-0.5">{isEN ? 'Season Pass active' : 'Pass Stagionale attivo'}</p>
-                    <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed">
-                      {isEN
-                        ? `Covered until ${new Date(teamDashboardData.paidUntil).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} — no further action needed.`
-                        : `Coperti fino al ${new Date(teamDashboardData.paidUntil).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })} — nessuna azione da fare.`}
-                    </p>
-                  </div>
-                )}
-                </div>
-
-                <div>
-                {(!teamDashboardData.players || teamDashboardData.players.length === 0) ? (
-                  <div data-rv="" className="os-panel p-6 text-center">
-                    <div style={{ background: 'rgba(114,230,242,0.12)' }} className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3"><UserPlus size={24} color={LED_TEAL} /></div>
-                    <p style={{ color: colors.mutedInk }} className="text-sm leading-relaxed">{isEN ? 'No players yet. Share the code above — each player enters it from their own Profile screen and chooses to share.' : 'Ancora nessun giocatore. Condividi il codice sopra — ogni giocatore lo inserisce dal proprio Profilo e sceglie di condividere.'}</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {teamDashboardData.players.map((p) => {
-                      const injData = p.status && p.status.injuryKey ? injuriesData[p.status.injuryKey] : null;
-                      const phaseDetail = (injData && Array.isArray(injData.phases) && Number.isFinite(p.status.phaseIndex))
-                        ? injData.phases[p.status.phaseIndex] || null
-                        : null;
-                      const avail = classifyPlayerAvailability(p);
-                      const availColor = avail === 'available' ? LED_TEAL : avail === 'doubtful' ? colors.orange : colors.red;
-                      return (
-                      <div key={p.playerId} data-rv="" className="os-panel p-4" style={p.status?.needsAttention ? { borderColor: `${colors.orange}88` } : undefined}>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span title={isEN ? 'Availability' : 'Disponibilità'} style={{ backgroundColor: availColor, boxShadow: `0 0 8px ${availColor}` }} className="flex-shrink-0 w-2.5 h-2.5 rounded-full" />
-                            <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold truncate">{p.name}</p>
-                            {p.wellness && (p.wellness.level === 'rosso' || p.wellness.level === 'giallo') && (
-                              <span title={isEN ? 'Worth checking in with them' : 'Vale la pena chiedere come sta'} style={{ color: p.wellness.level === 'rosso' ? colors.red : colors.orange, border: `1px solid ${(p.wellness.level === 'rosso' ? colors.red : colors.orange)}55` }} className="flex-shrink-0 inline-flex items-center gap-1 text-[9.5px] font-bold uppercase px-1.5 py-0.5 rounded-full"><Gauge size={10} />{isEN ? 'Check in' : 'Chiedi'}</span>
-                            )}
-                          </div>
-                          {p.status?.needsAttention && (
-                            <span style={{ backgroundColor: 'rgba(255,178,92,0.14)', color: colors.orange }} className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full flex items-center gap-1"><AlertTriangle size={10} />{isEN ? 'Taking longer' : 'Recupero lungo'}</span>
-                          )}
-                        </div>
-                        {!p.status || !p.status.injuryLabel ? (
-                          <p style={{ color: colors.mutedInk }} className="text-xs">{isEN ? 'No active injury right now.' : 'Nessun infortunio attivo al momento.'}</p>
-                        ) : (
-                          <>
-                            <p style={{ color: colors.ink }} className="text-sm mb-1">{p.status.injuryLabel}</p>
-                            <p style={{ color: colors.mutedInk }} className="text-xs mb-1">
-                              {isEN ? 'Phase' : 'Fase'} {(p.status.phaseIndex ?? 0) + 1}{p.status.totalPhases ? ` ${isEN ? 'of' : 'di'} ${p.status.totalPhases}` : ''}{p.status.phaseLabel ? ` — ${p.status.phaseLabel}` : ''}
-                            </p>
-                            {p.status.dayOfRecovery != null && (
-                              <p style={{ color: colors.mutedInk }} className="text-xs">
-                                {isEN ? 'Day' : 'Giorno'} {p.status.dayOfRecovery}{p.status.estimateDays ? ` ${isEN ? 'of an estimated' : 'su una stima di'} ${p.status.estimateDays} ${isEN ? 'days' : 'giorni'}` : ''}
-                              </p>
-                            )}
-                            {phaseDetail && (
-                              <div className="os-well p-2.5 mt-2">
-                                <p style={{ color: colors.ink }} className="text-xs leading-relaxed mb-1.5">{phaseDetail.why}</p>
-                                {Array.isArray(phaseDetail.exercises) && phaseDetail.exercises.length > 0 && (
-                                  <ul>
-                                    {phaseDetail.exercises.slice(0, 2).map((ex, i) => (
-                                      <li key={i} style={{ color: colors.mutedInk }} className="text-[11.5px] leading-snug flex items-start gap-1.5 mb-0.5">
-                                        <span style={{ backgroundColor: LED_TEAL }} className="flex-shrink-0 w-1 h-1 rounded-full mt-[6px]" />{ex.text}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                      );
-                    })}
-                    <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed text-center pt-2">{isEN ? 'Recovery times are estimates based on typical cases, not a promise — every body heals differently.' : 'I tempi di recupero sono stime basate su casi tipici, non una promessa — ogni corpo guarisce a modo suo.'}</p>
-
-                    {teamDashboardData.teamStats && teamDashboardData.teamStats.totalEpisodes > 0 && (
-                      <div data-rv="" className="os-panel p-4">
-                        <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="text-[15px] font-bold mb-3">{isEN ? 'Team stats' : 'Statistiche di squadra'}</p>
-                        <div className="space-y-2.5 mb-3">
-                          {(() => {
-                            const max = Math.max(1, ...teamDashboardData.teamStats.topInjuries.map((it) => it.count));
-                            return teamDashboardData.teamStats.topInjuries.map((item, i) => (
-                              <div key={i}>
-                                <div className="flex items-center justify-between gap-3 mb-1">
-                                  <p style={{ color: colors.ink }} className="text-xs">{item.label}</p>
-                                  <p style={{ fontFamily: BEBAS, color: LED_TEAL }} className="text-[16px] leading-none flex-shrink-0">{item.count}</p>
-                                </div>
-                                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                                  <div className="os-fill-in h-full rounded-full" style={{ width: '100%', transform: `scaleX(${item.count / max})`, background: colors.prevention, '--d': `${i * 120}ms` }} />
-                                </div>
-                              </div>
-                            ));
-                          })()}
-                        </div>
-                        {teamDashboardData.teamStats.avgResolvedDays != null && (
-                          <p style={{ color: colors.mutedInk, borderTop: '1px solid rgba(255,255,255,0.08)' }} className="text-xs leading-relaxed pt-2.5 mb-2">
-                            {isEN ? `Average recovery time so far: ${teamDashboardData.teamStats.avgResolvedDays} days.` : `Tempo medio di recupero finora: ${teamDashboardData.teamStats.avgResolvedDays} giorni.`}
-                          </p>
-                        )}
-                        <p style={{ color: colors.mutedInk }} className="text-[11.5px] leading-relaxed">{isEN ? 'Aggregated across the whole squad — never tied to a single player.' : 'Dati aggregati su tutta la squadra — mai riconducibili al singolo giocatore.'}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-                </div>
-              </div>
-            )}
-            {teamAuth && (
-              <div data-rv="" className="mt-10 pt-5" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                <p style={{ color: colors.mutedInk }} className="os-label mb-1.5">Account</p>
-                <p style={{ color: colors.mutedInk }} className="text-xs leading-relaxed mb-3 max-w-[460px]">{isEN ? 'Permanently delete this team account, the team code and the data of every linked player.' : 'Elimina in modo definitivo l\'account della squadra, il codice e i dati di tutti i giocatori collegati.'}</p>
-                <button onClick={openDeleteTeam} style={{ color: colors.red, border: `1px solid ${colors.red}59`, background: colors.redTint }} className="os-focus os-btn px-4 py-3 text-[13px]">
-                  <Trash size={15} color={colors.red} />{isEN ? 'Delete account' : 'Elimina account'}
-                </button>
-              </div>
+              <TeamDashboardView
+                data={teamDashboardData}
+                isEN={isEN}
+                now={teamNow}
+                injuries={injuriesData}
+                email={teamAuth?.email}
+                filter={teamFilter}
+                onFilter={setTeamFilter}
+                expandedId={teamExpandedId}
+                onToggleExpand={(id) => { setTeamExpandedId((cur) => (cur === id ? null : id)); setTeamConfirmRemoveId(null); }}
+                confirmRemoveId={teamConfirmRemoveId}
+                onAskRemove={(id) => { setTeamConfirmRemoveId(id); setTeamRemoveError(''); }}
+                onCancelRemove={() => setTeamConfirmRemoveId(null)}
+                onRemove={removeTeamPlayer}
+                removingId={teamRemovingId}
+                removeError={teamRemoveError}
+                copied={teamInviteCopied}
+                onCopyLink={copyTeamInviteLink}
+                onShare={shareTeamInvite}
+                rotate={teamRotate}
+                onAskRotate={() => setTeamRotate({ confirm: true, busy: false, error: '' })}
+                onCancelRotate={() => setTeamRotate({ confirm: false, busy: false, error: '' })}
+                onRotate={rotateTeamCode}
+                checkout={teamCheckout}
+                onCheckout={startTeamCheckout}
+                renewal={teamRenewal}
+                onRenewal={setTeamRenewalOn}
+                gift={teamGift}
+                onGiftOpen={() => setTeamGift({ open: true, code: '', busy: false, error: '' })}
+                onGiftChange={(code) => setTeamGift((g) => ({ ...g, code, error: '' }))}
+                onGiftSubmit={redeemTeamGift}
+                onRefresh={loadTeamDashboard}
+                onLogout={logoutTeam}
+                onDelete={openDeleteTeam}
+              />
             )}
           </div>
         )}
@@ -8844,6 +9734,21 @@ export default function Offside() {
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} className="pt-6 mt-7">
               <p style={{ fontFamily: BRICOLAGE, color: colors.ink }} className="flex items-center gap-2 text-[17px] font-bold mb-3"><Users size={17} color={LED_TEAL} />{isEN ? 'Team' : 'Squadra'}</p>
 
+              {teamGoneNotice && !myTeamMembership && (
+                <div role="status" className="os-fadein flex items-start gap-3 rounded-[16px] px-4 py-3.5 mb-3" style={{ background: 'rgba(255,178,92,0.08)', border: '1px solid rgba(255,178,92,0.35)' }}>
+                  <Info size={18} color={colors.orange} weight="fill" className="flex-shrink-0 mt-0.5" />
+                  <p className="flex-1 text-[13.5px] leading-snug" style={{ color: colors.ink }}>
+                    {teamGoneNotice.reason === 'removed'
+                      ? (isEN ? `${teamGoneNotice.teamName || 'The team'} staff removed you from the roster: you no longer share anything with them.` : `Lo staff di ${teamGoneNotice.teamName || 'la squadra'} ti ha tolto dalla rosa: non condividi più niente con loro.`)
+                      : teamGoneNotice.reason === 'team_deleted'
+                        ? (isEN ? `${teamGoneNotice.teamName || 'The team'} closed its account: you no longer share anything.` : `${teamGoneNotice.teamName || 'La squadra'} ha chiuso l'account: non condividi più niente.`)
+                        : (isEN ? 'You are no longer connected to a team.' : 'Non sei più collegato a una squadra.')}
+                    {' '}{isEN ? 'Your journal stays here, as always.' : 'Il tuo diario resta qui, come sempre.'}
+                  </p>
+                  <button type="button" onClick={dismissTeamGoneNotice} className="os-focus flex-shrink-0 -m-1 p-1 rounded-md" aria-label={isEN ? 'Dismiss' : 'Chiudi'}><X size={15} color={colors.mutedInk} /></button>
+                </div>
+              )}
+
               {myTeamMembership ? (
                 <div data-rv="" className="os-panel p-4">
                   <p style={{ color: colors.ink }} className="text-sm font-semibold mb-1">{isEN ? 'Connected to' : 'Collegato a'}: {myTeamMembership.teamName}</p>
@@ -8897,6 +9802,7 @@ export default function Offside() {
                   </div>
                   {joinTeamStatus === 'notfound' && <p style={{ color: colors.red }} className="text-xs mt-2 os-fadein">{isEN ? 'Invalid code. Check it with your physio/trainer.' : 'Codice non valido. Controlla con il tuo fisio/preparatore.'}</p>}
                   {joinTeamStatus === 'error' && <p style={{ color: colors.red }} className="text-xs mt-2 os-fadein">{isEN ? 'Enter the code, your name, and confirm consent.' : 'Inserisci il codice, il tuo nome e conferma il consenso.'}</p>}
+                  {joinTeamStatus === 'failed' && joinTeamError && <p role="alert" style={{ color: colors.red }} className="text-xs mt-2 os-fadein">{joinTeamError}</p>}
                 </div>
               )}
             </div>
