@@ -7,21 +7,22 @@ import { loadPremiumOffer, hasPremiumEntitlement, buyPremium, restorePremiumPurc
 import { FREE_PHASES, deriveLegacyInjuries, painZone, painLight, LIGHT_COPY, FLAG_COPY, todayMode, planCounts, MODE_COPY, classifyExercise, LEVELS_COPY, levelsFor } from './premiumPlan.js';
 import { remindersSupported, reminderPermission, scheduleDailyReminder, cancelDailyReminder, REMINDER_COPY } from './notifications.js';
 
-// SOSTITUISCI questo con il tuo vero Payment Link di Stripe una volta creato
-const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/dRmbJ1c2K3Zt1sB8mB7IY00';
+// Payment Link di Stripe per Premium individuale sul sito: 4,99 €/mese dal 23/11/2026.
+// Chi si è abbonato col vecchio link da 3,99 € continua a pagare 3,99 €: Stripe non cambia gli abbonamenti già attivi.
+const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/5kQdR93wefIbgnv32h7IY03';
 // Prezzo di Premium individuale mostrato nella pagina Premium (biglietto e bottone).
 // Deve restare uguale al prezzo impostato su Stripe (vedi anche api/stripe-webhook.js).
-const PREMIUM_PRICE = { it: '3,99 €', en: '€3.99' };
+const PREMIUM_PRICE = { it: '4,99 €', en: '€4.99' };
 // Prezzo di riserva dell'app iPhone: quello vero arriva da Apple (App Store Connect).
 const NATIVE_PRICE = { it: '4,99 €', en: '€4.99' };
 
-// Black Friday 2026 (23/11 - 6/12): offerta introduttiva di App Store, 3,49 € al mese per i primi 3 mesi.
+// Black Friday 2026 (23/11 - 6/12): offerta introduttiva di App Store, 3,99 € al mese per i primi 3 mesi.
 // Il prezzo scontato lo applica Apple (va creato su App Store Connect); nell'app lo mostriamo solo se
 // RevenueCat lo restituisce davvero. Le date servono per l'etichetta, il pop-up e il box sul sito.
 const BF_START = new Date(2026, 10, 23); // 23 novembre 2026, 00:00 ora del telefono
 const BF_END = new Date(2026, 11, 7); // fino al 6 dicembre compreso
 const isBlackFriday = () => { const n = new Date(); return n >= BF_START && n < BF_END; };
-const BF_WEB_PRICE = { it: '3,49 €', en: '€3.49' }; // mostrato sul sito agli utenti iPhone (l'offerta è nell'app)
+const BF_WEB_PRICE = { it: '3,99 €', en: '€3.99' }; // mostrato sul sito agli utenti iPhone (l'offerta è nell'app)
 const APP_STORE_URL = 'https://apps.apple.com/it/app/offside/id6826790586';
 const IS_IOS_WEB = !IS_NATIVE && typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 // Mesi dell'offerta introduttiva (es. 3 x 1 mese = 3). 0 se Apple usa un'altra unità.
@@ -7981,7 +7982,7 @@ export default function Offside() {
                     </button>
                   </>
                 ) : (<>
-                {IS_IOS_WEB && isBlackFriday() && (
+                {IS_IOS_WEB && (isBlackFriday() ? (
                   <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('bf_web_appstore_clicked')} className="os-focus os-press [--press:0.98] block rounded-2xl p-4 mb-3 text-left" style={{ background: '#05070A', border: '1px solid rgba(245,196,81,0.5)' }}>
                     <span style={{ fontFamily: BRICOLAGE, color: colors.premiumGold, letterSpacing: '0.14em' }} className="block text-[10px] font-bold uppercase">{isEN ? "Black Friday · iPhone app only" : "Black Friday · solo nell'app iPhone"}</span>
                     <span className="flex items-baseline gap-2 flex-wrap mt-1">
@@ -7990,7 +7991,16 @@ export default function Offside() {
                     </span>
                     <span style={{ color: colors.ink }} className="flex items-center gap-1.5 text-[13px] font-bold mt-2">{isEN ? 'Download Offside on the App Store' : 'Scarica Offside su App Store'}<ArrowRight size={14} /></span>
                   </a>
-                )}
+                ) : (
+                  <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('web_appstore_clicked')} className="os-focus os-press [--press:0.98] flex items-center gap-3 rounded-2xl p-4 mb-3 text-left" style={{ background: '#05070A', border: '1px solid rgba(255,255,255,0.14)' }}>
+                    <Smartphone size={22} color={colors.premiumGold} />
+                    <span className="flex-1 min-w-0">
+                      <span style={{ color: colors.ink, fontFamily: BRICOLAGE }} className="block text-[14px] font-bold leading-snug">{isEN ? 'On iPhone, Offside works best as an app' : "Su iPhone Offside è meglio nell'app"}</span>
+                      <span style={{ color: '#B8C4CE' }} className="block text-[12px] leading-snug mt-0.5">{isEN ? 'Download it free on the App Store' : 'Scaricala gratis su App Store'}</span>
+                    </span>
+                    <ArrowRight size={16} color={colors.ink} />
+                  </a>
+                ))}
                 <GoldButton full href={STRIPE_PAYMENT_LINK} onClick={() => trackEvent('premium_unlock_clicked')}>
                   <span>{isEN ? 'Unlock' : 'Sblocca'}<span className="hidden min-[360px]:inline">{' Premium'}</span>{' · '}{isEN ? `${PREMIUM_PRICE.en}/month` : `${PREMIUM_PRICE.it}/mese`}</span><ArrowRight size={16} />
                 </GoldButton>
